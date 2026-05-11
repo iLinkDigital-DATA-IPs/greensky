@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Map",
+    "displayName": "GreenSky"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "da78cf93-e588-ad79-471d-0d4496b5ad94"
+  }
+}

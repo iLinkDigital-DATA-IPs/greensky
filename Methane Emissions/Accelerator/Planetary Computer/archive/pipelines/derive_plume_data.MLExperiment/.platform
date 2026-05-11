@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "MLExperiment",
+    "displayName": "derive_plume_data"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "6a9150f6-a96a-a918-49b1-85446521a699"
+  }
+}

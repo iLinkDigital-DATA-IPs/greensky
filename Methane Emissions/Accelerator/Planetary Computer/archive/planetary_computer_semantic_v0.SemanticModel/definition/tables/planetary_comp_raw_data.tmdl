@@ -1,0 +1,155 @@
+table planetary_comp_raw_data
+	lineageTag: 02fafde7-b6e4-456a-ab3e-9998d71d15a1
+	sourceLineageTag: [bronze].[planetary_comp_raw_data]
+
+	column latitude
+		dataType: double
+		lineageTag: 7559d582-71ae-4e5f-8a68-e6148cc012b8
+		sourceLineageTag: latitude
+		summarizeBy: sum
+		sourceColumn: latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column longitude
+		dataType: double
+		lineageTag: 37d13d0b-a0c5-4c16-8fe9-bfe186729786
+		sourceLineageTag: longitude
+		summarizeBy: sum
+		sourceColumn: longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ch4
+		dataType: double
+		lineageTag: 29b05f7d-5371-46ba-8221-3a11beed3e66
+		sourceLineageTag: ch4
+		summarizeBy: sum
+		sourceColumn: ch4
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column qa_value
+		dataType: double
+		lineageTag: daf9cbaa-9229-437a-8a19-5ae2293ee9af
+		sourceLineageTag: qa_value
+		summarizeBy: sum
+		sourceColumn: qa_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column datetime
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: bb70183e-e4d8-4a01-8a79-558868e708ec
+		sourceLineageTag: datetime
+		summarizeBy: none
+		sourceColumn: datetime
+
+		annotation SummarizationSetBy = Automatic
+
+	column gas
+		dataType: string
+		lineageTag: a41b9fcd-7b16-40a6-8bed-1ce8225f246b
+		sourceLineageTag: gas
+		summarizeBy: none
+		sourceColumn: gas
+
+		annotation SummarizationSetBy = Automatic
+
+	column instrument
+		dataType: string
+		lineageTag: 2b445dcb-2580-49a6-89f9-670f4a64a323
+		sourceLineageTag: instrument
+		summarizeBy: none
+		sourceColumn: instrument
+
+		annotation SummarizationSetBy = Automatic
+
+	column platform
+		dataType: string
+		lineageTag: d07725ed-9651-425e-8cdb-90e15450b5d8
+		sourceLineageTag: platform
+		summarizeBy: none
+		sourceColumn: platform
+
+		annotation SummarizationSetBy = Automatic
+
+	column collection
+		dataType: string
+		lineageTag: 326369dd-6017-47f6-92f5-f40367323973
+		sourceLineageTag: collection
+		summarizeBy: none
+		sourceColumn: collection
+
+		annotation SummarizationSetBy = Automatic
+
+	column stac_id
+		dataType: string
+		lineageTag: 994596e9-9b2b-4e71-9492-16831d130de4
+		sourceLineageTag: stac_id
+		summarizeBy: none
+		sourceColumn: stac_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column provider
+		dataType: string
+		lineageTag: 4549e2f5-583f-41a3-963c-7045ce6ee9c5
+		sourceLineageTag: provider
+		summarizeBy: none
+		sourceColumn: provider
+
+		annotation SummarizationSetBy = Automatic
+
+	column provider_all
+		dataType: string
+		lineageTag: dfa05d69-edac-4979-ad40-cc60a447f164
+		sourceLineageTag: provider_all
+		summarizeBy: none
+		sourceColumn: provider_all
+
+		annotation SummarizationSetBy = Automatic
+
+	column provider_roles
+		dataType: string
+		lineageTag: 0f2592a0-65a4-460d-a21d-b4c19faa91f1
+		sourceLineageTag: provider_roles
+		summarizeBy: none
+		sourceColumn: provider_roles
+
+		annotation SummarizationSetBy = Automatic
+
+	column processing_level
+		dataType: string
+		lineageTag: fe5d6617-6735-4677-8492-1c6f214e6107
+		sourceLineageTag: processing_level
+		summarizeBy: none
+		sourceColumn: processing_level
+
+		annotation SummarizationSetBy = Automatic
+
+	column mission_phase
+		dataType: string
+		lineageTag: 6d8b9fc2-aa78-4bf8-9703-716074c395c6
+		sourceLineageTag: mission_phase
+		summarizeBy: none
+		sourceColumn: mission_phase
+
+		annotation SummarizationSetBy = Automatic
+
+	partition planetary_comp_raw_data = entity
+		mode: directLake
+		source
+			entityName: planetary_comp_raw_data
+			schemaName: bronze
+			expressionSource: 'DirectLake - Planetary_computer_LH'
+

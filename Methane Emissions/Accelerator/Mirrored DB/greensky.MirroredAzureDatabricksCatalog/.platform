@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "MirroredAzureDatabricksCatalog",
+    "displayName": "greensky",
+    "description": ""
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1b033827-92b5-bfce-4cbc-ba308a8710d5"
+  }
+}

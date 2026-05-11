@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "ingest_weather_data"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "50a22fe6-ded4-9d91-42d0-713d12019792"
+  }
+}

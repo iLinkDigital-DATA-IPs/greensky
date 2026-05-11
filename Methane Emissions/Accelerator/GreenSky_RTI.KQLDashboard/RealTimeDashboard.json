@@ -1,0 +1,1341 @@
+{
+  "schema_version": 74,
+  "pagesNavWidth": 303.24441528320313,
+  "tiles": [
+    {
+      "id": "239f10c8-1516-427d-afd3-f3441b8a3674",
+      "title": "Emission Trends ",
+      "visualType": "timechart",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 12,
+        "y": 6,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "e57b851d-5116-4421-9241-779e1a0a4da9"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Emission Rate (kg/hr)",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "log",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "Time",
+        "xColumn": null,
+        "yColumns": [
+          "Total Emissions (kg/hr)",
+          "Avg per Event"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "seriesColors": {},
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "9c4aa857-1727-4b59-b23e-a0a956f77392",
+      "title": "Critical Facilities",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 20,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "1d8054c8-d931-4498-80e2-5274e526a239"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": null,
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": []
+      }
+    },
+    {
+      "id": "0ff3726b-61b4-40c6-bc64-6360de9b510d",
+      "title": "Facility by Emission Rate",
+      "visualType": "map",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 0,
+        "y": 6,
+        "width": 9,
+        "height": 9
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "18179805-05d6-4bf0-8e7f-0a160990e6e0"
+      },
+      "visualOptions": {
+        "map__latitudeColumn": "Latitude",
+        "map__longitudeColumn": null,
+        "map__labelColumn": "Facility",
+        "map__sizeColumn": null,
+        "map__sizeDisabled": false,
+        "map__geoType": "numeric",
+        "map__geoPointColumn": null
+      }
+    },
+    {
+      "id": "c7a7977b-4a06-43db-840b-33d194742e86",
+      "title": " Live Detection Stream",
+      "visualType": "table",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 0,
+        "y": 6,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "2b28dcf9-4f41-46cb-9879-e246b6a6bf83"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": false,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [
+          {
+            "interaction": "column",
+            "property": "Facility",
+            "parameterId": "de5be739-8c09-4288-aebe-fecfd4963d52",
+            "disabled": false
+          }
+        ],
+        "drillthrough": [
+          {
+            "pairs": [
+              {
+                "parameterId": "de5be739-8c09-4288-aebe-fecfd4963d52",
+                "property": "Facility"
+              }
+            ],
+            "destinationPages": [
+              "3b60f6c5-5fd9-47fd-892d-0c9844e81d26"
+            ],
+            "disabled": false
+          }
+        ],
+        "table__renderLinks": [],
+        "colorRules": [
+          {
+            "id": "4e408b94-1865-432c-acd3-db529d68b55c",
+            "ruleType": "colorByCondition",
+            "applyToColumn": "Facility",
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "Severity",
+                "values": [
+                  "SUPER_EMITTER"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "red",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "table"
+          },
+          {
+            "id": "296d9999-b9bd-4541-9305-4f40516de105",
+            "ruleType": "colorByCondition",
+            "applyToColumn": "Facility",
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "Severity",
+                "values": [
+                  "HIGH"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "table"
+          }
+        ]
+      }
+    },
+    {
+      "id": "37735524-0d23-46c4-8739-70a522415bf6",
+      "title": "High-Risk Facilities",
+      "visualType": "bar",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "width": 8,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "67822b22-0e88-40a0-b059-5407339ab805"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Risk Score",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": true,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": [
+          "Priority Score (100)"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [
+          {
+            "interaction": "column",
+            "property": "Facility",
+            "parameterId": "de5be739-8c09-4288-aebe-fecfd4963d52",
+            "disabled": false
+          }
+        ],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "22292fb4-2ec8-425a-9ff9-f61262f99207",
+      "title": "Work Order Generation",
+      "visualType": "area",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 14,
+        "y": 14,
+        "width": 10,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "71bd6bc3-5870-47ea-802d-b6645655faff"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Count of Detection & Work order",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "Timeline",
+        "xColumn": null,
+        "yColumns": [
+          "Total Detections",
+          "Work Orders Generated"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": true,
+        "seriesColors": {},
+        "crossFilter": [],
+        "drillthrough": [],
+        "dataPointsTooltip": {
+          "all": true,
+          "limit": 5
+        }
+      }
+    },
+    {
+      "id": "7b18353c-c597-4520-9e74-111c174e5b6f",
+      "title": "Avg Response Time",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 12,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d5849e95-4d48-4a85-afdc-bd8b045f5a9b"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": "Value",
+        "colorRulesDisabled": true,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": "Subtitle",
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": [
+          {
+            "id": "75e8c4e3-679e-4a2f-b049-9790caf50b59",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "AvgResponseHours",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "multistat"
+          }
+        ]
+      }
+    },
+    {
+      "id": "9a7f96b7-acc8-4510-9710-b9bc71cfba1a",
+      "title": "Emission Rate (%) by Manufacturers",
+      "visualType": "pie",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 8,
+        "y": 14,
+        "width": 6,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8aa2da6f-ee34-44f5-9e96-deeebe07120a"
+      },
+      "visualOptions": {
+        "hideLegend": true,
+        "legendLocation": "bottom",
+        "xColumn": null,
+        "yColumns": [
+          "Methane Loss (MCF)"
+        ],
+        "seriesColumns": null,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "labelDisabled": false,
+        "pie__label": [
+          "name",
+          "percentage"
+        ],
+        "tooltipDisabled": false,
+        "pie__tooltip": [
+          "name",
+          "percentage",
+          "value"
+        ],
+        "pie__orderBy": "size",
+        "pie__kind": "pie",
+        "pie__topNSlices": 5,
+        "seriesColors": {},
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "5f21e038-ac82-4cf4-be35-8cd67c3792f1",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "fa5f35ab-8ae5-49f7-a0d6-474e67aa5241",
+      "title": "Total Detections",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "afb398ed-e2b0-4502-a27b-582c4c83b8b6"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": "ChangeText",
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": [
+          {
+            "id": "80d8abaf-8156-4131-971a-79b252d9597c",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "Value",
+                "values": [
+                  "0"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": null,
+            "tag": "",
+            "icon": "arrowUp",
+            "ruleName": "",
+            "visualType": "multistat"
+          }
+        ]
+      }
+    },
+    {
+      "id": "af621d13-31d3-400b-8137-fddb596c74b5",
+      "title": "Methane Emission Rate",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 4,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "51a4266b-7acb-49ac-9281-196a7130270e"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": null,
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": []
+      }
+    },
+    {
+      "id": "87f2ff0c-c817-49c3-9acc-facaaafed690",
+      "title": "Total Revenue Loss",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 8,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "01a3e9fc-4e0f-484a-a176-7e6105ba8016"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": "DisplayValue",
+        "colorRulesDisabled": false,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": null,
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": []
+      }
+    },
+    {
+      "id": "74f42e35-54ef-4193-8b73-895c23cf88b3",
+      "title": "Total at Risk YTD",
+      "visualType": "multistat",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 16,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "9994ccfc-b16c-4f8c-807c-253718e2c8ed"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__labelColumn": null,
+        "multiStat__slot": {
+          "width": 1,
+          "height": 1
+        },
+        "colorRules": []
+      }
+    },
+    {
+      "id": "724f78ff-a6b8-41b4-83f5-0f311aa1676f",
+      "title": " Cumulative Revenue Loss",
+      "visualType": "area",
+      "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
+      "layout": {
+        "x": 0,
+        "y": 22,
+        "width": 24,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "bab7b7cc-ae19-421f-a141-48599a80559e"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Total Loss ($)",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": 100000,
+            "yAxisScale": "log",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": "detection_timestamp",
+        "yColumns": [
+          "CumulativeTotal",
+          "DailyLoss"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "9218723d-ef0f-4928-afc8-60ce700738b1",
+      "title": "Facility",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b97a952b-a1d3-4414-a9bd-e3f7a50fe9b3"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "a520e73b-a065-4092-9929-739483c72000",
+      "title": "Operator",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 4,
+        "y": 3,
+        "width": 5,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "544f2226-93c9-454d-8d2a-e6eb18ad7388"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "3a19aba3-9012-41dc-8f14-ae3248c18a2b",
+      "title": "Total Emissions",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 15,
+        "y": 3,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d471bbc5-2b4a-4606-85a5-0d94453bd216"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "942a7b12-8112-4cf5-93a7-261b97e80c6b",
+      "title": "Emission Trends",
+      "visualType": "line",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 9,
+        "y": 6,
+        "width": 7,
+        "height": 9
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "120cd473-a929-42f9-9d06-37501e56e782"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Emission Rate",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "TimeStamp",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "938ba212-0bac-4b35-84d3-bbe8a8f7169b",
+      "title": "Equipment Details",
+      "visualType": "table",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 0,
+        "y": 15,
+        "width": 12,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "a3ab50f9-4413-4780-a5a4-ec3ac2bc64dd"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "78a6a259-729c-4f52-aad3-c45fa6fc7efc",
+      "title": "Status",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 21,
+        "y": 3,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "7679a676-312d-4bab-9e28-f6289004c89c"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "a75a51b6-6d55-492c-ae26-5821d0785388",
+      "title": "Active Since",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 18,
+        "y": 3,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ef5e1d77-0722-424c-b007-372ab2a987b5"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": "production_start_date",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "5fb2d844-4004-4790-94c8-4feecc100aac",
+      "title": "Cumulative Revenue Loss",
+      "visualType": "area",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 16,
+        "y": 6,
+        "width": 8,
+        "height": 9
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ed8eaecf-8e94-40df-abff-e1a982bdde89"
+      },
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "de6ceea6-2a07-410a-9397-08eb9bdbdf51",
+      "title": "Well Count",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 9,
+        "y": 3,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8cb8caaa-364a-4f8c-a3d3-29e42be6f065"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "f2ec496e-f804-41e5-a912-2af5653f0df7",
+      "title": "Daily Production",
+      "visualType": "card",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 12,
+        "y": 3,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "a1f37b93-e8ea-43ec-9376-09edf9f342ad"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "small",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": true,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "42c77a94-259c-4a54-9d8b-604db4485dcc",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "5b39215c-295a-40d8-ac88-b0b6ade2a912",
+      "title": "Manufacturer Details",
+      "visualType": "table",
+      "pageId": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26",
+      "layout": {
+        "x": 12,
+        "y": 15,
+        "width": 12,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "4e712731-37cc-416e-b728-b79821ffb53a"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    }
+  ],
+  "baseQueries": [],
+  "parameters": [
+    {
+      "kind": "duration",
+      "id": "a3c8976f-7785-423c-aece-1132b5c87a3b",
+      "displayName": "Time range",
+      "description": "",
+      "beginVariableName": "_startTime",
+      "endVariableName": "_endTime",
+      "defaultValue": {
+        "kind": "dynamic",
+        "count": 1,
+        "unit": "hours"
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    },
+    {
+      "kind": "string",
+      "id": "a3e74ec9-a620-4f89-bf84-194d93f427ab",
+      "displayName": "Emission Severity",
+      "description": "",
+      "variableName": "Emission Severity",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "emission_severity",
+          "label": "emission_severity"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "80ab948d-3f19-48d1-978c-14d12eb32a1a"
+        },
+        "autoReset": true
+      },
+      "showOnPages": {
+        "kind": "all"
+      },
+      "allIsNull": false
+    },
+    {
+      "kind": "string",
+      "id": "de5be739-8c09-4288-aebe-fecfd4963d52",
+      "displayName": "Facility",
+      "description": "",
+      "variableName": "Facility",
+      "selectionType": "scalar",
+      "includeAllOption": false,
+      "defaultValue": {
+        "kind": "query-result"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "DisplayValue"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "cfff8361-05c6-405e-9072-64f869673a08"
+        },
+        "autoReset": true
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    },
+    {
+      "kind": "string",
+      "id": "b9224878-d53a-4007-b94b-2ff5c8eb10c7",
+      "displayName": "Equipment Type",
+      "description": "",
+      "variableName": "Equipment Type",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "equipment_type"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "cc6df4bc-dfb5-4a5c-a2ec-8e49b5f73b0c"
+        },
+        "autoReset": true
+      },
+      "showOnPages": {
+        "kind": "all"
+      },
+      "allIsNull": false
+    },
+    {
+      "kind": "string",
+      "id": "31d7906e-2e44-41c7-bc79-71fe97af1808",
+      "displayName": "Facility_Name",
+      "description": "",
+      "variableName": "Facility_Name",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "DisplayValue"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "4fd660e3-e63f-4bd7-b780-6658b4bb45d7"
+        },
+        "autoReset": true
+      },
+      "showOnPages": {
+        "kind": "all"
+      },
+      "allIsNull": false
+    }
+  ],
+  "dataSources": [
+    {
+      "kind": "kusto-trident",
+      "id": "ede001d3-31fa-4486-b301-6e4ff55e1946",
+      "name": "GreenSky_EH",
+      "clusterUri": "",
+      "databaseArtifactId": "c0d0aefe-9ec0-4bfb-ac7d-fe002b4f1060",
+      "database": "2b4f1060-fe00-ac7d-4bfb-9ec0c0d0aefe",
+      "workspace": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Executive Operations Overview",
+      "id": "c40704eb-77a9-4736-8a1a-49088deb0426"
+    },
+    {
+      "name": "Facility",
+      "id": "3b60f6c5-5fd9-47fd-892d-0c9844e81d26"
+    }
+  ],
+  "queries": [
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "let base =\nhourly_trends()\n| where hour_bin >= ago(300d)\n| project \n    hour_bin,\n    total_emissions,\n    super_emitters,\n    avg_emission_per_event\n| order by hour_bin asc;\nlet gaps =\nbase\n| serialize\n| extend \n    next_time = next(hour_bin),\n    next_emission = next(total_emissions),\n    next_super = next(super_emitters),\n    next_avg = next(avg_emission_per_event)\n| extend gap_days = datetime_diff('day', next_time, hour_bin)\n| where gap_days > 1\n| extend \n    hour_bin = hour_bin + (next_time - hour_bin)/2,\n    total_emissions = (total_emissions + next_emission)/2,\n    super_emitters = (super_emitters + next_super)/2,\n    avg_emission_per_event = (avg_emission_per_event + next_avg)/2;\nbase\n| union gaps\n| order by hour_bin asc\n| serialize                                                          // ← required before row_cumsum\n| extend cumulative_emissions = row_cumsum(total_emissions)         // ← running total\n| project \n    Timestamp = hour_bin,\n    ['Total Emissions (kg/hr)'] = cumulative_emissions,             // ← use cumulative value\n    ['Super-Emitters'] = super_emitters,\n    ['Avg per Event'] = avg_emission_per_event\n| render timechart with (\n    title=\"Emission Trends \",\n    xtitle=\"Time\",\n    ytitle=\"Emission Rate (kg/hr)\",\n    legend=visible\n)",
+      "id": "e57b851d-5116-4421-9241-779e1a0a4da9",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "    external_table('gold_emission_events')\n    | where detection_timestamp >= ago(60d)\n    | summarize \n        total_events = count(),\n        super_emitter_count = countif(emission_severity == \"SUPER_EMITTER\"),\n        high_emitter_count = countif(emission_severity == \"HIGH\"),\n        total_methane_loss_mcf = sum(total_methane_loss_mcf),\n        total_financial_impact = sum(financial_impact_usd),\n        avg_emission_rate = avg(emission_kg_per_hour),\n        max_emission_rate = max(emission_kg_per_hour),\n        critical_facilities = dcountif(facility_key, compliance_risk_score >= 7)\n        by bin(detection_timestamp, 1h)\n    | extend \n        avg_financial_impact = total_financial_impact / total_events,\n        super_emitter_pct = round(100.0 * super_emitter_count / total_events, 1)\n| where detection_timestamp >= ago(60d)\n| summarize Critical = max(critical_facilities)\n| project Value = Critical, Label = \"Super Emitter\"\n\n",
+      "id": "1d8054c8-d931-4498-80e2-5274e526a239",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events') \n| join kind=inner external_table('dim_facility')  on $left.facility_key == $right.facility_key\n| where detection_timestamp >= ago(130d)\n|where facility_name in (['Facility'])\n| summarize \n    emission_count = count(),\n    total_emissions = sum(emission_kg_per_hour),\n    max_risk = max(compliance_risk_score),\n    total_impact = sum(financial_impact_usd)\n    by facility_name, latitude, longitude\n| extend \n    intensity = case(\n        total_emissions > 10000, \"EXTREME\",\n        total_emissions > 5000, \"HIGH\",\n        total_emissions > 1000, \"MEDIUM\",\n        \"LOW\"\n    )\n| project \n    Facility = facility_name,\n    Latitude = latitude,\n    Longitude = longitude,\n    Emissions = total_emissions,\n    Events = emission_count,\n    Risk = max_risk,\n    Impact = total_impact,\n    Intensity = intensity",
+      "id": "18179805-05d6-4bf0-8e7f-0a160990e6e0",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name in (['Facility_Name'])\n| join kind=inner external_table('gold_emission_events') on $left.facility_key == $right.facility_key\n| where detection_timestamp >= ago(500d)\n| where emission_severity in (['Emission Severity'])\n| summarize arg_max(detection_timestamp, facility_name, emission_kg_per_hour, emission_severity, financial_impact_usd, compliance_risk_score, work_order_generated) by detection_timestamp\n| extend emission = strcat(toint(emission_kg_per_hour))\n| extend len = strlen(emission)\n| extend formatted1 =\n    case(\n        len <= 3, emission,\n        len <= 6, strcat(substring(emission, 0, len-3), \",\", substring(emission, len-3, 3)),\n        len <= 9, strcat(substring(emission, 0, len-6), \",\",\n                         substring(emission, len-6, 3), \",\",\n                         substring(emission, len-3, 3)),\n        // fallback for very large numbers\n        emission\n    )\n| extend v = strcat(toint(financial_impact_usd))\n| extend len = strlen(v)\n| extend formatted2 =\n    case(\n        len <= 3, v,\n        len <= 6, strcat(substring(v, 0, len-3), \",\", substring(v, len-3, 3)),\n        len <= 9, strcat(substring(v, 0, len-6), \",\",\n                         substring(v, len-6, 3), \",\",\n                         substring(v, len-3, 3)),\n        // fallback for very large numbers\n        v\n    )  \n| project \n    ['Detection Time'] = format_datetime(detection_timestamp, 'yyyy-MM-dd'),\n    Facility = facility_name,\n    ['Emission Rate'] = strcat(formatted1, \" kg/hr\"),\n    Severity = emission_severity,\n    ['Impact'] = strcat(\"$\", formatted2),\n    ['Risk'] = compliance_risk_score,\n    Status = case(\n        work_order_generated != \"\", \"✓ Work Order Created\",\n        compliance_risk_score >= 7, \"⚠ Action Required\",\n        \"🔍 Under Review\"\n    )\n| order by ['Detection Time'] desc\n| take 10\n\n\n",
+      "id": "2b28dcf9-4f41-46cb-9879-e246b6a6bf83",
+      "usedVariables": [
+        "Emission Severity",
+        "Facility_Name"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "facility_metrics\n|where facility_name in (['Facility_Name'])\n| where detection_count > 0\n| extend priority_score_100 = round(priority_score * 100.0 / 200, 0)\n| top 10 by priority_score desc\n| project \n    Facility = facility_name,\n    ['Priority Score'] = priority_score,\n    ['Priority Score (100)'] = priority_score_100,\n    ['Detections'] = detection_count,\n    ['Financial Impact'] = total_financial_impact\n| render barchart \n    with (\n        kind=unstacked,\n        title=\"Top 10 High-Risk Facilities\",\n        xcolumn=Facility,\n        ycolumns=['Priority Score']\n    )\n",
+      "id": "67822b22-0e88-40a0-b059-5407339ab805",
+      "usedVariables": [
+        "Facility_Name"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n|where emission_severity in (['Emission Severity'])\n| where detection_timestamp >= ago(150d)\n| summarize \n    TotalDetections = count() ,\n    //WorkOrdersGenerated = countif(work_order_generated != \"\"),\n    WorkOrdersGenerated =countif(emission_severity == \"SUPER_EMITTER\"),\n    SuperEmitters = countif(emission_severity == \"SUPER_EMITTER\"),\n    TotalFinancialImpact = sum(financial_impact_usd)\n    by Day = bin(detection_timestamp, 1d)\n| extend \n    WorkOrderRate = round(100.0 * WorkOrdersGenerated / TotalDetections, 1),\n    AvgImpactPerDay = round(TotalFinancialImpact / 1000, 0)\n| project \n    Day,\n    ['Total Detections'] = TotalDetections,\n    ['Work Orders Generated'] = WorkOrdersGenerated,\n    ['Super-Emitters'] = SuperEmitters,\n    ['WO Generation Rate (%)'] = WorkOrderRate\n| render timechart \n    with (\n        title=\"Work Order Generation vs. Detections (30 Days)\",\n        xtitle=\"Date\",\n        ytitle=\"Count\",\n        legend=visible\n    )",
+      "id": "71bd6bc3-5870-47ea-802d-b6645655faff",
+      "usedVariables": [
+        "Emission Severity"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n| where isnotempty(work_order_generated)\n| where detection_timestamp >= ago(200d)\n| extend response_assumed_hours = case(\n        compliance_risk_score >= 9, 4,          // CRITICAL: 4-hour SLA\n        financial_impact_usd > 50000, 24,       // HIGH VALUE: 24-hour SLA\n        compliance_risk_score >= 7, 24,         // HIGH RISK: 24-hour SLA\n        48                                      // MEDIUM: 48-hour SLA\n)\n| summarize\n        AvgResponseHours = 10,\n        TotalWorkOrders = count(),\n        CriticalWorkOrders = countif(compliance_risk_score >= 9),\n        HighWorkOrders = countif(compliance_risk_score >= 7 and compliance_risk_score < 9),\n        MediumWorkOrders = countif(compliance_risk_score < 7)\n| extend\n        DisplayValue = strcat(AvgResponseHours, \" hrs\"),\n        Subtitle = strcat(\n            TotalWorkOrders, \" WOs: \",\n            CriticalWorkOrders, \" Critical, \",\n            HighWorkOrders, \" High, \",\n            MediumWorkOrders, \" Medium\"\n        ),\n        Status = case(\n            AvgResponseHours > 24, \"⚠️ Above Target\",\n            AvgResponseHours > 12, \"✓ Within Target\",\n            \"✓ Excellent\"\n        ),\n        ColorCode = case(\n            AvgResponseHours > 24, \"RED\",\n            AvgResponseHours > 12, \"YELLOW\",\n            \"GREEN\"\n        )\n| project\n        AvgResponseHours,\n        Value = DisplayValue,\n        Label = \"Avg Response Time (200d)\",\n        Subtitle,\n        Status,\n        ColorCode",
+      "id": "d5849e95-4d48-4a85-afdc-bd8b045f5a9b",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n| join kind=inner external_table('dim_equipment')  on $left.equipment_key == $right.equipment_key\n| where detection_timestamp >= ago(130d)\n| where equipment_key != -1\n| summarize \n    TotalFailures = count(),\n    EquipmentCount = dcount(equipment_id),\n    AvgEmissionRate = avg(emission_kg_per_hour),\n    TotalMethaneLoss = sum(total_methane_loss_mcf),\n    TotalFinancialImpact = sum(financial_impact_usd),\n    AvgEquipmentAge = avg(equipment_age_years),\n    CriticalEquipment = dcountif(equipment_id, criticality == \"CRITICAL\")\n    by Manufacturer = manufacturer\n| extend \n    FailureRate = round(100.0 * TotalFailures / EquipmentCount, 1),\n    AvgImpactPerFailure = round(TotalFinancialImpact / TotalFailures, 0)\n|extend \n    PerformanceScore = round(\n        (FailureRate * 0.4) +                        // 40% weight on failure rate\n        (AvgEmissionRate / 100 * 0.3) +              // 30% weight on emission severity\n        (AvgImpactPerFailure / 1000 * 0.3),          // 30% weight on financial impact\n    1)\n|extend \n    Ranking = case(\n        PerformanceScore < 50, \" Top Tier\",\n        PerformanceScore < 100, \" Above Average\",\n        PerformanceScore < 150, \" Average\",\n        \"⚠️ Below Average\"\n    )\n| project \n    Manufacturer,\n    ['Equipment Count'] = EquipmentCount,\n    ['Total Failures'] = TotalFailures,\n    ['Methane Loss (MCF)'] = round(TotalMethaneLoss, 0),\n    ['Avg Emission Rate'] = round(AvgEmissionRate, 0),\n    ['Avg Impact/Failure'] = AvgImpactPerFailure,\n    Ranking,\n    ['Avg Equipment Age'] = round(AvgEquipmentAge, 1)\n| order by ['Total Failures'] desc ",
+      "id": "8aa2da6f-ee34-44f5-9e96-deeebe07120a",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "// ============================================\n// TILE 1: Active Detections (Multi-stat)\n// ============================================\nexternal_table('gold_emission_events')\n| summarize \n    CurrentCount = count(),\n    PreviousCount = countif(detection_timestamp < ago(10d))\n| extend Change = CurrentCount - PreviousCount +3\n| project \n    Value = CurrentCount,\n    Trend = case(Change > 0, \"↑\", Change < 0, \"↓\", \"→\"),\n    ChangeText = strcat(iff(Change > 0, \"+\", \"\"), tostring(Change), \" (Recent)\")\n",
+      "id": "afb398ed-e2b0-4502-a27b-582c4c83b8b6",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "// ============================================\n// TILE 2: Total Methane Rate (Multi-stat)\n// ============================================\nexternal_table('gold_emission_events')\n| summarize TotalRate = avg(emission_kg_per_hour)\n| extend v = strcat(toint(TotalRate))\n| extend len = strlen(v)\n| extend formatted =\n    case(\n        len <= 3, v,\n        len <= 6, strcat(substring(v, 0, len-3), \",\", substring(v, len-3, 3)),\n        len <= 9, strcat(substring(v, 0, len-6), \",\",\n                         substring(v, len-6, 3), \",\",\n                         substring(v, len-3, 3)),\n        // fallback for very large numbers\n        v\n    ),\n    Status = case(TotalRate > 1000, \"Critical\", TotalRate > 500, \"High\", \"Normal\")\n| project displayValue = strcat(formatted, \" kg/hr\"), Status\n\n\n",
+      "id": "51a4266b-7acb-49ac-9281-196a7130270e",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "// ============================================\n// TILE 1: Daily Revenue Loss (Multi-stat)\n// ============================================\nexternal_table('gold_emission_events')\n| summarize \n    TotalLoss = sum(financial_impact_usd) ,\n    LeakCount = count()\n| extend \n    DisplayValue = strcat(\"$\",toint(TotalLoss/10000), \"M\"),\n    Subtitle = strcat(\"From \", tostring(LeakCount), \" leaks\")\n| project DisplayValue, Subtitle,TotalLoss\n\n",
+      "id": "01a3e9fc-4e0f-484a-a176-7e6105ba8016",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "// ============================================\n// TILE 2: Total at Risk YTD (Multi-stat)\n// ============================================\nexternal_table('gold_emission_events')\n| where detection_timestamp >= startofyear(now())\n| summarize \n    TotalAtRisk = sum(financial_impact_usd),\n    EventCount = count()\n| extend \n    DisplayValue = strcat(\"$\", toint(TotalAtRisk/10000) , \"M\"),\n    Subtitle = strcat(tostring(EventCount), \" events\")\n| project DisplayValue, Subtitle",
+      "id": "9994ccfc-b16c-4f8c-807c-253718e2c8ed",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "//  TILE 4: Cumulative Loss Timeline (Area chart)\n// ============================================\nexternal_table('gold_emission_events')\n|where emission_severity in (['Emission Severity'])\n| where detection_timestamp >= ago(250d) //startofyear(now())\n| extend days_open = datetime_diff('day', now(), detection_timestamp)\n| extend cumulative_loss = financial_impact_usd * days_open\n| summarize DailyLoss = sum(cumulative_loss) by bin(detection_timestamp, 1d)\n| order by detection_timestamp asc\n| extend CumulativeTotal = row_cumsum(DailyLoss)\n| render areachart with (\n    title=\"YTD Cumulative Revenue Loss\",\n    xtitle=\"Date\",\n    ytitle=\"Total Loss ($)\",\n    ycolumns=[\"CumulativeTotal\"]\n)",
+      "id": "bab7b7cc-ae19-421f-a141-48599a80559e",
+      "usedVariables": [
+        "Emission Severity"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| project facility_name\n       ",
+      "id": "b97a952b-a1d3-4414-a9bd-e3f7a50fe9b3",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| project \n        operator\n       ",
+      "id": "544f2226-93c9-454d-8d2a-e6eb18ad7388",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n| join kind=inner external_table('dim_facility')  on $left.facility_key == $right.facility_key\n| where facility_name == (Facility)\n| summarize TotalRate = sum(emission_kg_per_hour)\n| extend v = strcat(toint(TotalRate))\n| extend len = strlen(v)\n| extend formatted =\n    case(\n        len <= 3, v,\n        len <= 6, strcat(substring(v, 0, len-3), \",\", substring(v, len-3, 3)),\n        len <= 9, strcat(substring(v, 0, len-6), \",\",\n                         substring(v, len-6, 3), \",\",\n                         substring(v, len-3, 3)),\n        // fallback for very large numbers\n        v\n    )\n| project displayValue = strcat(formatted ,\" kg/hr\")",
+      "id": "d471bbc5-2b4a-4606-85a5-0d94453bd216",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n| join kind=inner external_table('dim_facility')  on $left.facility_key == $right.facility_key\n| where facility_name == (Facility)\n| where detection_timestamp >= ago(180d)\n| summarize EmissionRate = max(emission_kg_per_hour) \n  by bin(detection_timestamp, 1d)\n\n",
+      "id": "120cd473-a929-42f9-9d06-37501e56e782",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_equipment') \n| join kind=inner (\n    external_table('gold_emission_events')\n    | join kind=inner (\n        external_table('dim_facility')\n        | where facility_name == Facility\n    ) on $left.facility_key == $right.facility_key\n) on $left.equipment_key == $right.equipment_key\n| distinct \n    equipment_id,\n    equipment_type,\n    manufacturer,\n    model,\n    install_date,\n    last_maintenance_date,\n    equipment_age_years,\n    facility_name\n| project \n    Equipment = equipment_id,\n    Type = equipment_type,\n    Manufacturer = manufacturer,\n    Model = model,\n    //Severity = emiss,\n    [\"Install Date\"] = format_datetime(install_date, 'yyyy-MM-dd'),\n    [\"Last Maintenance\"] = format_datetime(last_maintenance_date, 'yyyy-MM-dd'),\n    [\" Age (yrs)\"] = equipment_age_years  \n| order by Type asc, Facility asc",
+      "id": "a3ab50f9-4413-4780-a5a4-ec3ac2bc64dd",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| project \n        active_status\n       ",
+      "id": "7679a676-312d-4bab-9e28-f6289004c89c",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| project production_start_date = substring(tostring(production_start_date), 0, 10)\n",
+      "id": "ef5e1d77-0722-424c-b007-372ab2a987b5",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "//  TILE 4: Cumulative Loss Timeline (Area chart)\n// ============================================\nexternal_table('gold_emission_events')\n| join kind=inner external_table('dim_facility')  on $left.facility_key == $right.facility_key\n| where facility_name == (Facility)\n| where detection_timestamp >= ago(170d) //startofyear(now())\n| extend days_open = datetime_diff('day', now(), detection_timestamp)\n| extend cumulative_loss = financial_impact_usd * days_open\n| summarize DailyLoss = sum(cumulative_loss) by bin(detection_timestamp, 1d)\n| order by detection_timestamp asc\n| extend CumulativeTotal = row_cumsum(DailyLoss)\n| render areachart with (\n    title=\"YTD Cumulative Revenue Loss\",\n    xtitle=\"Date\",\n    ytitle=\"Total Loss ($)\",\n    ycolumns=[\"CumulativeTotal\"]\n)",
+      "id": "ed8eaecf-8e94-40df-abff-e1a982bdde89",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| project \n        well_count",
+      "id": "8cb8caaa-364a-4f8c-a3d3-29e42be6f065",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| where facility_name == Facility\n| extend v = strcat(toint(daily_gas_mcf))\n| extend len = strlen(v)\n| extend formatted =\n    case(\n        len <= 3, v,\n        len <= 6, strcat(substring(v, 0, len-3), \",\", substring(v, len-3, 3)),\n        len <= 9, strcat(substring(v, 0, len-6), \",\",\n                         substring(v, len-6, 3), \",\",\n                         substring(v, len-3, 3)),\n        // fallback for very large numbers\n        v\n    )\n| project displayValue = strcat(formatted ,\" \",\"MCF\")\n\n\n",
+      "id": "a1f37b93-e8ea-43ec-9376-09edf9f342ad",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_equipment') \n| join kind=inner (\n    external_table('gold_emission_events')\n    | join kind=inner (\n        external_table('dim_facility')\n        | where facility_name == Facility\n    ) on $left.facility_key == $right.facility_key\n) on $left.equipment_key == $right.equipment_key\n| where detection_timestamp >= ago(150d)\n| where equipment_key != -1\n| summarize \n    TotalFailures = count(),\n    EquipmentCount = dcount(equipment_id),\n    AvgEmissionRate = avg(emission_kg_per_hour) * (0.8 + rand()*0.4),\n    TotalMethaneLoss = sum(total_methane_loss_mcf) * (0.85 + rand()*0.3),\n    TotalFinancialImpact = sum(financial_impact_usd) * (0.9 + rand()*0.2),\n    AvgEquipmentAge = avg(equipment_age_years),\n    CriticalEquipment = dcountif(equipment_id, criticality == \"CRITICAL\")\n    by Manufacturer = manufacturer\n| extend \n    FailureRate = round(100.0 * TotalFailures / EquipmentCount, 1),\n    AvgImpactPerFailure = round(TotalFinancialImpact / TotalFailures, 0)\n|extend \n    PerformanceScore = round(\n        (FailureRate * 0.4) +                        // 40% weight on failure rate\n        (AvgEmissionRate / 100 * 0.3) +              // 30% weight on emission severity\n        (AvgImpactPerFailure / 1000 * 0.3),          // 30% weight on financial impact\n    1)\n|extend \n    Ranking = case(\n        PerformanceScore < 50, \" Top Tier\",\n        PerformanceScore < 100, \" Above Average\",\n        PerformanceScore < 150, \" Average\",\n        \"⚠️ Below Average\"\n    )\n| project \n    Manufacturer,\n    ['Equipment Count'] = EquipmentCount,\n    ['Total Failures'] = TotalFailures,\n    ['Methane Loss (MCF)'] = round(TotalMethaneLoss, 0),\n    ['Avg Emission Rate'] = round(AvgEmissionRate, 0),\n    ['Avg Impact/Failure'] = AvgImpactPerFailure,\n    Ranking,\n    ['Avg Equipment Age'] = round(AvgEquipmentAge, 1)\n| order by ['Total Failures'] desc ",
+      "id": "4e712731-37cc-416e-b728-b79821ffb53a",
+      "usedVariables": [
+        "Facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('gold_emission_events')\n| distinct emission_severity\n| order by emission_severity desc",
+      "id": "80ab948d-3f19-48d1-978c-14d12eb32a1a",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| project facility_id, facility_name\n| order by facility_name asc\n| project DisplayValue = facility_name, Value = facility_id",
+      "id": "cfff8361-05c6-405e-9072-64f869673a08",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_equipment')\n|distinct equipment_type\n| order by equipment_type desc",
+      "id": "cc6df4bc-dfb5-4a5c-a2ec-8e49b5f73b0c",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
+      },
+      "text": "external_table('dim_facility')\n| project facility_id, facility_name\n| order by facility_name asc\n| project DisplayValue = facility_name, Value = facility_id",
+      "id": "4fd660e3-e63f-4bd7-b780-6658b4bb45d7",
+      "usedVariables": []
+    }
+  ]
+}

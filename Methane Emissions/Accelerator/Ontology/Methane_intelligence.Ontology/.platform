@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Ontology",
+    "displayName": "Methane_intelligence"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b89e4db2-f6ca-8f20-46ee-37dbaf449cfd"
+  }
+}

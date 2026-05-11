@@ -1,0 +1,252 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.8.0/schema.json",
+  "name": "81bcb9c4d7ec040d3b4c",
+  "position": {
+    "x": 4.2733437663015126,
+    "y": 347.56529299252304,
+    "z": 0,
+    "height": 356.11198052512606,
+    "width": 599.69257520431233,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "emission_rates_daily"
+                        }
+                      },
+                      "Property": "date"
+                    }
+                  },
+                  "Function": 3
+                }
+              },
+              "queryRef": "emission_rates_daily.date",
+              "nativeQueryRef": "Earliest date"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "emission_rates_daily"
+                    }
+                  },
+                  "Property": "avg_emission_rate_kg_hr"
+                }
+              },
+              "queryRef": "Sum(emission_rates_daily.avg_emission_rate_kg_hr)",
+              "nativeQueryRef": "avg_emission_rate_kg_hr"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "emission_rates_daily"
+                    }
+                  },
+                  "Property": "emission_uncertainty_auto"
+                }
+              },
+              "queryRef": "Sum(emission_rates_daily.emission_uncertainty_auto)",
+              "nativeQueryRef": "emission_uncertainty_auto"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "emission_rates_daily"
+                    }
+                  },
+                  "Property": "emission_severity"
+                }
+              },
+              "queryRef": "emission_rates_daily.emission_severity",
+              "nativeQueryRef": "emission_severity"
+            }
+          ]
+        }
+      }
+    },
+    "objects": {
+      "columnHeaders": [
+        {
+          "properties": {
+            "alignment": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Left'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Detection Stream'"
+                }
+              }
+            },
+            "fontFamily": {
+              "expr": {
+                "Literal": {
+                  "Value": "'wf_standard-font, helvetica, arial, sans-serif'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 1,
+                      "Percent": 0.6
+                    }
+                  }
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "30D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "divider": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  },
+  "filterConfig": {
+    "filters": [
+      {
+        "name": "7b532b6ce3c8496cd428",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "emission_rates_daily"
+              }
+            },
+            "Property": "emission_severity"
+          }
+        },
+        "type": "Categorical"
+      },
+      {
+        "name": "fed2c09a98f922966fcb",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "emission_rates_daily"
+              }
+            },
+            "Property": "avg_emission_rate_kg_hr"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "5bc6b9dbd6a79bbe9a9b",
+        "field": {
+          "Column": {
+            "Expression": {
+              "SourceRef": {
+                "Entity": "emission_rates_daily"
+              }
+            },
+            "Property": "emission_uncertainty_auto"
+          }
+        },
+        "type": "Advanced"
+      },
+      {
+        "name": "d02cde4344dfb0050add",
+        "field": {
+          "Aggregation": {
+            "Expression": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "emission_rates_daily"
+                  }
+                },
+                "Property": "date"
+              }
+            },
+            "Function": 3
+          }
+        },
+        "type": "Advanced"
+      }
+    ]
+  }
+}

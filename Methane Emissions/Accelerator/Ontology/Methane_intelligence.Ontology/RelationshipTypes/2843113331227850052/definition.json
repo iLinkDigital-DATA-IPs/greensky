@@ -1,0 +1,13 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/ontology/relationshipType/1.0.0/schema.json",
+  "namespace": "usertypes",
+  "id": "2843113331227850052",
+  "name": "fails_cause",
+  "namespaceType": "Custom",
+  "source": {
+    "entityTypeId": "116370802544412"
+  },
+  "target": {
+    "entityTypeId": "244206128913973"
+  }
+}

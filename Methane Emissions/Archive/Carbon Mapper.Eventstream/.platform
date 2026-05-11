@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Eventstream",
+    "displayName": "Carbon Mapper"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "51d41cb5-f0d2-b3ed-4b1d-19921613aeeb"
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "ccade655-15d2-beda-4d40-3d5b184eaa6e",
+          "workspaceId": "00000000-0000-0000-0000-000000000000"
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 60,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "ingest_planetary_computer",
+        "description": "Ingests methane emissions data from planetary computer. NRTI and OFFL days data available. ",
+        "dependsOn": []
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "c7c6d850-82f0-88ec-430c-ed9d01cc0d3d",
+          "workspaceId": "00000000-0000-0000-0000-000000000000"
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 62,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "derive_plume_data",
+        "description": "Derives methane gas plume clusters using DBSCAN ML model from raw planetary computer data",
+        "dependsOn": [
+          {
+            "activity": "ingest_planetary_computer",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "50a22fe6-ded4-9d91-42d0-713d12019792",
+          "workspaceId": "00000000-0000-0000-0000-000000000000"
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 60,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "ingest_weather_data",
+        "description": "Ingests live weather stream from WeatherFeeds and historic data from Meteo API till D-Day",
+        "dependsOn": [
+          {
+            "activity": "derive_plume_data",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "7cd52fde-d259-97ba-4d30-9143e03024e3",
+          "workspaceId": "00000000-0000-0000-0000-000000000000"
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 60,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "derive_emissions_data",
+        "description": "Dervies hourly emissions data using plume data and weather data",
+        "dependsOn": [
+          {
+            "activity": "ingest_weather_data",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "495bbfad-f681-8de2-40e7-9d280ae939fe",
+          "workspaceId": "00000000-0000-0000-0000-000000000000"
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 62,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "ingest_sector_data",
+        "description": "Ingests and maps sector data to plumes using Carbon Mapper Free tier API",
+        "dependsOn": [
+          {
+            "activity": "derive_emissions_data",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+[
+  {
+    "name": "scada_realtime",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/scada_realtime",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "maintenance_wo",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/maintenance_wo",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "ldar_inspections",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/ldar_inspections",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "facility_master",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/facility_master",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "equipment_registry",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/equipment_registry",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "daily_production",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/daily_production",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  },
+  {
+    "name": "carbon_mapper_plumes",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/methane_intelligence/carbon_mapper_plumes",
+        "itemId": "1b033827-92b5-bfce-4cbc-ba308a8710d5",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "DatabricksCatalog"
+      }
+    }
+  }
+]

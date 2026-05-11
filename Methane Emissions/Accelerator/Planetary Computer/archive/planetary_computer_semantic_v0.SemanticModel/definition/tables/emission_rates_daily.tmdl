@@ -1,0 +1,72 @@
+table emission_rates_daily
+	lineageTag: 8627d1ac-5d4c-43fd-8c51-5709b2c9a55c
+	sourceLineageTag: [silver].[emission_rates_daily]
+
+	column plume_id
+		dataType: string
+		lineageTag: 85a84d84-d196-4f6e-9026-647c02da41b0
+		sourceLineageTag: plume_id
+		summarizeBy: none
+		sourceColumn: plume_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 3d508929-0fa2-4f7d-8e10-bc8015375398
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column avg_emission_rate_kg_hr
+		dataType: double
+		lineageTag: c18a4166-0bf4-4bf4-9016-1e54e2e0ad02
+		sourceLineageTag: avg_emission_rate_kg_hr
+		summarizeBy: sum
+		sourceColumn: avg_emission_rate_kg_hr
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_auto
+		dataType: double
+		lineageTag: ac36904d-8fd1-40b7-bfc9-9fb77a2aa2d8
+		sourceLineageTag: emission_auto
+		summarizeBy: sum
+		sourceColumn: emission_auto
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_uncertainty_auto
+		dataType: double
+		lineageTag: fec98dcf-4c82-447d-9a65-1cb4d9c5a3e7
+		sourceLineageTag: emission_uncertainty_auto
+		summarizeBy: sum
+		sourceColumn: emission_uncertainty_auto
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column emission_severity
+		dataType: string
+		lineageTag: c8f387c8-7dfc-425c-91b7-aa5d170a54b9
+		sourceLineageTag: emission_severity
+		summarizeBy: none
+		sourceColumn: emission_severity
+
+		annotation SummarizationSetBy = Automatic
+
+	partition emission_rates_daily = entity
+		mode: directLake
+		source
+			entityName: emission_rates_daily
+			schemaName: silver
+			expressionSource: 'DirectLake - Planetary_computer_LH'
+

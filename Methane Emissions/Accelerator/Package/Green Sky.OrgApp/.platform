@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "OrgApp",
+    "displayName": "Green Sky"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "4cb1cd07-57d1-99f7-43a9-4e7312ef5897"
+  }
+}

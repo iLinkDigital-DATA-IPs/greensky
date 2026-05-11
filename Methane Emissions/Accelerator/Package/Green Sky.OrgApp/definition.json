@@ -1,0 +1,20 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/orgapp/definition/orgAppDefinition/1.0.0/schema.json",
+  "settings": {},
+  "elements": [
+    {
+      "elementType": "item",
+      "elementId": "eb5f8bb1-93ca-4525-a12e-b106da55090f",
+      "itemType": "KQLDashboard",
+      "itemLogicalId": "d78390f8-0835-ace8-43d8-2d47adac66a6",
+      "displayName": "GreenSky_RTI"
+    },
+    {
+      "elementType": "item",
+      "elementId": "019da502-bcc7-4572-aadd-1362aba2e4a8",
+      "itemType": "Map",
+      "itemLogicalId": "da78cf93-e588-ad79-471d-0d4496b5ad94",
+      "displayName": "GreenSky"
+    }
+  ]
+}

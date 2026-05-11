@@ -1,0 +1,89 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "BinarySource",
+            "formatSettings": {
+              "type": "BinaryReadSettings"
+            },
+            "storeSettings": {
+              "type": "HttpReadSettings",
+              "requestMethod": "GET",
+              "requestTimeout": "00:05:00"
+            },
+            "datasetSettings": {
+              "type": "Binary",
+              "typeProperties": {
+                "location": {
+                  "type": "HttpServerLocation",
+                  "relativeUrl": "@concat('COGT/OFFL/', pipeline().parameters.ProductType, '/', pipeline().parameters.ProcessingDate, '/')"
+                }
+              },
+              "externalReferences": {
+                "connection": "e34f9237-41a8-4d57-8106-3f3bf0a86fb6"
+              },
+              "annotations": []
+            }
+          },
+          "sink": {
+            "type": "BinarySink",
+            "storeSettings": {
+              "type": "LakehouseWriteSettings"
+            },
+            "datasetSettings": {
+              "type": "Binary",
+              "typeProperties": {
+                "location": {
+                  "type": "LakehouseLocation",
+                  "folderPath": {
+                    "value": "@concat('sentinel5p/methane/raw/', replace(pipeline().parameters.ProcessingDate, '/', '-'))",
+                    "type": "Expression"
+                  }
+                }
+              },
+              "connectionSettings": {
+                "name": "GreenSky_LH",
+                "properties": {
+                  "type": "Lakehouse",
+                  "typeProperties": {
+                    "artifactId": "d7635e44-768e-b178-4685-4d05e0efee7f",
+                    "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    "rootFolder": "Files"
+                  },
+                  "externalReferences": {
+                    "connection": "219b5d0b-81dd-4bf5-9b83-98a242582d85"
+                  },
+                  "annotations": []
+                }
+              },
+              "annotations": []
+            }
+          },
+          "enableStaging": false
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Copy data1",
+        "dependsOn": []
+      }
+    ],
+    "parameters": {
+      "ProcessingDate": {
+        "type": "string",
+        "defaultValue": "2024/11/15"
+      },
+      "ProductType": {
+        "type": "string",
+        "defaultValue": "L2__CH4___"
+      }
+    }
+  }
+}

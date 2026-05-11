@@ -1,0 +1,16 @@
+relationship 95f5ee88-c9b9-f08f-95c0-c4027afd15de
+	fromColumn: methane_plumes_dbscan.datetime
+	toColumn: emission_rates_daily.date
+
+relationship 7579543b-fcb3-3b17-e284-ce7aecf0c175
+	fromColumn: planetary_comp_raw_data.datetime
+	toColumn: emission_rates_daily.date
+
+relationship 45ce7995-3b14-34c9-f53b-7f71e54e114b
+	fromColumn: emission_rates_daily.date
+	toColumn: weather.date
+
+relationship 38b53728-17ce-6302-89ba-099f036fd1a0
+	fromColumn: plume_sector_mapped.plume_id
+	toColumn: emission_rates_daily.plume_id
+

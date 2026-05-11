@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "KQLDashboard",
+    "displayName": "GreenSky_RTI",
+    "description": "GreenSky_RTI"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "d78390f8-0835-ace8-43d8-2d47adac66a6"
+  }
+}

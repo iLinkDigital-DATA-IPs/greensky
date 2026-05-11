@@ -1,0 +1,350 @@
+{
+  "sources": [
+    {
+      "id": "db92f1ca-90a7-4cec-afbc-66098a23367d",
+      "name": "new-source",
+      "type": "Http",
+      "properties": {
+        "dataConnectionId": "db5d1141-c61c-40bf-85b3-2d5bd3d31a65",
+        "method": "GET",
+        "requestHeaders": [],
+        "requestParameters": [],
+        "requestBody": "",
+        "pollIntervalMs": 15000,
+        "maxRetries": 10,
+        "retryBackoffMs": 3000,
+        "retriableHttpStatusCodes": "500, 502, 503, 504"
+      }
+    }
+  ],
+  "destinations": [
+    {
+      "id": "e45a45f6-c529-49b5-a164-abcd8ecee369",
+      "name": "Eventhouse",
+      "type": "Eventhouse",
+      "properties": {
+        "dataIngestionMode": "ProcessedIngestion",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "itemId": "2b4f1060-fe00-ac7d-4bfb-9ec0c0d0aefe",
+        "databaseName": "GreenSky_EH",
+        "tableName": "Carbon_Mapper_Raw",
+        "inputSerialization": {
+          "type": "Json",
+          "properties": {
+            "encoding": "UTF8"
+          }
+        }
+      },
+      "inputNodes": [
+        {
+          "name": "CarbonMapper-stream"
+        }
+      ],
+      "inputSchemas": [
+        {
+          "name": "CarbonMapper-stream",
+          "schema": {
+            "columns": [
+              {
+                "name": "bbox_count",
+                "type": "BigInt",
+                "fields": null,
+                "items": null
+              },
+              {
+                "name": "total_count",
+                "type": "BigInt",
+                "fields": null,
+                "items": null
+              },
+              {
+                "name": "limit",
+                "type": "BigInt",
+                "fields": null,
+                "items": null
+              },
+              {
+                "name": "offset",
+                "type": "BigInt",
+                "fields": null,
+                "items": null
+              },
+              {
+                "name": "items",
+                "type": "Array",
+                "fields": null,
+                "items": {
+                  "name": null,
+                  "type": "Record",
+                  "fields": [
+                    {
+                      "name": "id",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "plume_id",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "gas",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "geometry_json",
+                      "type": "Record",
+                      "fields": [
+                        {
+                          "name": "bbox",
+                          "type": "Record",
+                          "fields": [],
+                          "items": null
+                        },
+                        {
+                          "name": "type",
+                          "type": "Nvarchar(max)",
+                          "fields": null,
+                          "items": null
+                        },
+                        {
+                          "name": "coordinates",
+                          "type": "Array",
+                          "fields": null,
+                          "items": {
+                            "name": null,
+                            "type": "Float",
+                            "fields": null,
+                            "items": null
+                          }
+                        }
+                      ],
+                      "items": null
+                    },
+                    {
+                      "name": "scene_id",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "scene_timestamp",
+                      "type": "DateTime",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "instrument",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "mission_phase",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "platform",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "emission_auto",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "emission_uncertainty_auto",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "emission_cmf_type",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "gsd",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "sensitivity_mode",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "off_nadir",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "plume_png",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "plume_rgb_png",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "plume_tif",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "con_tif",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "rgb_png",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "plume_bounds",
+                      "type": "Array",
+                      "fields": null,
+                      "items": {
+                        "name": null,
+                        "type": "Float",
+                        "fields": null,
+                        "items": null
+                      }
+                    },
+                    {
+                      "name": "plume_quality",
+                      "type": "Record",
+                      "fields": [],
+                      "items": null
+                    },
+                    {
+                      "name": "wind_speed_avg_auto",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "wind_direction_avg_auto",
+                      "type": "Float",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "emission_version",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "processing_software",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "publication_sources",
+                      "type": "Array",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "is_offshore",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "collection",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "cmf_type",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "sector",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "status",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "hide_emission",
+                      "type": "Nvarchar(max)",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "published_at",
+                      "type": "DateTime",
+                      "fields": null,
+                      "items": null
+                    },
+                    {
+                      "name": "modified",
+                      "type": "DateTime",
+                      "fields": null,
+                      "items": null
+                    }
+                  ],
+                  "items": null
+                }
+              },
+              {
+                "name": "nearby_items",
+                "type": "Array",
+                "fields": null,
+                "items": null
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "streams": [
+    {
+      "id": "8e7710a1-5079-4674-99e5-4008367fc991",
+      "name": "CarbonMapper-stream",
+      "type": "DefaultStream",
+      "properties": {},
+      "inputNodes": [
+        {
+          "name": "new-source"
+        }
+      ]
+    }
+  ],
+  "operators": [],
+  "compatibilityLevel": "1.1"
+}

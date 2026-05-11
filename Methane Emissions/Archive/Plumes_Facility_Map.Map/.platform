@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Map",
+    "displayName": "Plumes_Facility_Map"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "90f26cb2-1e70-ba81-4494-c47acdd5a4b6"
+  }
+}

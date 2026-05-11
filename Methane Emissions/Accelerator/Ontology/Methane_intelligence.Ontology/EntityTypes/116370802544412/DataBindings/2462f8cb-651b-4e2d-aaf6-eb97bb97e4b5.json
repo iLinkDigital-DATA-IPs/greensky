@@ -1,0 +1,68 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/ontology/dataBinding/1.0.0/schema.json",
+  "id": "2462f8cb-651b-4e2d-aaf6-eb97bb97e4b5",
+  "dataBindingConfiguration": {
+    "dataBindingType": "NonTimeSeries",
+    "propertyBindings": [
+      {
+        "sourceColumnName": "equipment_key",
+        "targetPropertyId": "6457328606623841826"
+      },
+      {
+        "sourceColumnName": "equipment_id",
+        "targetPropertyId": "6457328604825886889"
+      },
+      {
+        "sourceColumnName": "facility_id",
+        "targetPropertyId": "6457328604671303439"
+      },
+      {
+        "sourceColumnName": "equipment_tag",
+        "targetPropertyId": "2961889787347576227"
+      },
+      {
+        "sourceColumnName": "equipment_type",
+        "targetPropertyId": "2961889785504048818"
+      },
+      {
+        "sourceColumnName": "manufacturer",
+        "targetPropertyId": "6457328607489826460"
+      },
+      {
+        "sourceColumnName": "model",
+        "targetPropertyId": "6457328605368410455"
+      },
+      {
+        "sourceColumnName": "install_date",
+        "targetPropertyId": "2961889787006545545"
+      },
+      {
+        "sourceColumnName": "last_maintenance_date",
+        "targetPropertyId": "6457328606975646226"
+      },
+      {
+        "sourceColumnName": "criticality",
+        "targetPropertyId": "6457328606567008910"
+      },
+      {
+        "sourceColumnName": "equipment_age_days",
+        "targetPropertyId": "6457328604104581984"
+      },
+      {
+        "sourceColumnName": "equipment_age_years",
+        "targetPropertyId": "6457328604723850533"
+      },
+      {
+        "sourceColumnName": "days_since_maintenance",
+        "targetPropertyId": "6457328604749708978"
+      }
+    ],
+    "sourceTableProperties": {
+      "sourceType": "LakehouseTable",
+      "workspaceId": "00000000-0000-0000-0000-000000000000",
+      "itemId": "55380658-1bfa-82dd-4858-b084427f0431",
+      "sourceTableName": "dim_equipment",
+      "sourceSchema": "gold"
+    }
+  }
+}

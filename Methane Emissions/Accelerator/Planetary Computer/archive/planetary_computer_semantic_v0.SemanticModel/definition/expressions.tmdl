@@ -1,0 +1,11 @@
+expression 'DirectLake - Planetary_computer_LH' =
+		let
+		    Source = AzureStorage.DataLake("https://onelake.dfs.fabric.microsoft.com/060ba34b-f1a3-4509-a6e2-36d1e736a8eb/95f7f55e-9d06-4699-9483-754709a1d397", [HierarchicalNavigation=true])
+		in
+		    Source
+	lineageTag: 2ff17166-a80d-468d-810d-6ebc478593ca
+
+	annotation PBI_IncludeFutureArtifacts = False
+
+	annotation PBI_RemovedChildren = [{"remoteItemId":{"analysisServicesObject":{"sourceName":null,"sourceLineageTag":"[dbo].[weather_data]"}},"objectType":"Table"},{"remoteItemId":{"analysisServicesObject":{"sourceName":null,"sourceLineageTag":"[dbo].[methane_data]"}},"objectType":"Table"},{"remoteItemId":{"analysisServicesObject":{"sourceName":null,"sourceLineageTag":"[dbo].[emission_rates]"}},"objectType":"Table"},{"remoteItemId":{"analysisServicesObject":{"sourceName":null,"sourceLineageTag":"[dbo].[plume_data]"}},"objectType":"Table"}]
+

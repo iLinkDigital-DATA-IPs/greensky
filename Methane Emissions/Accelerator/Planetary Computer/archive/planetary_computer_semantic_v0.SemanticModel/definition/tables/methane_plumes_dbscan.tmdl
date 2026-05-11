@@ -1,0 +1,102 @@
+table methane_plumes_dbscan
+	lineageTag: 8c0d3ca7-ffe9-4e9d-8fe7-32c12affe9e2
+	sourceLineageTag: [bronze].[methane_plumes_dbscan]
+
+	column latitude
+		dataType: double
+		lineageTag: fc4c7a2f-1323-44d8-9d57-3438cd20ed73
+		sourceLineageTag: latitude
+		summarizeBy: sum
+		sourceColumn: latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column longitude
+		dataType: double
+		lineageTag: e22a573a-3e13-4406-8d3d-29c14f517d29
+		sourceLineageTag: longitude
+		summarizeBy: sum
+		sourceColumn: longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ch4
+		dataType: double
+		lineageTag: 4044ea72-8de7-43d0-a845-5404648ad888
+		sourceLineageTag: ch4
+		summarizeBy: sum
+		sourceColumn: ch4
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column qa_value
+		dataType: double
+		lineageTag: 603f1a3c-dafc-4015-9b23-7a22b83ed721
+		sourceLineageTag: qa_value
+		summarizeBy: sum
+		sourceColumn: qa_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column datetime
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 3fa74c7a-a7fc-48f0-8eca-5f6609033fb0
+		sourceLineageTag: datetime
+		summarizeBy: none
+		sourceColumn: datetime
+
+		annotation SummarizationSetBy = Automatic
+
+	column gas
+		dataType: string
+		lineageTag: 39e6a309-1a2a-4ccf-81bc-e65a1d2a8f4d
+		sourceLineageTag: gas
+		summarizeBy: none
+		sourceColumn: gas
+
+		annotation SummarizationSetBy = Automatic
+
+	column instrument
+		dataType: string
+		lineageTag: 67e63835-2d2a-4bb6-8420-0340036cfac3
+		sourceLineageTag: instrument
+		summarizeBy: none
+		sourceColumn: instrument
+
+		annotation SummarizationSetBy = Automatic
+
+	column platform
+		dataType: string
+		lineageTag: a3ae10b4-7415-49dd-ae1f-6f9fcd492f0f
+		sourceLineageTag: platform
+		summarizeBy: none
+		sourceColumn: platform
+
+		annotation SummarizationSetBy = Automatic
+
+	column cluster
+		dataType: int64
+		formatString: 0
+		lineageTag: b198b1c3-6632-4682-a5c2-551927775e02
+		sourceLineageTag: cluster
+		summarizeBy: sum
+		sourceColumn: cluster
+
+		annotation SummarizationSetBy = Automatic
+
+	partition methane_plumes_dbscan = entity
+		mode: directLake
+		source
+			entityName: methane_plumes_dbscan
+			schemaName: bronze
+			expressionSource: 'DirectLake - Planetary_computer_LH'
+

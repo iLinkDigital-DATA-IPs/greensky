@@ -1,0 +1,42 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/map/definition/1.0.0/schema.json",
+  "basemap": {
+    "options": "{\"style\":\"grayscale_light\",\"zoom\":\"8.2\",\"center\":[-101.8782752,32.1004473],\"pitch\":\"0\",\"bearing\":\"0\"}",
+    "controls": null,
+    "backgroundColor": null,
+    "theme": null
+  },
+  "dataSources": {
+    "lakehouses": [],
+    "kqlDataBases": [
+      {
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactId": "2b4f1060-fe00-ac7d-4bfb-9ec0c0d0aefe"
+      }
+    ]
+  },
+  "layerSources": [
+    {
+      "id": "91266b07-7a12-4523-a4cf-10f08f96fade",
+      "name": "GreenSky_Maps",
+      "type": "kusto",
+      "options": null,
+      "parentArtifactId": "2b4f1060-fe00-ac7d-4bfb-9ec0c0d0aefe",
+      "relativePath": null,
+      "querysetTabId": "00000000-0000-0000-0000-000000000000_9b188c5a-1a1b-4d09-89fc-192f29abf6eb",
+      "latitudeColumnName": "Latitude",
+      "longitudeColumnName": "Longitude",
+      "geometryColumnName": null,
+      "refreshIntervalMs": 0
+    }
+  ],
+  "layerSettings": [
+    {
+      "id": "4b2b21b2-bf37-4007-9f6f-47273ccac0cb",
+      "name": "GreenSky_Maps",
+      "sourceId": "91266b07-7a12-4523-a4cf-10f08f96fade",
+      "sourceLayerId": null,
+      "options": "{\"color\":\"#7B1F00\",\"type\":\"vector\",\"visible\":true,\"dataLabelOptions\":{\"enabled\":true,\"size\":15,\"textStrokeWidth\":1,\"allowOverlap\":false},\"dataLabelKeys\":[\"Facility\"],\"pointLayerType\":\"heatmap\",\"heatmapWeight\":\"Risk\",\"heatmapOptions\":{\"weight\":[\"max\",[\"get\",\"Risk\"],0]},\"tooltipKeys\":[\"Intensity\",\"Emissions\"]}"
+    }
+  ]
+}

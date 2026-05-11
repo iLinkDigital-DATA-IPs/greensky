@@ -1,0 +1,16 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/mirroredAzureDatabricksCatalog/definition/mirroredAzureDatabricksCatalogDefinition/1.0.0/schema.json",
+  "autoSync": "Enabled",
+  "catalogName": "greensky",
+  "databricksWorkspaceConnectionId": "73caa1fd-4a87-48ac-92e3-bfeda568694a",
+  "mirrorConfiguration": {
+    "schemas": [
+      {
+        "mirroringMode": "Exclude",
+        "name": "default"
+      }
+    ]
+  },
+  "mirroringMode": "Full",
+  "storageConnectionId": "3f19b914-75d1-4047-aa54-90e8f91c7e19"
+}

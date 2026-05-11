@@ -1,0 +1,147 @@
+table plume_sector_mapped
+	lineageTag: a419a0a7-f89b-43f5-ba02-320d8fefda39
+	sourceLineageTag: [silver].[plume_sector_mapped]
+
+	column latitude
+		dataType: double
+		lineageTag: 72d776a2-47c8-4649-8a43-1a40b47c797b
+		sourceLineageTag: latitude
+		summarizeBy: sum
+		sourceColumn: latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column longitude
+		dataType: double
+		lineageTag: 671db6ae-a3bc-4917-822b-e7f69ce732ca
+		sourceLineageTag: longitude
+		summarizeBy: sum
+		sourceColumn: longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column ch4
+		dataType: double
+		lineageTag: d1c16285-8602-44ec-9a1f-e9eb34b90718
+		sourceLineageTag: ch4
+		summarizeBy: sum
+		sourceColumn: ch4
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column qa_value
+		dataType: double
+		lineageTag: f414b6fa-931e-4254-92b7-2f2103b05556
+		sourceLineageTag: qa_value
+		summarizeBy: sum
+		sourceColumn: qa_value
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column datetime
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 728e098d-4a84-4b25-9cc2-b61b038cc63c
+		sourceLineageTag: datetime
+		summarizeBy: none
+		sourceColumn: datetime
+
+		annotation SummarizationSetBy = Automatic
+
+	column gas
+		dataType: string
+		lineageTag: 6fa01587-cba2-41a7-aee3-00380c2aee79
+		sourceLineageTag: gas
+		summarizeBy: none
+		sourceColumn: gas
+
+		annotation SummarizationSetBy = Automatic
+
+	column instrument
+		dataType: string
+		lineageTag: 257aade8-a8e5-4198-bdc8-f46c7afe007f
+		sourceLineageTag: instrument
+		summarizeBy: none
+		sourceColumn: instrument
+
+		annotation SummarizationSetBy = Automatic
+
+	column platform
+		dataType: string
+		lineageTag: faa7494c-1ae8-4a54-bf98-0881e005e684
+		sourceLineageTag: platform
+		summarizeBy: none
+		sourceColumn: platform
+
+		annotation SummarizationSetBy = Automatic
+
+	column cluster
+		dataType: int64
+		formatString: 0
+		lineageTag: 7b36f227-d5ed-41cb-9f64-18a62dce740b
+		sourceLineageTag: cluster
+		summarizeBy: sum
+		sourceColumn: cluster
+
+		annotation SummarizationSetBy = Automatic
+
+	column plume_id
+		dataType: string
+		lineageTag: 9cddf6d6-9759-42b0-8a1d-4020eea1b51a
+		sourceLineageTag: plume_id
+		summarizeBy: none
+		sourceColumn: plume_id
+
+		annotation SummarizationSetBy = Automatic
+
+	column sector
+		dataType: string
+		lineageTag: f6b803c1-b89c-4406-818c-f328467d1ddd
+		sourceLineageTag: sector
+		summarizeBy: none
+		sourceColumn: sector
+
+		annotation SummarizationSetBy = Automatic
+
+	column match_confidence
+		dataType: string
+		lineageTag: 8e91ce66-4e66-456e-8939-5bf6aa174e83
+		sourceLineageTag: match_confidence
+		summarizeBy: none
+		sourceColumn: match_confidence
+
+		annotation SummarizationSetBy = Automatic
+
+	column sector_description
+		dataType: string
+		lineageTag: 89df976e-471b-4598-b6ae-299442e7b242
+		sourceLineageTag: sector_description
+		summarizeBy: none
+		sourceColumn: sector_description
+
+		annotation SummarizationSetBy = Automatic
+
+	column plume_key
+		dataType: string
+		lineageTag: b773c387-c9c0-48b3-8ab5-98d4152bfd9f
+		sourceLineageTag: plume_key
+		summarizeBy: none
+		sourceColumn: plume_key
+
+		annotation SummarizationSetBy = Automatic
+
+	partition plume_sector_mapped = entity
+		mode: directLake
+		source
+			entityName: plume_sector_mapped
+			schemaName: silver
+			expressionSource: 'DirectLake - Planetary_computer_LH'
+

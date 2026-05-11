@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "ingest_carbon_mapper_data"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "495bbfad-f681-8de2-40e7-9d280ae939fe"
+  }
+}

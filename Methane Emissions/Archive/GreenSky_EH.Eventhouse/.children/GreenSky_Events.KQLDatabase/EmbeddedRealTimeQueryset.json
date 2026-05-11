@@ -1,0 +1,28 @@
+{
+  "queryset": {
+    "version": "1.0.0",
+    "dataSources": [
+      {
+        "id": "4effb2e4-9f46-4135-bb21-4f401dbbf04e",
+        "clusterUri": "https://trd-b5gpfrcqchk3m40g53.z2.kusto.fabric.microsoft.com",
+        "type": "Fabric",
+        "databaseItemId": "a1acc3ad-c676-4b6c-ba6c-46f1b30b2553",
+        "databaseItemName": "GreenSky_Events"
+      }
+    ],
+    "tabs": [
+      {
+        "id": "dffdf96b-898d-42be-932a-637658fd94b1",
+        "content": "// 1. Create dim_date table\n.create table dim_date (\n    date_key: int,\n    full_date: datetime,\n    year: int,\n    quarter: int,\n    month: int,\n    day: int,\n    week_of_year: int,\n    day_of_week: int,\n    day_name: string,\n    month_name: string,\n    is_weekday: int\n)\n\n// 2. Create dim_facility table\n.create table dim_facility (\n    facility_key: long,\n    facility_id: string,\n    facility_name: string,\n    facility_type: string,\n    basin: string,\n    operator: string,\n    latitude: decimal,\n    longitude: decimal,\n    production_start_date: datetime,\n    daily_oil_bbl: decimal,\n    daily_gas_mcf: decimal,\n    well_count: int,\n    active_status: string,\n    epa_facility_id: string,\n    facility_age_days: int,\n    facility_age_years: int,\n    production_tier: string,\n    daily_boe: real\n)\n\n// 3. Create dim_equipment table\n.create table dim_equipment (\n    equipment_key: long,\n    equipment_id: string,\n    facility_id: string,\n    equipment_tag: string,\n    equipment_type: string,\n    manufacturer: string,\n    model: string,\n    install_date: datetime,\n    last_maintenance_date: datetime,\n    criticality: string,\n    equipment_age_days: int,\n    equipment_age_years: int,\n    days_since_maintenance: int\n)\n\n// 4. Create gold_emission_events fact table\n.create table gold_emission_events (\n    event_id: string,\n    date_key: int,\n    event_date: datetime,\n    detection_timestamp: datetime,\n    facility_key: long,\n    equipment_key: long,\n    emission_kg_per_hour: decimal,\n    emission_severity: string,\n    duration_hours: real,\n    total_methane_loss_mcf: real,\n    financial_impact_usd: real,\n    compliance_risk_score: int,\n    scada_anomaly_detected: int,\n    work_order_generated: string,\n    detection_source: string,\n    response_time_hours: real,\n    distance_meters: real\n)\n\n// Check all tables in the database\n.show tables\n\n",
+        "title": "Tables creation",
+        "dataSourceId": "4effb2e4-9f46-4135-bb21-4f401dbbf04e"
+      },
+      {
+        "id": "a8b1989b-44f9-4776-9005-e9ef65eb0098",
+        "content": ".create materialized-view equipment_failures_mv\non table gold_emission_events\n{\n    gold_emission_events\n    | where scada_anomaly_detected == 1\n    | join kind=inner dim_equipment on equipment_key\n    | summarize\n        failure_count = count(),\n        total_impact = sum(financial_impact_usd),\n        avg_emission_rate = avg(emission_kg_per_hour),\n        facilities_affected = dcount(facility_key)\n        by\n        equipment_type,\n        manufacturer,\n        criticality,\n        equipment_id,\n        equipment_key\n}\n\n",
+        "title": "GreenSky_Ontology",
+        "dataSourceId": "4effb2e4-9f46-4135-bb21-4f401dbbf04e"
+      }
+    ]
+  }
+}

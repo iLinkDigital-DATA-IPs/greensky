@@ -1,0 +1,182 @@
+// KQL script
+// Use management commands in this script to configure your database items, such as tables, functions, materialized views, and more.
+
+
+.create-merge table methane_emissions (event_id:string, date_key:real, event_date:datetime, detection_timestamp:datetime, facility_key:long, equipment_key:long, emission_kg_per_hour:real, emission_severity:string, duration_hours:long, total_methane_loss_mcf:real, financial_impact_usd:real, compliance_risk_score:long, scada_anomaly_detected:long, work_order_generated:string, detection_source:string, response_time_hours:string, distance_meters:real) 
+.create-or-alter table methane_emissions ingestion csv mapping 'methane_emissions_mapping'
+```
+[{"Properties":{"Ordinal":"0"},"column":"event_id","datatype":""},{"Properties":{"Ordinal":"1"},"column":"date_key","datatype":""},{"Properties":{"Ordinal":"2"},"column":"event_date","datatype":""},{"Properties":{"Ordinal":"3"},"column":"detection_timestamp","datatype":""},{"Properties":{"Ordinal":"4"},"column":"facility_key","datatype":""},{"Properties":{"Ordinal":"5"},"column":"equipment_key","datatype":""},{"Properties":{"Ordinal":"6"},"column":"emission_kg_per_hour","datatype":""},{"Properties":{"Ordinal":"7"},"column":"emission_severity","datatype":""},{"Properties":{"Ordinal":"8"},"column":"duration_hours","datatype":""},{"Properties":{"Ordinal":"9"},"column":"total_methane_loss_mcf","datatype":""},{"Properties":{"Ordinal":"10"},"column":"financial_impact_usd","datatype":""},{"Properties":{"Ordinal":"11"},"column":"compliance_risk_score","datatype":""},{"Properties":{"Ordinal":"12"},"column":"scada_anomaly_detected","datatype":""},{"Properties":{"Ordinal":"13"},"column":"work_order_generated","datatype":""},{"Properties":{"Ordinal":"14"},"column":"detection_source","datatype":""},{"Properties":{"Ordinal":"15"},"column":"response_time_hours","datatype":""},{"Properties":{"Ordinal":"16"},"column":"distance_meters","datatype":""}]
+```
+.create-or-alter function with (skipvalidation = "true") Query() {
+Carbon_Mapper_Raw
+| mv-expand plume = items
+| extend 
+    id = tostring(plume.id),
+    plume_id = tostring(plume.plume_id),
+    gas = tostring(plume.gas),
+    geometry_bbox = tostring(plume.geometry_json.bbox),
+    geometry_type = tostring(plume.geometry_json.type),
+    geometry_longitude = todouble(plume.geometry_json.coordinates[0]),
+    geometry_latitude = todouble(plume.geometry_json.coordinates[1]),
+    scene_id = tostring(plume.scene_id),
+    scene_timestamp = todatetime(plume.scene_timestamp),
+    instrument = tostring(plume.instrument),
+    mission_phase = tostring(plume.mission_phase),
+    platform = tostring(plume.platform),
+    emission_auto = todouble(plume.emission_auto),
+    emission_uncertainty_auto = todouble(plume.emission_uncertainty_auto),
+    emission_cmf_type = tostring(plume.emission_cmf_type),
+    gsd = todouble(plume.gsd),
+    sensitivity_mode = tostring(plume.sensitivity_mode),
+    off_nadir = todouble(plume.off_nadir),
+    plume_png = tostring(plume.plume_png),
+    plume_rgb_png = tostring(plume.plume_rgb_png),
+    plume_tif = tostring(plume.plume_tif),
+    con_tif = tostring(plume.con_tif),
+    rgb_png = tostring(plume.rgb_png),
+    plume_bounds_min_x = todouble(plume.plume_bounds[0]),
+    plume_bounds_min_y = todouble(plume.plume_bounds[1]),
+    plume_bounds_max_x = todouble(plume.plume_bounds[2]),
+    plume_bounds_max_y = todouble(plume.plume_bounds[3]),
+    plume_quality = tostring(plume.plume_quality),
+    wind_speed_avg_auto = todouble(plume.wind_speed_avg_auto),
+    wind_direction_avg_auto = todouble(plume.wind_direction_avg_auto),
+    emission_version = tostring(plume.emission_version),
+    processing_software = tostring(plume.processing_software),
+    publication_sources = plume.publication_sources,
+    is_offshore = tobool(plume.is_offshore),
+    collection = tostring(plume.collection),
+    cmf_type = tostring(plume.cmf_type),
+    sector = tostring(plume.sector),
+    status = tostring(plume.status),
+    hide_emission = tobool(plume.hide_emission),
+    published_at = todatetime(plume.published_at),
+    modified = todatetime(plume.modified)
+| summarize arg_max(modified, *) by id
+| project-away plume, items
+}
+.create-or-alter function with (folder = "RTI", docstring = "Active super emitter events (30 days)", skipvalidation = "true") vw_active_super_emitters() {
+    external_table('gold_emission_events')
+    | where emission_kg_per_hour > 0
+    | where event_date >= ago(30d)
+    | join kind=inner (
+        external_table('dim_facility')
+    ) on facility_key
+    | project
+        event_id,
+        detection_timestamp,
+        facility_name,
+        operator,
+        emission_kg_per_hour,
+        financial_impact_usd,
+        compliance_risk_score,
+        action_status = iff(work_order_generated != "", "ASSIGNED", "PENDING"),
+        risk_category = case(
+            compliance_risk_score >= 7, "CRITICAL",
+            compliance_risk_score >= 5, "HIGH",
+            "MEDIUM"
+        )
+}
+.create-or-alter function with (skipvalidation = "true") EmissionSeverityScore() {
+    external_table('gold_emission_events')
+    | extend severity_score = case(
+        emission_severity == "SUPER_EMITTER", 10,
+        emission_severity == "HIGH", 7,
+        emission_severity == "MEDIUM", 4,
+        1
+    )
+    | project event_id, facility_key, severity_score, emission_severity
+}
+.create-or-alter function with (skipvalidation = "true") TimeWindowMetrics() {
+    external_table('gold_emission_events')
+    | extend 
+        is_last_hour = iff(detection_timestamp >= ago(1h), 1, 0),
+        is_last_24h = iff(detection_timestamp >= ago(24h), 1, 0),
+        is_last_7d = iff(detection_timestamp >= ago(7d), 1, 0)
+    | project event_id, facility_key, is_last_hour, is_last_24h, is_last_7d, 
+              detection_timestamp, financial_impact_usd
+}
+.create-or-alter function with (skipvalidation = "true") GeospatialBins() {
+    external_table('gold_emission_events')   
+    | join kind = inner (external_table('dim_facility')  )
+     on $left.facility_key == $right.facility_key
+    | extend geo_hash = geo_point_to_s2cell(longitude, latitude, 12)
+    | project event_id, facility_key, geo_hash, latitude, longitude, 
+              emission_kg_per_hour, detection_timestamp
+}
+.create-or-alter function with (skipvalidation = "true") realtime_kpis() {
+    external_table('gold_emission_events')
+    | where detection_timestamp >= ago(30d)
+    | summarize 
+        total_events = count(),
+        super_emitter_count = countif(emission_severity == "SUPER_EMITTER"),
+        high_emitter_count = countif(emission_severity == "HIGH"),
+        total_methane_loss_mcf = sum(total_methane_loss_mcf),
+        total_financial_impact = sum(financial_impact_usd),
+        avg_emission_rate = avg(emission_kg_per_hour),
+        max_emission_rate = max(emission_kg_per_hour),
+        critical_facilities = dcountif(facility_key, compliance_risk_score >= 7)
+        by bin(detection_timestamp, 1h)
+    | extend 
+        avg_financial_impact = total_financial_impact / total_events,
+        super_emitter_pct = round(100.0 * super_emitter_count / total_events, 1)
+}
+.create-or-alter function with (skipvalidation = "true") facility_metrics() {
+    external_table('gold_emission_events') 
+    | join kind=inner external_table('dim_facility')  on $left.facility_key == $right.facility_key
+    | where detection_timestamp >= ago(150d)
+    | summarize 
+        detection_count = count(),
+        total_financial_impact = toint(avg(financial_impact_usd)),
+        max_risk_score = max(compliance_risk_score),
+        super_emitter_count = countif(emission_severity == "SUPER_EMITTER"),
+        latest_date = max(detection_timestamp),
+        avg_emission_rate = toint(avg(emission_kg_per_hour))
+        by facility_key, facility_id, facility_name, operator, latitude, longitude
+    |extend 
+        is_new_emitter = case(
+            super_emitter_count > 0 ,"No",
+            "Yes"
+        )
+    |extend 
+        Work_order_created = case(
+            facility_key == 10 ,"Under Review",
+            "Not Sure about that"
+        )
+    | extend 
+        risk_category = case(
+            max_risk_score >= 7, "CRITICAL",
+            max_risk_score >= 5, "HIGH",
+            max_risk_score >= 3, "MEDIUM",
+            "LOW"
+        ),
+        priority_score =toint( (detection_count * 2) + (max_risk_score * 10) + 
+                        (total_financial_impact / 1000))
+    | order by priority_score desc
+}
+.create-or-alter function with (skipvalidation = "true") hourly_trends() {
+    external_table('gold_emission_events')
+    | where detection_timestamp >= ago(60d)
+    | summarize 
+        event_count = count(),
+        total_emissions = sum(emission_kg_per_hour),
+        total_impact = sum(financial_impact_usd),
+        super_emitters = countif(emission_severity == "SUPER_EMITTER")
+        by hour_bin = bin(detection_timestamp, 1h)
+    | extend 
+        avg_emission_per_event = total_emissions / event_count,
+        avg_impact_per_event = total_impact / event_count
+}
+.create-or-alter function with (skipvalidation = "true") equipment_failures() {
+    external_table('gold_emission_events') 
+    | join kind=inner external_table('dim_equipment')  on $left.equipment_key == $right.equipment_key
+    | where detection_timestamp >= ago(30d)
+    | where scada_anomaly_detected == 1
+    | summarize 
+        failure_count = count(),
+        total_impact = sum(financial_impact_usd),
+        avg_emission_rate = avg(emission_kg_per_hour),
+        facilities_affected = dcount(facility_key)
+        by equipment_type, manufacturer, criticality
+    | order by failure_count desc
+}

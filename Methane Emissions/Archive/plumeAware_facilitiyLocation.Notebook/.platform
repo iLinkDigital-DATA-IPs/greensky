@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "plumeAware_facilitiyLocation"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "96cb45b7-e961-818b-4df9-2084f51ddd0e"
+  }
+}

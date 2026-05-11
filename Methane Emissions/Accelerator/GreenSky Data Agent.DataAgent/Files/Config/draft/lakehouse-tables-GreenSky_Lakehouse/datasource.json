@@ -1,0 +1,2010 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/dataAgent/definition/dataSource/1.0.0/schema.json",
+  "artifactId": "55380658-1bfa-82dd-4858-b084427f0431",
+  "workspaceId": "00000000-0000-0000-0000-000000000000",
+  "dataSourceInstructions": "# GreenSky Lakehouse - Data Schema Guide\r\n\r\n## Schema Overview\r\n**Lakehouse:** `greensky`  \r\n**Schema:** `gold` (business-ready dimensional model)\r\n\r\n---\r\n\r\n## Table Catalog\r\n\r\n### 📊 FACT TABLES (Metrics & Measurements)\r\n\r\n#### `fact_emission_events`\r\n**Purpose:** Core analytical table with every satellite-detected methane plume  \r\n**Grain:** One row per emission event per facility  \r\n**Key Columns:**\r\n- `event_id` (PK): Unique identifier (format: EVENT-YYYYMMDD-plume_id)\r\n- `facility_key` (FK): Links to dim_facility\r\n- `equipment_key` (FK): Links to dim_equipment (-1 = unknown equipment)\r\n- `emission_kg_per_hour`: Methane leak rate (>2000 = SUPER_EMITTER)\r\n- `emission_severity`: 'SUPER_EMITTER', 'HIGH', 'MEDIUM', 'LOW'\r\n- `financial_impact_usd`: Revenue loss calculated as (emission_kg_hr × 24hrs × conversion × $2.50/MCF)\r\n- `compliance_risk_score`: 0-8 scale (7+ CRITICAL, 5-6 HIGH)\r\n- `scada_anomaly_detected`: 1 = equipment failure detected, 0 = normal operation\r\n- `event_date`: Detection date (use for date filtering)\r\n- `detection_timestamp`: Exact detection time (UTC)\r\n- `distance_meters`: Distance from plume to facility center\r\n\r\n**Common Queries:**\r\n- Filter by `emission_severity = 'SUPER_EMITTER'` for critical events\r\n- Filter by `event_date >= DATEADD(day, -7, GETDATE())` for recent events\r\n- Join with `dim_facility` to get facility_name and operator\r\n\r\n---\r\n\r\n#### `fact_daily_facility_summary`\r\n**Purpose:** Pre-aggregated daily metrics for faster dashboard queries  \r\n**Grain:** One row per facility per day  \r\n**Key Columns:**\r\n- `facility_key` (FK)\r\n- `event_date` (date)\r\n- `detection_count`: Number of emissions that day\r\n- `total_emission_kg_hr`: Sum of all emission rates\r\n- `total_financial_impact_usd`: Total revenue loss\r\n- `super_emitter_count`: Count of SUPER_EMITTER events\r\n\r\n**When to Use:** Time-series charts, monthly aggregations\r\n\r\n---\r\n\r\n### 🏢 DIMENSION TABLES (Reference Data)\r\n\r\n#### `dim_facility`\r\n**Purpose:** Master list of production facilities  \r\n**Grain:** One row per facility  \r\n**Key Columns:**\r\n- `facility_key` (PK): Surrogate key\r\n- `facility_id`: Business key (WP-001, WP-002, etc.)\r\n- `facility_name`: Display name (e.g., \"Well Pad A-01\")\r\n- `operator`: Operating company (Occidental, XTO Energy, etc.)\r\n- `basin`: Always 'PERMIAN'\r\n- `latitude`, `longitude`: Geographic coordinates\r\n- `daily_oil_bbl`: Daily oil production (barrels)\r\n- `daily_gas_mcf`: Daily gas production (thousand cubic feet)\r\n- `production_tier`: 'HIGH', 'MEDIUM', 'LOW' (based on daily_oil_bbl)\r\n- `facility_age_years`: Years since production_start_date\r\n- `active_status`: 'ACTIVE' or 'IDLE'\r\n\r\n**Always Join:** When showing emissions, join to get `facility_name` and `operator`\r\n\r\n---\r\n\r\n#### `dim_equipment`\r\n**Purpose:** Equipment inventory with maintenance history  \r\n**Grain:** One row per equipment item  \r\n**Key Columns:**\r\n- `equipment_key` (PK)\r\n- `equipment_tag`: Business identifier (e.g., WP-001_SEP_001)\r\n- `equipment_type`: SEPARATOR, COMPRESSOR, HEATER, TANK, VALVE\r\n- `criticality`: CRITICAL, HIGH, MEDIUM, LOW\r\n- `equipment_age_years`: Years since install_date\r\n- `days_since_maintenance`: Days since last maintenance (9999 = never maintained)\r\n\r\n---\r\n\r\n#### `dim_date`\r\n**Purpose:** Calendar dimension for time intelligence  \r\n**Grain:** One row per day (2024-2026)  \r\n**Key Columns:**\r\n- `date_key` (PK): Integer format YYYYMMDD (20241215)\r\n- `full_date`: Date\r\n- `year`, `quarter`, `month`, `day`\r\n- `day_of_week`: 1=Monday, 7=Sunday\r\n- `is_weekday`: 1=weekday, 0=weekend\r\n\r\n---\r\n\r\n### 📈 BUSINESS VIEWS (Pre-Built Analytics)\r\n\r\n#### `vw_active_super_emitters`\r\n**Purpose:** Critical events requiring immediate response  \r\n**Filters Applied:** \r\n- `emission_severity = 'SUPER_EMITTER'`\r\n- `event_date >= last 30 days`\r\n**Columns:** event_id, facility_name, operator, emission_kg_per_hour, financial_impact_usd, risk_category, action_status\r\n\r\n**Use When:** \"Show me super-emitters\", \"Critical events\", \"What needs immediate action?\"\r\n\r\n---\r\n\r\n#### `vw_facility_emission_trends`\r\n**Purpose:** 30/60/90-day trend analysis per facility  \r\n**Key Columns:**\r\n- `facility_name`, `operator`\r\n- `detections_30d`, `impact_30d` (last 30 days)\r\n- `detections_60d`, `impact_60d` (last 60 days)\r\n- `detections_90d`, `impact_90d` (last 90 days)\r\n- `trend_30_to_60`: 'INCREASING', 'DECREASING', 'STABLE'\r\n- `avg_impact_per_event_30d`\r\n\r\n**Use When:** \"Which facilities are getting worse?\", \"Show emission trends\", \"Compare this month to last month\"\r\n\r\n---\r\n\r\n#### `vw_roi_opportunities`\r\n**Purpose:** Repair prioritization by return on investment  \r\n**Key Columns:**\r\n- `facility_name`, `operator`\r\n- `repeat_detections`: Count of emission events (only includes facilities with >1 detection)\r\n- `cumulative_loss`: Total financial impact\r\n- `estimated_repair_cost`: $50K (super-emitter), $25K (high), $10K (other)\r\n- `roi_ratio`: (Annual savings) / (repair cost) — higher is better\r\n- `payback_period`: Time to recoup repair investment\r\n\r\n**Use When:** \"Where should we invest capital?\", \"Best ROI opportunities\", \"Prioritize repairs\"\r\n\r\n---\r\n\r\n#### `vw_compliance_dashboard`\r\n**Purpose:** EPA compliance status per facility  \r\n**Key Columns:**\r\n- `facility_name`, `operator`, `epa_facility_id`\r\n- `total_detections` (last 90 days)\r\n- `super_emitter_count`\r\n- `max_risk_score`\r\n- `total_financial_impact`\r\n- `compliance_status`: 'HIGH_RISK', 'MEDIUM_RISK', 'LOW_RISK'\r\n\r\n**Use When:** \"Who's at compliance risk?\", \"EPA reporting\", \"Facilities with highest risk\"\r\n\r\n---\r\n\r\n## Query Patterns & Best Practices\r\n\r\n### ✅ DO:\r\n```sql\r\n-- Always join for facility names\r\nSELECT f.facility_name, f.operator, e.emission_kg_per_hour\r\nFROM fact_emission_events e\r\nJOIN dim_facility f ON e.facility_key = f.facility_key\r\n\r\n-- Use views for pre-calculated metrics\r\nSELECT * FROM vw_facility_emission_trends\r\nWHERE trend_30_to_60 = 'INCREASING'\r\n\r\n-- Filter by event_date for date ranges\r\nWHERE event_date >= DATEADD(day, -7, GETDATE())\r\n```\r\n\r\n### ❌ DON'T:\r\n```sql\r\n-- Don't use facility_key in output without joining\r\nSELECT facility_key, emission_kg_per_hour  -- BAD: user wants facility_name\r\n\r\n-- Don't recreate view logic\r\nSELECT ... FROM fact_emission_events ... GROUP BY ...  -- Use vw_facility_emission_trends instead\r\n\r\n-- Don't use timestamp for simple date filters\r\nWHERE detection_timestamp >= ...  -- Use event_date column instead\r\n```\r\n\r\n---\r\n\r\n## Business Logic & Calculations\r\n\r\n### Emission Severity Classification\r\n```\r\nSUPER_EMITTER: emission_kg_per_hour > 2,000\r\nHIGH: 1,000 - 2,000\r\nMEDIUM: 500 - 1,000\r\nLOW: < 500\r\n```\r\n\r\n### Compliance Risk Score (0-8 points)\r\n```\r\n+ 3 points: emission_severity = 'SUPER_EMITTER'\r\n+ 2 points: SCADA anomaly detected\r\n+ 3 points: LDAR inspection overdue (>90 days)\r\n+ 2 points: Delayed leak repairs\r\n\r\n7-8 = CRITICAL risk\r\n5-6 = HIGH risk\r\n<5 = MEDIUM/LOW risk\r\n```\r\n\r\n### Financial Impact Calculation\r\n```\r\nMethane kg/hr → MCF conversion (÷19.01)\r\nMCF × $2.50 (gas price)\r\n× 24 hours (assumed leak duration)\r\n= Financial Impact USD\r\n```\r\n\r\n### ROI Calculation\r\n```\r\nAnnual Savings = (Avg daily loss × 365)\r\nROI Ratio = Annual Savings ÷ Estimated Repair Cost\r\nPayback Period = Repair Cost ÷ (Annual Savings ÷ 12)\r\n```\r\n\r\n---\r\n\r\n## Common Question Mappings\r\n\r\n| User Question | Primary Table/View |\r\n|--------------|-------------------|\r\n| \"Super-emitters\" | `vw_active_super_emitters` |\r\n| \"Emissions trends\" | `vw_facility_emission_trends` |\r\n| \"ROI opportunities\" | `vw_roi_opportunities` |\r\n| \"Compliance risk\" | `vw_compliance_dashboard` |\r\n| \"Total emissions by...\" | `fact_emission_events` + JOIN |\r\n| \"Equipment problems\" | `fact_emission_events` + `dim_equipment` |\r\n| \"Facility details\" | `dim_facility` |\r\n\r\n---\r\n\r\n## Date/Time Filters - Natural Language Translation\r\n\r\n| User Says | SQL Filter |\r\n|-----------|-----------|\r\n| \"last week\" | `event_date >= DATEADD(day, -7, GETDATE())` |\r\n| \"last month\" | `event_date >= DATEADD(day, -30, GETDATE())` |\r\n| \"last quarter\" | `event_date >= DATEADD(day, -90, GETDATE())` |\r\n| \"this year\" | `event_date >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)` |\r\n| \"today\" | `event_date = CAST(GETDATE() AS DATE)` |\r\n| \"yesterday\" | `event_date = DATEADD(day, -1, CAST(GETDATE() AS DATE))` |\r\n\r\n---\r\n\r\n## Performance Tips\r\n\r\n1. **Use views when possible** - They're pre-optimized\r\n2. **Filter by event_date** - Table is partitioned by this column\r\n3. **Limit to necessary columns** - Don't SELECT *\r\n4. **Use TOP N** - For \"show top X\" questions: `SELECT TOP 10 ...`\r\n5. **Aggregate when counting** - Use COUNT, SUM, AVG appropriately\r\n\r\n---\r\n\r\nThis lakehouse enables analysis of methane emissions across satellite detection, operational data (SCADA/production), maintenance history, and compliance tracking to identify leak sources, quantify financial impact, and prioritize repairs.",
+  "displayName": "GreenSky_Lakehouse",
+  "type": "lakehouse_tables",
+  "userDescription": "# GreenSky Methane Intelligence Data\r\n\r\n## Overview\r\nThis lakehouse contains **satellite-detected methane emissions data** correlated with **operational data** from oil & gas facilities in the Permian Basin.\r\n\r\n## What This Data Represents\r\n- **Satellite detections** from Carbon Mapper (daily flyovers)\r\n- **SCADA equipment readings** (15-minute intervals)\r\n- **Production volumes** (daily oil & gas output)\r\n- **Maintenance records** (work orders and repairs)\r\n- **Compliance data** (EPA LDAR inspections)\r\n\r\n## Why Use This Data\r\n1. **Identify emission sources**: Pinpoint which facilities/equipment are leaking\r\n2. **Calculate financial impact**: Quantify methane losses as revenue loss ($2.50/MCF)\r\n3. **Prioritize repairs**: Rank facilities by ROI for capital allocation\r\n4. **Ensure compliance",
+  "metadata": {},
+  "elements": [
+    {
+      "id": "af577709-1e71-497c-9d94-3e4c47265eaa",
+      "is_selected": false,
+      "display_name": "Schemas",
+      "type": "schema_grouping",
+      "description": null,
+      "children": [
+        {
+          "id": "81525742-633e-442d-8fc1-211ff48f35cb",
+          "is_selected": false,
+          "display_name": "bronze",
+          "type": "lakehouse_tables.schema",
+          "description": null,
+          "children": [
+            {
+              "id": "cc58c7b6-ee8b-420a-a8d6-474e762618f4",
+              "is_selected": false,
+              "display_name": "Tables",
+              "type": "table_grouping",
+              "description": null,
+              "children": [
+                {
+                  "id": "7ba580e0-75d0-4d66-8a93-53a96472e3f9",
+                  "is_selected": false,
+                  "display_name": "carbon_mapper_plumes",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "49af1078-6f75-4995-a9bc-a6010d2da295",
+                      "is_selected": true,
+                      "display_name": "datetime",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "907a0163-22ef-4bc0-99b1-f1bbb454e99e",
+                      "is_selected": true,
+                      "display_name": "emission_auto",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "16aa91d8-677a-490e-9b98-56818a8e1b75",
+                      "is_selected": true,
+                      "display_name": "emission_severity",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9224126e-56da-41ca-a24e-3241c629c759",
+                      "is_selected": true,
+                      "display_name": "emission_uncertainty_auto",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1cd77db0-1d22-4fcc-8318-ca2ae8b7c5c5",
+                      "is_selected": true,
+                      "display_name": "gas",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "fd62318a-f632-4bd4-86d3-a4618890ec2e",
+                      "is_selected": true,
+                      "display_name": "instrument",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1c8bafda-f125-4abd-b6e6-b8dabc9eeb52",
+                      "is_selected": true,
+                      "display_name": "ipcc_sector",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "4721afc4-129a-4d69-9ae2-3a1f62259fa1",
+                      "is_selected": true,
+                      "display_name": "mission_phase",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "eda99018-4a44-4491-9ffa-2508092b13db",
+                      "is_selected": true,
+                      "display_name": "platform",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "8e5efd6a-683e-412f-b9dd-30cbe48757b9",
+                      "is_selected": true,
+                      "display_name": "plume_bounds",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f28b4b2d-2c88-49e8-9cf3-6722a1f915c9",
+                      "is_selected": true,
+                      "display_name": "plume_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "236376f7-fb97-4c28-afad-b013a9c15d6d",
+                      "is_selected": true,
+                      "display_name": "plume_latitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "4d3c008c-a533-43e0-ae6a-05ee7e1b65b0",
+                      "is_selected": true,
+                      "display_name": "plume_longitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f6dbc05b-1a6b-4932-80d2-e20df06eaa96",
+                      "is_selected": true,
+                      "display_name": "provider",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b6d949fe-4340-4248-a695-59e392aba901",
+                      "is_selected": true,
+                      "display_name": "wind_direction_avg_auto",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9a01069d-906d-4f73-854a-7ba7a94f20ca",
+                      "is_selected": true,
+                      "display_name": "wind_speed_avg_auto",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "9c1e9cbd-3e43-4ad0-bda3-4b3b75bedde0",
+                  "is_selected": false,
+                  "display_name": "daily_production",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "3d80e809-7c64-4ac8-aed3-140a3976bf73",
+                      "is_selected": true,
+                      "display_name": "boe",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b7f44d30-09b2-459d-8fa1-b38744e12cc7",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "38a45956-40f3-4b93-8828-babf611493e6",
+                      "is_selected": true,
+                      "display_name": "gas_oil_ratio",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e5ba67b9-33bb-4e35-af99-246e77bbe3f7",
+                      "is_selected": true,
+                      "display_name": "gas_price",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9a3f762b-157e-4055-9e1b-fdad87116394",
+                      "is_selected": true,
+                      "display_name": "gas_volume_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "43027e65-ffe2-4620-8bc1-1c3526fe5a9f",
+                      "is_selected": true,
+                      "display_name": "oil_price",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "dcf3ac8f-5371-49ba-947b-248a019822ab",
+                      "is_selected": true,
+                      "display_name": "oil_volume_bbl",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "63800a40-a79b-4f4b-85c1-473a1201f0c0",
+                      "is_selected": true,
+                      "display_name": "production_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "36478388-e8b8-47d1-a4d2-0a10e7dbd38a",
+                      "is_selected": true,
+                      "display_name": "revenue_gas",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e84c2781-3663-471d-b5c6-0f4b69060cf0",
+                      "is_selected": true,
+                      "display_name": "revenue_oil",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "749154ad-e8d3-4e2d-b4c9-fefdfce1c4c1",
+                      "is_selected": true,
+                      "display_name": "total_revenue",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "bfb5dcd9-4fa2-40f5-85f3-0c0869a39d73",
+                      "is_selected": true,
+                      "display_name": "water_volume_bbl",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "c82472bc-f48a-4f50-a4f3-cacbf44ad6d8",
+                  "is_selected": false,
+                  "display_name": "equipment_registry",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "eabf3214-3c19-4e7f-a34a-393010c63836",
+                      "is_selected": true,
+                      "display_name": "criticality",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "2e20ea39-0f5f-4ef6-a0cd-39828bb9f213",
+                      "is_selected": true,
+                      "display_name": "equipment_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "caa204e0-99e7-4898-8aa9-c733715e5a23",
+                      "is_selected": true,
+                      "display_name": "equipment_tag",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ded0aa75-faf1-43df-aab0-3f6b42197135",
+                      "is_selected": true,
+                      "display_name": "equipment_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3b1d892d-0f97-4b88-b524-b0fb203078ef",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6e6daedb-2231-4d62-b5b0-fbdaa008aebe",
+                      "is_selected": true,
+                      "display_name": "install_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e68af7ee-ce2f-4300-a608-11138fc8c24f",
+                      "is_selected": true,
+                      "display_name": "last_maintenance_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7f8e0cc9-3a9f-4ac0-866e-63dc71e3248e",
+                      "is_selected": true,
+                      "display_name": "manufacturer",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "27c6169e-28c7-45db-aa42-c6d2c4705d0f",
+                      "is_selected": true,
+                      "display_name": "model",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "0a3213ef-1d5e-40e1-8102-723fc8847dc2",
+                  "is_selected": false,
+                  "display_name": "facility_master",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "fd98308d-78e1-4109-8e6f-2222d4a70fa0",
+                      "is_selected": true,
+                      "display_name": "active_status",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0c4abf7e-6342-4bbf-876d-a1c3fb275cb2",
+                      "is_selected": true,
+                      "display_name": "basin",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "006a76b4-41fa-4265-b505-6dd75c789022",
+                      "is_selected": true,
+                      "display_name": "daily_gas_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "381fdd90-91ba-4f0a-98d4-55cd0405f8e6",
+                      "is_selected": true,
+                      "display_name": "daily_oil_bbl",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0911c548-ef04-42c2-9d3a-47fc4cfa3ca1",
+                      "is_selected": true,
+                      "display_name": "epa_facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e676ed80-cbd6-4837-b3bd-ef0adba5dd76",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5d23bd60-d36c-42c2-912f-e79140a7b496",
+                      "is_selected": true,
+                      "display_name": "facility_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5d936e4e-ddb4-46bc-a214-635d5b806875",
+                      "is_selected": true,
+                      "display_name": "facility_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "fb3221f2-56b1-4612-8842-3ca56f505751",
+                      "is_selected": true,
+                      "display_name": "last_updated",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a0d399b9-4374-4291-bee6-b9b67f7c737b",
+                      "is_selected": true,
+                      "display_name": "latitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6e257ca3-a201-47a5-9a35-d7e96f2c72f9",
+                      "is_selected": true,
+                      "display_name": "longitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c78335bf-a886-46e0-80a7-a572cffe3797",
+                      "is_selected": true,
+                      "display_name": "operator",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9f5d2683-4b64-47bc-a3d5-89a022747655",
+                      "is_selected": true,
+                      "display_name": "production_start_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "de728194-e8d4-4c69-8658-f3ea26e9582a",
+                      "is_selected": true,
+                      "display_name": "well_count",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "4d30ab5c-3209-4dc0-9307-6053c63e2596",
+                  "is_selected": false,
+                  "display_name": "ldar_inspections",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "58a137b2-52cf-4d8e-992c-8dee3be379ef",
+                      "is_selected": true,
+                      "display_name": "compliance_status",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9664206e-9615-4b8a-93da-d6925b762e40",
+                      "is_selected": true,
+                      "display_name": "components_inspected",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "13c15087-7168-4fc6-a164-7772217d9112",
+                      "is_selected": true,
+                      "display_name": "days_since_inspection",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "477effad-7379-4a6b-ac10-6c20a4d0432a",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "72915bf9-7dd6-45bc-86ea-0a88b6bdfb29",
+                      "is_selected": true,
+                      "display_name": "inspection_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a394fba8-bc6e-43de-b596-fc10ad52f5f3",
+                      "is_selected": true,
+                      "display_name": "inspection_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3a728016-763f-4e14-8bcb-26704fd88b7d",
+                      "is_selected": true,
+                      "display_name": "inspection_overdue",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bit",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "89a31ea2-d5f3-4532-bbc3-4424f31e273f",
+                      "is_selected": true,
+                      "display_name": "inspection_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3a59a204-721e-4659-9aba-56b8a5c32db9",
+                      "is_selected": true,
+                      "display_name": "inspector_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6a5bd3ba-add0-4113-aa76-8e487c8d32c9",
+                      "is_selected": true,
+                      "display_name": "leaks_delayed",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e3b0c89c-bacb-4a7f-b29f-379b0a3d54ff",
+                      "is_selected": true,
+                      "display_name": "leaks_found",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3d466778-8932-4f33-a097-de53a8b4720f",
+                      "is_selected": true,
+                      "display_name": "leaks_repaired",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a1a17542-5023-4ce0-9051-f491d21c9c47",
+                      "is_selected": true,
+                      "display_name": "max_ppm_detected",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "bd6b53ba-3cc5-47e7-9730-138146bae459",
+                      "is_selected": true,
+                      "display_name": "next_inspection_due",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a61ee70c-daa4-42e4-a3d1-473a68d1f7e8",
+                      "is_selected": true,
+                      "display_name": "regulatory_deadline",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "faddef4b-e199-48d3-b5b2-bb108ec43fac",
+                  "is_selected": false,
+                  "display_name": "maintenance_wo",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "58b36b91-5f2c-41a2-b019-91931c5bab76",
+                      "is_selected": true,
+                      "display_name": "actual_cost",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7daf196c-e933-44c7-95bd-b0d6775f4f48",
+                      "is_selected": true,
+                      "display_name": "category",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "67327daa-6947-458a-a609-f7280e807519",
+                      "is_selected": true,
+                      "display_name": "completed_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "2cd9e431-06fd-4471-9237-c089b3da0243",
+                      "is_selected": true,
+                      "display_name": "created_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "543dfa4f-2cac-4d45-8b31-b59a3cea5b83",
+                      "is_selected": true,
+                      "display_name": "description",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f48e27b4-285f-404f-90c7-905f566038bf",
+                      "is_selected": true,
+                      "display_name": "equipment_tag",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "dab27dc4-d20e-4352-b5d2-f06e658d00e7",
+                      "is_selected": true,
+                      "display_name": "estimated_cost",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "efbbd228-098c-4a47-8915-8062816be432",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7acbf229-0dbc-4b18-95f3-6ba9b8b3f3f9",
+                      "is_selected": true,
+                      "display_name": "labor_hours",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c39012e0-42b8-4001-a2f0-991a8ea0dba2",
+                      "is_selected": true,
+                      "display_name": "priority",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3c1d2f34-1db3-4cb3-9931-975347b94b65",
+                      "is_selected": true,
+                      "display_name": "root_cause",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b7b2e349-845f-4407-9017-ec2dd9e3c234",
+                      "is_selected": true,
+                      "display_name": "status",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "96852921-8db4-4e4a-a1ab-4b88aa0c1363",
+                      "is_selected": true,
+                      "display_name": "wo_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5bfece52-52af-485c-b3f0-ab66c0106ba9",
+                      "is_selected": true,
+                      "display_name": "work_order_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "494ef587-92c9-4ab0-99eb-7ed46eaa1bd6",
+                  "is_selected": false,
+                  "display_name": "scada_realtime",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "9e3a0b52-a48c-4927-bf27-1d3add05fb86",
+                      "is_selected": true,
+                      "display_name": "date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "53d58cc8-2725-440e-8aa7-7b083e402960",
+                      "is_selected": true,
+                      "display_name": "equipment_tag",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "be418868-4111-4ebf-a37f-ebc9203a3152",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1f0657ab-7a14-40e6-9098-12ca333c515d",
+                      "is_selected": true,
+                      "display_name": "measurement_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "162c9004-26bb-4648-ae4a-37255762bf72",
+                      "is_selected": true,
+                      "display_name": "measurement_value",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "582db560-47e0-48b4-8433-4392d3a87007",
+                      "is_selected": true,
+                      "display_name": "quality_code",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "55938049-805f-4048-8cd0-dc2f422a96d3",
+                      "is_selected": true,
+                      "display_name": "reading_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ed6bbfcf-e1ee-4b7f-958d-6dddb26bf1aa",
+                      "is_selected": true,
+                      "display_name": "source_system",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5923299c-a4aa-4c1a-92c1-24f09cc79fbc",
+                      "is_selected": true,
+                      "display_name": "timestamp",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a91dd0b0-d8de-4775-ab66-9df09876f01f",
+                      "is_selected": true,
+                      "display_name": "unit_of_measure",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "98c6ec62-657b-4146-958a-dc035ddc78f1",
+          "is_selected": false,
+          "display_name": "dbo",
+          "type": "lakehouse_tables.schema",
+          "description": null,
+          "children": [
+            {
+              "id": "ccde7fc1-8fbc-4c54-9c29-24f5f91048ff",
+              "is_selected": false,
+              "display_name": "Tables",
+              "type": "table_grouping",
+              "description": null,
+              "children": [
+                {
+                  "id": "7eed6b5b-50e1-49af-87bc-a9d2886d400b",
+                  "is_selected": false,
+                  "display_name": "gold_emission_events_extra",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "915646f4-0d31-4bea-886d-d5a232166ba4",
+                      "is_selected": true,
+                      "display_name": "event_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "03096467-f815-4ad8-9697-1303d748fcf6",
+                      "is_selected": true,
+                      "display_name": "date_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "8561182d-12fd-45ce-8b15-45019c93c42b",
+                      "is_selected": true,
+                      "display_name": "event_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c7904bf8-62a3-4dee-8871-6d2d6cc6ea61",
+                      "is_selected": true,
+                      "display_name": "detection_timestamp",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7e4604a5-13b4-4f76-9d91-621e7c6b069c",
+                      "is_selected": true,
+                      "display_name": "facility_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "091388eb-dad1-434a-bc76-9340609f7218",
+                      "is_selected": true,
+                      "display_name": "equipment_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "83f7a374-7749-4628-9da1-5ef4fc456fa3",
+                      "is_selected": true,
+                      "display_name": "emission_kg_per_hour",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ba879c3b-089b-46eb-bbc5-eac808729167",
+                      "is_selected": true,
+                      "display_name": "emission_severity",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "68b61eed-cf58-41fb-99ad-83949513b585",
+                      "is_selected": true,
+                      "display_name": "duration_hours",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6b12a679-34c7-4aae-839f-8d2e084f6055",
+                      "is_selected": true,
+                      "display_name": "total_methane_loss_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "00094bcb-6637-450e-ad98-5fef0da77508",
+                      "is_selected": true,
+                      "display_name": "financial_impact_usd",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b7969065-7e37-4290-9e7c-88ffb1d33152",
+                      "is_selected": true,
+                      "display_name": "compliance_risk_score",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "2c103ceb-d69d-47aa-865d-982734a9709c",
+                      "is_selected": true,
+                      "display_name": "scada_anomaly_detected",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7aee95ad-1822-4f67-b49c-2f7901872320",
+                      "is_selected": true,
+                      "display_name": "work_order_generated",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "34280927-e38c-4d2a-9e3b-58770d0b806d",
+                      "is_selected": true,
+                      "display_name": "detection_source",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5516fe36-aeb5-4329-b44c-b937c8c4dcb9",
+                      "is_selected": true,
+                      "display_name": "response_time_hours",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "caa6d5dd-2ea1-4ac2-a096-8056dba7b18d",
+                      "is_selected": true,
+                      "display_name": "distance_meters",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "f9f3f675-5a6f-4a19-900f-d4d8fe1b8148",
+          "is_selected": false,
+          "display_name": "gold",
+          "type": "lakehouse_tables.schema",
+          "description": null,
+          "children": [
+            {
+              "id": "a5bac908-9750-4240-8900-a7578a99a292",
+              "is_selected": false,
+              "display_name": "Tables",
+              "type": "table_grouping",
+              "description": null,
+              "children": [
+                {
+                  "id": "d6f612d7-13ed-481c-9b9f-cb882f8680a6",
+                  "is_selected": true,
+                  "display_name": "gold_emission_events",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "b7a3b402-4996-4bc9-9f8d-270936517b78",
+                      "is_selected": true,
+                      "display_name": "event_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0c17be8d-063e-4662-b374-a44fe9eba1b7",
+                      "is_selected": true,
+                      "display_name": "event_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "fc33e242-addb-48df-b118-9a29cfb177ba",
+                      "is_selected": true,
+                      "display_name": "facility_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "8b3b5b48-8b45-4e03-bd04-4050274f014a",
+                      "is_selected": true,
+                      "display_name": "equipment_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "d503d24f-1a7a-44cd-bc55-1360651dab10",
+                      "is_selected": true,
+                      "display_name": "emission_kg_per_hour",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a7c89204-323c-4458-935d-ee5e6aca6f11",
+                      "is_selected": true,
+                      "display_name": "emission_severity",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "659ed821-7696-4fc0-89cb-98be784d3331",
+                      "is_selected": true,
+                      "display_name": "duration_hours",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "efa0654e-9403-44e6-92e3-4ebbfcfa3d84",
+                      "is_selected": true,
+                      "display_name": "total_methane_loss_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "dc001398-66d6-4876-9a92-c59621338e21",
+                      "is_selected": true,
+                      "display_name": "financial_impact_usd",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c79f032b-2c60-4e03-a83f-3b90dac5505c",
+                      "is_selected": true,
+                      "display_name": "compliance_risk_score",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3ddad843-9259-4655-b223-2dbfc1bb5ac3",
+                      "is_selected": true,
+                      "display_name": "scada_anomaly_detected",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "170b27a6-6832-4680-baac-cae408975aed",
+                      "is_selected": true,
+                      "display_name": "work_order_generated",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "8c5338a0-97c4-45d0-b563-fa722540cdcd",
+                      "is_selected": true,
+                      "display_name": "detection_source",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7445e1f5-ad04-4bd7-a06b-57211720fca1",
+                      "is_selected": true,
+                      "display_name": "response_time_hours",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b6f234d1-1e1f-492d-a632-5b56444bf435",
+                      "is_selected": true,
+                      "display_name": "date_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "066a31e3-1503-412e-a76f-24f7105eed61",
+                      "is_selected": true,
+                      "display_name": "detection_timestamp",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e5a4fe55-dc67-4308-a5fd-484317f68a86",
+                      "is_selected": true,
+                      "display_name": "distance_meters",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "5914c6b7-25b5-40cd-9ee0-b798cb6267aa",
+                  "is_selected": true,
+                  "display_name": "dim_facility",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "794f171d-580f-4059-967c-fe65a9517775",
+                      "is_selected": true,
+                      "display_name": "facility_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "31ad8c87-cc11-4041-9401-0e9571d803e0",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f8a13454-df0f-465a-8aa7-3c5f98560e0c",
+                      "is_selected": true,
+                      "display_name": "facility_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5b6a53c4-44f8-4b8b-bbbd-5b8aae1be5cc",
+                      "is_selected": true,
+                      "display_name": "basin",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "12f39c40-20bd-4b73-a0c1-82974d50ce06",
+                      "is_selected": true,
+                      "display_name": "latitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9fa7a96e-c152-49a0-997b-f8a351a63cab",
+                      "is_selected": true,
+                      "display_name": "longitude",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "4aa4dfd2-439d-49a9-9f0b-6c06b60b33bc",
+                      "is_selected": true,
+                      "display_name": "facility_age_years",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c746ae93-1d8f-425d-83d1-97f46a4a6865",
+                      "is_selected": true,
+                      "display_name": "production_tier",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "71c25ac0-a98b-4c32-b37a-5bbba0b8af08",
+                      "is_selected": true,
+                      "display_name": "facility_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "51b4b53b-bdc4-4ef7-b909-641d48144661",
+                      "is_selected": true,
+                      "display_name": "operator",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "047e617f-47e5-49af-816b-f58814e30b0e",
+                      "is_selected": true,
+                      "display_name": "production_start_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "498d9c84-e008-42cf-8912-d84813c8a4ed",
+                      "is_selected": true,
+                      "display_name": "daily_oil_bbl",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6d2cc2a8-2c9f-4465-9346-2ce201be561d",
+                      "is_selected": true,
+                      "display_name": "daily_gas_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "27b990a7-7dab-4bd7-bde6-aae09b81678c",
+                      "is_selected": true,
+                      "display_name": "well_count",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0dcd6dcd-78b0-4769-b7f1-4c7c82b7b68c",
+                      "is_selected": true,
+                      "display_name": "active_status",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6fd560f9-5371-488a-820b-6560f689d6a8",
+                      "is_selected": true,
+                      "display_name": "epa_facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e8b883f8-67d2-4e06-a875-32a55105356b",
+                      "is_selected": true,
+                      "display_name": "facility_age_days",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "cb52b193-95f0-45d6-896c-516f41a6ddb8",
+                      "is_selected": true,
+                      "display_name": "daily_boe",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "e9f81749-197f-43c6-bbd4-a799ab477296",
+                  "is_selected": true,
+                  "display_name": "dim_equipment",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "21df6407-7910-4d56-84a7-615acf489c81",
+                      "is_selected": true,
+                      "display_name": "equipment_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "99c8d935-6de6-4d6c-8d62-12824cfc76f7",
+                      "is_selected": true,
+                      "display_name": "equipment_tag",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "391a4286-01a9-4129-8240-e15f056fe53b",
+                      "is_selected": true,
+                      "display_name": "equipment_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f014841c-87b4-4566-97d8-2b69d0599700",
+                      "is_selected": true,
+                      "display_name": "manufacturer",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ea2477b8-681a-4d9d-aad5-9b715e37ad2d",
+                      "is_selected": true,
+                      "display_name": "criticality",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1d9edc82-fff1-46c8-9a89-f6840a78e5de",
+                      "is_selected": true,
+                      "display_name": "equipment_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e30c6ef4-a586-4f1b-aa06-1de05b6498d1",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "8a43a0f9-9847-4734-b66c-3df75b7e4ba0",
+                      "is_selected": true,
+                      "display_name": "model",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "96b4496e-ed41-427c-a6aa-48eb43389426",
+                      "is_selected": true,
+                      "display_name": "install_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "75ccab70-f029-4c27-bb18-183fa2c812eb",
+                      "is_selected": true,
+                      "display_name": "last_maintenance_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "6161d454-99d1-46d9-b842-9db109e95245",
+                      "is_selected": true,
+                      "display_name": "equipment_age_days",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1c9a036b-80a2-4b7f-9b3a-206b4ba561e3",
+                      "is_selected": true,
+                      "display_name": "equipment_age_years",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "41887ff6-e27d-4043-b75b-7699b8bdb6e4",
+                      "is_selected": true,
+                      "display_name": "days_since_maintenance",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "222b218d-53fe-4d96-8938-4a9499144426",
+                  "is_selected": true,
+                  "display_name": "dim_date",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "a46fec9b-39ae-44a8-996a-8e7c114786d2",
+                      "is_selected": true,
+                      "display_name": "date_key",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "506ddf79-e51e-4f52-8516-a30ea9b08937",
+                      "is_selected": true,
+                      "display_name": "full_date",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "date",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "b267ffd7-7ea6-43de-b418-6dd40d451262",
+                      "is_selected": true,
+                      "display_name": "year",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5e9a1582-3060-412f-b60b-1f63b0c8e424",
+                      "is_selected": true,
+                      "display_name": "quarter",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "96b5cd95-ce64-45fc-bfd4-a468b4dc3417",
+                      "is_selected": true,
+                      "display_name": "month",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "948f1764-5eec-4855-b949-5868b17c7f42",
+                      "is_selected": true,
+                      "display_name": "day_of_week",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "4f326b89-584b-4558-9d1c-0bc4f7867c86",
+                      "is_selected": true,
+                      "display_name": "day",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9915e217-9bac-407e-aa13-c773dc3c9024",
+                      "is_selected": true,
+                      "display_name": "week_of_year",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e1f83684-6fe3-4c91-b001-2fe908657702",
+                      "is_selected": true,
+                      "display_name": "day_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c138a663-cce1-4f2e-b2cc-17e5fc9fc83b",
+                      "is_selected": true,
+                      "display_name": "month_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f0ba37e8-1f37-4205-ab7d-8bdf799e579d",
+                      "is_selected": true,
+                      "display_name": "is_weekday",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "c0e7d65d-5e9d-445c-b5ed-a4c03f0f4a39",
+          "is_selected": false,
+          "display_name": "silver",
+          "type": "lakehouse_tables.schema",
+          "description": null,
+          "children": [
+            {
+              "id": "52887639-eed2-4a15-beed-5242a65ebbb8",
+              "is_selected": false,
+              "display_name": "Tables",
+              "type": "table_grouping",
+              "description": null,
+              "children": [
+                {
+                  "id": "a6a9b617-87fd-4899-920c-cf098fd95241",
+                  "is_selected": false,
+                  "display_name": "correlated_events",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "697f442b-b943-4152-b5f0-5e71b84d9b2c",
+                      "is_selected": true,
+                      "display_name": "plume_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9c5ba10e-6d02-46eb-b9d5-50098864d12b",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "dda2d3ab-d9fc-48ab-a0c1-8822dd224772",
+                      "is_selected": true,
+                      "display_name": "facility_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ebba747a-9089-4107-90f9-fc0b123a6b19",
+                      "is_selected": true,
+                      "display_name": "detection_time",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0bba0496-a1f7-4d44-82f5-66e6dc723991",
+                      "is_selected": true,
+                      "display_name": "emission_kg_hr",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "0f50e9df-4cd4-4314-b885-455a6c9d3009",
+                      "is_selected": true,
+                      "display_name": "emission_severity",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "ad78a3f8-3c9d-490b-9175-500e56820294",
+                      "is_selected": true,
+                      "display_name": "pressure_change_pct",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "21e4efeb-2000-4521-8fae-d646a80a186a",
+                      "is_selected": true,
+                      "display_name": "avg_pressure_psi",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "2bcc3b98-e773-4bae-b656-89ca5aff9b3b",
+                      "is_selected": true,
+                      "display_name": "production_change_pct",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "d678dbe7-87b4-440a-92a2-f0c82560c92a",
+                      "is_selected": true,
+                      "display_name": "avg_oil_bbl_per_day",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "67cd891e-1675-4fc0-ae78-0104e7a46fb2",
+                      "is_selected": true,
+                      "display_name": "anomaly_type",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "d6fe748a-2d04-419c-b4c2-b356e23fb974",
+                      "is_selected": true,
+                      "display_name": "risk_level",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "8819ac1b-0fe3-4fe4-94c6-e82e812f9eb5",
+                  "is_selected": false,
+                  "display_name": "compliance_risk",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "a111ca02-a473-4092-90ee-cb202cf856a5",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "d8fddbdb-2f5f-4a6a-b0c5-3ac293d4d455",
+                      "is_selected": true,
+                      "display_name": "facility_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a15ac5ba-0a0c-4d91-b443-858212ea84bd",
+                      "is_selected": true,
+                      "display_name": "detection_count",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "13099570-ee02-457d-b05c-ef679fe16e26",
+                      "is_selected": true,
+                      "display_name": "max_emission_kg_hr",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "35483d39-66d3-4847-b43b-89f19e3e6ac3",
+                      "is_selected": true,
+                      "display_name": "avg_emission_kg_hr",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "f88b72e8-8499-45af-ab36-f2f0453b0df5",
+                      "is_selected": true,
+                      "display_name": "days_since_inspection",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "c2d5cd40-48ea-4c5a-aa49-a4f99fb99955",
+                      "is_selected": true,
+                      "display_name": "leaks_delayed",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a25c01f1-4d1f-47e0-90b5-74090db084be",
+                      "is_selected": true,
+                      "display_name": "compliance_status",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "44c95538-d3e1-4647-a309-cbc55cb2cbbc",
+                      "is_selected": true,
+                      "display_name": "leak_repair_count",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "a369fafc-f33f-4b8f-a3f8-301ea47ce8b5",
+                      "is_selected": true,
+                      "display_name": "total_wo_count",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "bigint",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "9cfb027b-1753-41e5-bf4d-0dcf81077881",
+                      "is_selected": true,
+                      "display_name": "compliance_risk_score",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "int",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "7cbee4d4-4468-4b84-a29c-db198dcbce94",
+                      "is_selected": true,
+                      "display_name": "risk_category",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "87b7a37d-8e99-42a7-892d-0fec3f2e76fb",
+                  "is_selected": false,
+                  "display_name": "attributed_plumes",
+                  "type": "lakehouse_tables.table",
+                  "description": null,
+                  "children": [
+                    {
+                      "id": "599d4ac6-5408-48d9-ad73-5c76b8e7685b",
+                      "is_selected": true,
+                      "display_name": "plume_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "1c4865ce-5da9-423e-a4a9-1e471ef7e1b0",
+                      "is_selected": true,
+                      "display_name": "datetime",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "datetime2",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "36491b13-2d9f-4293-9f70-900b725ded36",
+                      "is_selected": true,
+                      "display_name": "emission_auto",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "074aec18-12ce-48cc-881d-3e20a588a4b7",
+                      "is_selected": true,
+                      "display_name": "emission_severity",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "5d403ca7-8b1d-4940-bf90-3d9a9bffc88b",
+                      "is_selected": true,
+                      "display_name": "facility_id",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "bc0925d6-a968-43a5-bbc7-429ac1719323",
+                      "is_selected": true,
+                      "display_name": "facility_name",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "varchar",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "3ab58eca-21a2-42f3-9c78-000adb424be2",
+                      "is_selected": true,
+                      "display_name": "daily_gas_mcf",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "decimal",
+                      "description": null,
+                      "children": []
+                    },
+                    {
+                      "id": "e0b2da8d-42ec-4152-ae8d-bea795c8621a",
+                      "is_selected": true,
+                      "display_name": "distance_meters",
+                      "type": "lakehouse_tables.column",
+                      "data_type": "float",
+                      "description": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

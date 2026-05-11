@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataAgent",
+    "displayName": "GreenSky Data Agent"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "cbdfcc61-d63d-8c4b-43e3-6d55d0a92d8d"
+  }
+}

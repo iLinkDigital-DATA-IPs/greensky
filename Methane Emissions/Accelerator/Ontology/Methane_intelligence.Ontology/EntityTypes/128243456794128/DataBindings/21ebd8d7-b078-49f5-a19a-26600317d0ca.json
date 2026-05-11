@@ -1,0 +1,88 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/ontology/dataBinding/1.0.0/schema.json",
+  "id": "21ebd8d7-b078-49f5-a19a-26600317d0ca",
+  "dataBindingConfiguration": {
+    "dataBindingType": "NonTimeSeries",
+    "propertyBindings": [
+      {
+        "sourceColumnName": "facility_key",
+        "targetPropertyId": "6463571880722855437"
+      },
+      {
+        "sourceColumnName": "facility_id",
+        "targetPropertyId": "2966918239739583073"
+      },
+      {
+        "sourceColumnName": "facility_name",
+        "targetPropertyId": "2966918238109956897"
+      },
+      {
+        "sourceColumnName": "facility_type",
+        "targetPropertyId": "6463571880200777988"
+      },
+      {
+        "sourceColumnName": "basin",
+        "targetPropertyId": "6463571882887253848"
+      },
+      {
+        "sourceColumnName": "operator",
+        "targetPropertyId": "6463571881300567573"
+      },
+      {
+        "sourceColumnName": "latitude",
+        "targetPropertyId": "6463571882978832151"
+      },
+      {
+        "sourceColumnName": "longitude",
+        "targetPropertyId": "6463571880915721772"
+      },
+      {
+        "sourceColumnName": "production_start_date",
+        "targetPropertyId": "6463571881680335110"
+      },
+      {
+        "sourceColumnName": "daily_oil_bbl",
+        "targetPropertyId": "6463571882949486801"
+      },
+      {
+        "sourceColumnName": "daily_gas_mcf",
+        "targetPropertyId": "6463571881903467156"
+      },
+      {
+        "sourceColumnName": "well_count",
+        "targetPropertyId": "6463571883589783395"
+      },
+      {
+        "sourceColumnName": "active_status",
+        "targetPropertyId": "6463571880496750457"
+      },
+      {
+        "sourceColumnName": "epa_facility_id",
+        "targetPropertyId": "6463571879613721677"
+      },
+      {
+        "sourceColumnName": "facility_age_days",
+        "targetPropertyId": "6463571880011763661"
+      },
+      {
+        "sourceColumnName": "facility_age_years",
+        "targetPropertyId": "6463571882595146510"
+      },
+      {
+        "sourceColumnName": "production_tier",
+        "targetPropertyId": "6463571883133418439"
+      },
+      {
+        "sourceColumnName": "daily_boe",
+        "targetPropertyId": "6463571880325318033"
+      }
+    ],
+    "sourceTableProperties": {
+      "sourceType": "LakehouseTable",
+      "workspaceId": "00000000-0000-0000-0000-000000000000",
+      "itemId": "55380658-1bfa-82dd-4858-b084427f0431",
+      "sourceTableName": "facility_master",
+      "sourceSchema": "bronze"
+    }
+  }
+}

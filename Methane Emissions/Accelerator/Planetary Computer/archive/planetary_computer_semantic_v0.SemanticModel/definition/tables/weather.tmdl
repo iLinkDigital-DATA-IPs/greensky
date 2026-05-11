@@ -1,0 +1,126 @@
+table weather
+	lineageTag: 30913114-a264-4d57-975b-d759c011ff50
+	sourceLineageTag: [bronze].[weather]
+
+	column dateTime
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 42801bc5-bef0-4f67-8883-d0f71f7e5aaa
+		sourceLineageTag: dateTime
+		summarizeBy: none
+		sourceColumn: dateTime
+
+		annotation SummarizationSetBy = Automatic
+
+	column date
+		dataType: dateTime
+		formatString: General Date
+		lineageTag: 07c0d3ad-dfa6-46d9-879d-b62e67cec462
+		sourceLineageTag: date
+		summarizeBy: none
+		sourceColumn: date
+
+		annotation SummarizationSetBy = Automatic
+
+	column temperature
+		dataType: double
+		lineageTag: 479fb3b7-af6f-4d9e-bc80-45af03529a47
+		sourceLineageTag: temperature
+		summarizeBy: none
+		sourceColumn: temperature
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column relativeHumidity
+		dataType: double
+		lineageTag: d21bd412-3c48-42b1-abca-718a932b2628
+		sourceLineageTag: relativeHumidity
+		summarizeBy: none
+		sourceColumn: relativeHumidity
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column pressure
+		dataType: double
+		lineageTag: 4bc2bac3-97ef-451c-ace6-83b840bf93f5
+		sourceLineageTag: pressure
+		summarizeBy: none
+		sourceColumn: pressure
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column wind_speed
+		dataType: double
+		lineageTag: 02b85191-84cd-4ce9-a3d2-aa4e789c227a
+		sourceLineageTag: wind_speed
+		summarizeBy: none
+		sourceColumn: wind_speed
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column wind_direction
+		dataType: double
+		lineageTag: 6c975a16-81ea-4519-8602-b17ea0af2ce8
+		sourceLineageTag: wind_direction
+		summarizeBy: none
+		sourceColumn: wind_direction
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column latitude
+		dataType: double
+		lineageTag: 5ad4ffa1-db2d-4242-83f6-27de07286ae7
+		sourceLineageTag: latitude
+		summarizeBy: none
+		sourceColumn: latitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column longitude
+		dataType: double
+		lineageTag: 6fbe4213-4ad3-444a-9add-1c8156eef1a1
+		sourceLineageTag: longitude
+		summarizeBy: none
+		sourceColumn: longitude
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column locationName
+		dataType: string
+		lineageTag: 3a4a1c6c-8771-4f9c-8ee5-6543723dcff5
+		sourceLineageTag: locationName
+		summarizeBy: none
+		sourceColumn: locationName
+
+		annotation SummarizationSetBy = Automatic
+
+	column source
+		dataType: string
+		lineageTag: 258373b8-5abe-4b1b-a911-7ac16841305b
+		sourceLineageTag: source
+		summarizeBy: none
+		sourceColumn: source
+
+		annotation SummarizationSetBy = Automatic
+
+	partition weather = entity
+		mode: directLake
+		source
+			entityName: weather
+			schemaName: bronze
+			expressionSource: 'DirectLake - Planetary_computer_LH'
+

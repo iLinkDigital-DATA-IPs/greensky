@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Planetary_computer__report_v0"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "933b62db-c8d6-b724-476f-e3a79d2f9181"
+  }
+}
