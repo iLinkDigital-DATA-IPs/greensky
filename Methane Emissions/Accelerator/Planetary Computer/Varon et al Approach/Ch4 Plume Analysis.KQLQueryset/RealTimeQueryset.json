@@ -1,0 +1,22 @@
+{
+  "queryset": {
+    "version": "1.0.0",
+    "dataSources": [
+      {
+        "id": "e594289c-75c2-4fc0-828b-eb94585d205b",
+        "clusterUri": "https://trd-hv8bbwfdc4d09fum4n.z4.kusto.fabric.microsoft.com",
+        "type": "Fabric",
+        "databaseItemId": "513e882a-5e66-4d27-aab8-8ed8d5304573",
+        "databaseItemName": "Planetary_computer_LH_EventhouseEndpoint"
+      }
+    ],
+    "tabs": [
+      {
+        "id": "85245d31-605a-4ec4-9acb-64811270ee6f",
+        "content": "// Emission rate distribution — binned for histogram\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(emission_rate_kg_s)\n| extend rate_bin = bin(emission_rate_kg_s, 0.05)\n| summarize Count = count() by rate_bin\n| order by rate_bin asc\n\n// Wind speed distribution by confidence\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(wind_speed_ms)\n| summarize \n    Count = count(),\n    MeanEmission = round(avg(emission_rate_kg_s), 4),\n    MeanWindSpeed = round(avg(wind_speed_ms), 2)\n  by emission_rate_confidence, wind_aligned\n\n// Wind direction rose — normalized to 0-360, 16-point compass\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(wind_dir_deg)\n| extend wind_dir_norm = (wind_dir_deg + 360) % 360\n| extend compass_bin = bin(wind_dir_norm, 22.5)\n| summarize \n    Count = count(),\n    MeanEmission = round(avg(emission_rate_kg_s), 4)\n  by compass_bin\n| order by compass_bin asc\n\n// Plume geometry — area quantization check\nexternal_table(\"ch4_plume_catalog\")\n| summarize Count = count() by area_km2\n| order by area_km2 asc\n\n// Elongation distribution\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(elongation)\n| extend elong_bin = bin(elongation, 1.0)\n| summarize Count = count() by elong_bin\n| order by elong_bin asc\n\n// Wind speed vs emission rate — scatter data (high confidence only)\nexternal_table(\"ch4_plume_catalog\")\n| where emission_rate_confidence == \"high\" and isnotnull(wind_speed_ms)\n| project \n    wind_speed_ms,\n    emission_rate_kg_s,\n    area_km2,\n    elongation,\n    source_lat,\n    source_lon,\n    scene_id,\n    plume_id\n\n\n// Geographic clustering — 0.1 degree grid\nexternal_table(\"ch4_plume_catalog\")\n| where emission_rate_confidence == \"high\"\n| extend lat_bin = round(source_lat, 1), lon_bin = round(source_lon, 1)\n| summarize \n    PlumeCount = count(),\n    TotalFlux = round(sum(emission_rate_kg_s), 4),\n    MeanFlux = round(avg(emission_rate_kg_s), 4),\n    MaxFlux = round(max(emission_rate_kg_s), 4)\n  by lat_bin, lon_bin\n| order by TotalFlux desc\n\n\n// Top 20 highest emission plumes\nexternal_table(\"ch4_plume_catalog\")\n| where emission_rate_confidence == \"high\" and wind_aligned == true\n| top 20 by emission_rate_kg_s desc\n| project \n    Rank = row_number(),\n    source_lat, source_lon,\n    emission_rate_kg_s,\n    area_km2, elongation,\n    wind_speed_ms, wind_dir_deg,\n    angle_plume_wind_deg,\n    ime_kg, scene_id, plume_id\n\n// Scene-level aggregation — flux per scene\nexternal_table(\"ch4_plume_catalog\")\n| where emission_rate_confidence == \"high\"\n| summarize \n    PlumeCount = count(),\n    TotalFlux = round(sum(emission_rate_kg_s), 4),\n    MeanFlux = round(avg(emission_rate_kg_s), 4),\n    MaxFlux = round(max(emission_rate_kg_s), 4),\n    MeanArea = round(avg(area_km2), 2)\n  by scene_id\n| order by TotalFlux desc\n\n\n// Peak vs mean CH4 concentration ratio\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(max_delta_ch4_ppb) and mean_delta_ch4_ppb > 0\n| extend peak_to_mean = round(max_delta_ch4_ppb / mean_delta_ch4_ppb, 3)\n| summarize \n    MeanRatio = round(avg(peak_to_mean), 3),\n    P50Ratio = round(percentile(peak_to_mean, 50), 3),\n    MaxRatio = round(max(peak_to_mean), 3)\n  by emission_rate_confidence\n\n// Angle alignment distribution — how well plumes track the wind\nexternal_table(\"ch4_plume_catalog\")\n| where isnotnull(angle_plume_wind_deg)\n| extend angle_bin = bin(angle_plume_wind_deg, 10)\n| summarize Count = count() by angle_bin, emission_rate_confidence\n| order by angle_bin asc",
+        "title": "Core Analysis Queries",
+        "dataSourceId": "e594289c-75c2-4fc0-828b-eb94585d205b"
+      }
+    ]
+  }
+}

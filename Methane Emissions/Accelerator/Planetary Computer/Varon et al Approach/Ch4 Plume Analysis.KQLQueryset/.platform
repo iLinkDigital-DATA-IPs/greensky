@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "KQLQueryset",
+    "displayName": "Ch4 Plume Analysis",
+    "description": "Ch4 Plume Analysis"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "d512e62d-1913-ad4a-4775-3b2d21775e73"
+  }
+}
