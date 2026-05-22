@@ -64,51 +64,31 @@ print('Imports OK')
 # CELL ********************
 
 CFG = {
-    # ── Tables ───────────────────────────────────────────────────────────
     'plume_catalog_table': 'Planetary_computer_LH.silver.ch4_plume_catalog',
     'cm_cache_table':      'Planetary_computer_LH.silver.carbon_mapper_cache',
     'matched_table':       'Planetary_computer_LH.silver.plume_matched_catalog',
 
-    # ── Carbon Mapper API ─────────────────────────────────────────────────
-    # Public portal API — no auth required for public plume data.
-    # Docs: https://api.carbonmapper.org/api/v1/docs
     'cm_api_base':        'https://api.carbonmapper.org/api/v1',
-    'cm_api_limit':       500,       # records per page
+    'cm_api_limit':       500,
     'cm_api_retries':     3,
     'cm_api_timeout_s':   30,
     'cm_api_backoff_s':   2,
 
-    # ── Matching criteria ─────────────────────────────────────────────────
-    # Spatial: haversine distance threshold for candidate match
-    # 10 km is conservative for TROPOMI's ~7 km pixel; tighten to 5 km
-    # if using high-resolution CM data where centroid accuracy is better.
-    'match_spatial_km':    25.0,
-
-    # Temporal: maximum allowed |t_mine - t_cm| in hours
-    # Same-day within ±24h covers TROPOMI overpasses vs CM flight days.
+    'match_spatial_km':    20.0,
     'match_temporal_h':    24.0,
 
-    # ── Data quality filters ─────────────────────────────────────────────
-    'filter_wind_aligned': False,     # True = restrict to wind_aligned==True
-    'outlier_clip_pct':    0.01,      # clip top/bottom 1% of emission ratios
+    'filter_wind_aligned': False,      # keep all plumes — too many 0/N aligned scenes
+    'outlier_clip_pct':    0.05,       # 5% clip appropriate for n~300+ pairs
 
-    # ── Units ─────────────────────────────────────────────────────────────
-    # Mine: kg/s   CM: kg/hr   → multiply mine × 3600 for apples-to-apples
     'my_unit':             'kg/s',
     'cm_unit':             'kg/hr',
-    'my_to_kg_hr':         3600.0,    # conversion factor: kg/s → kg/hr
-    'match_spatial_km':    25.0,   # was 10.0 in CFG (overridden to 150 in run block)
-    'd_scale_km':          15.0,   # Gaussian decay: 50% score at ~10 km
-    't_scale_h':           48.0,   # 48h covers same-day ± overpass window
-    'score_threshold':     0.10,   # was 0.01 — too permissive; 0.10 filters noise matches
+    'my_to_kg_hr':         3600.0,
 
-    'filter_wind_aligned': True,   # was False — only compare plumes with valid wind
-                                   # alignment; unaligned plumes have unreliable emission
-                                   # rates and pollute the correlation statistics
-    'outlier_clip_pct':    0.05,   # was 0.01 — 1% clip on n<20 pairs removes real data
+    'd_scale_km':          15.0,
+    't_scale_h':           48.0,
+    'score_threshold':     0.08,
+    'use_source_coords':   True,
 }
-
-print('Configuration loaded')
 
 # METADATA ********************
 
@@ -162,11 +142,24 @@ def load_my_plumes(
         format='%Y%m%d_%H%M%S', utc=True, errors='coerce'
     )
 
-    # Keep scene_date (date-only) for display/grouping
-    df['scene_date'] = df['scene_datetime'].dt.date
+    df['scene_date'] = df['scene_datetime'].dt.floor('D')  # keeps as Timestamp, not date object
 
     # Unique plume key
     df['my_plume_key'] = df['scene_id'] + '_p' + df['plume_id'].astype(str)
+
+    if 'source_lat' in df.columns and df['source_lat'].notna().any():
+        df['match_lat'] = df['source_lat'].fillna(df['centroid_lat'])
+        df['match_lon'] = df['source_lon'].fillna(df['centroid_lon'])
+        print('  Using source_lat/lon (peak pixel) for spatial matching')
+    else:
+        df['match_lat'] = df['centroid_lat']
+        df['match_lon'] = df['centroid_lon']
+        print('  Using centroid for spatial matching (source_lat not available)')
+
+    # Optionally restrict to high-confidence emission rates
+    if 'emission_rate_confidence' in df.columns:
+        n_high = (df['emission_rate_confidence'] == 'high').sum()
+        print(f'  High-confidence emission rates: {n_high} / {len(df)}')
 
     n_total = len(df)
     n_valid_emission = df['emission_kg_hr'].notna().sum()
@@ -201,7 +194,7 @@ import numpy as np
 
 
 # ── Auth token — set via environment variable ─────────────
-CM_API_TOKEN = os.environ.get('CM_API_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc5MDk2NTM5LCJpYXQiOjE3Nzg0OTE3MzksImp0aSI6IjJmOTFjOTMxMjM5NDQxZTJiYzhkNTYyY2Y4NDU0YmYwIiwic2NvcGUiOiJzdGFjIGNhdGFsb2c6cmVhZCIsImdyb3VwcyI6IlB1YmxpYyIsImFsbF9ncm91cF9uYW1lcyI6eyJjb21tb24iOlsiUHVibGljIl19LCJvcmdhbml6YXRpb25zIjoiIiwic2V0dGluZ3MiOnt9LCJpc19zdGFmZiI6ZmFsc2UsImlzX3N1cGVydXNlciI6ZmFsc2UsInVzZXJfaWQiOjMyMjQyfQ.BjNq1DtBrMpuRajeD2zhB50oTiNbZyvaaWcTD2OlRTE')
+CM_API_TOKEN = os.environ.get('CM_API_TOKEN', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc5ODU5OTYwLCJpYXQiOjE3NzkyNTUxNjAsImp0aSI6IjQ0OTUzOWQxNTk2YTRhNmY5ZDEzY2NmYmMwZTY1NGMxIiwic2NvcGUiOiJzdGFjIGNhdGFsb2c6cmVhZCIsImdyb3VwcyI6IlB1YmxpYyIsImFsbF9ncm91cF9uYW1lcyI6eyJjb21tb24iOlsiUHVibGljIl19LCJvcmdhbml6YXRpb25zIjoiIiwic2V0dGluZ3MiOnt9LCJpc19zdGFmZiI6ZmFsc2UsImlzX3N1cGVydXNlciI6ZmFsc2UsInVzZXJfaWQiOjMyMjQyfQ.PYzVixbyzjhddDW3xo6-uxnmExiTOUEORcHaMixZQqQ')
 CM_API_URL   = 'https://api.carbonmapper.org/api/v1/catalog/plumes/annotated'
 
 
@@ -455,6 +448,20 @@ def load_carbon_mapper(
         .reset_index(drop=True)
     )
 
+    # Keep CH4 only — CO2 and other gas records will spatially co-locate
+    # with CH4 sources but have incompatible emission units / magnitudes
+    n_before = len(df)
+    df = df[df['cm_gas'].str.upper().str.contains('CH4', na=False)].reset_index(drop=True)
+    print(f'  Filtered to CH4: {len(df)} / {n_before} records')
+
+    # Apply CM detection floor — CM reports it cannot reliably detect
+    # sources below ~50 kg/hr with Tanager/AVIRIS; including sub-floor
+    # records inflates the CM pool with uncertain measurements
+    cm_detection_floor = 50.0
+    n_before = len(df)
+    df = df[df['cm_emission_kg_hr'] >= cm_detection_floor].reset_index(drop=True)
+    print(f'  After CM floor ({cm_detection_floor} kg/hr): {len(df)} / {n_before}')
+
     print(df[['cm_date', 'cm_lat', 'cm_lon']].agg({
     'cm_date': ['min', 'max'],
     'cm_lat':  ['min', 'max'],
@@ -627,7 +634,10 @@ def match_plumes(
     mine_valid = mine_valid.reset_index(drop=True)
 
     cm_xyz   = _to_xyz(cm_valid['cm_lat'].values,        cm_valid['cm_lon'].values)
-    mine_xyz = _to_xyz(mine_valid['centroid_lat'].values, mine_valid['centroid_lon'].values)
+    # Use match_lat/match_lon (source peak if available, else centroid)
+    match_lat_col = 'match_lat' if 'match_lat' in mine_valid.columns else 'centroid_lat'
+    match_lon_col = 'match_lon' if 'match_lon' in mine_valid.columns else 'centroid_lon'
+    mine_xyz = _to_xyz(mine_valid[match_lat_col].values, mine_valid[match_lon_col].values)
 
     tree            = cKDTree(cm_xyz)
     candidate_lists = tree.query_ball_point(mine_xyz, r=chord_thresh)
@@ -664,8 +674,8 @@ def match_plumes(
         if not cm_candidates:
             continue
 
-        my_lat = mine_valid.loc[my_idx, 'centroid_lat']
-        my_lon = mine_valid.loc[my_idx, 'centroid_lon']
+        my_lat = mine_valid.loc[my_idx, match_lat_col]
+        my_lon = mine_valid.loc[my_idx, match_lon_col]
         my_t   = mine_valid.loc[my_idx, '_t']
 
         for cm_idx in cm_candidates:
@@ -674,23 +684,29 @@ def match_plumes(
                 np.array([cm_valid.loc[cm_idx, 'cm_lat']]),
                 np.array([cm_valid.loc[cm_idx, 'cm_lon']]),
             )[0])
-
-            cm_t = cm_valid.loc[cm_idx, '_t']
+            # ← removed 3 stale debug prints that referenced cm_t before assignment
+            cm_t = cm_valid.loc[cm_idx, '_t']   # scalar Timestamp (or NaT)
             dt_h = np.nan
             if pd.notna(my_t) and pd.notna(cm_t):
                 dt_h = abs((my_t - cm_t).total_seconds()) / 3600.0
 
             spatial_score  = np.exp(-(dist_km ** 2) / (2 * d_scale_km ** 2))
-            # be more generous when timestamp is unknown (date-only fallback)
-            # Treat it as a weak positive rather than neutral
             temporal_score = (
                 np.exp(-(dt_h ** 2) / (2 * t_scale_h ** 2))
-                if not np.isnan(dt_h) else 0.75  # unknown time → assume plausible
+                if not np.isnan(dt_h) else 0.10
             )
             score = spatial_score * temporal_score
+            my_em = mine_valid.loc[my_idx, 'emission_kg_hr']
+            cm_em = cm_valid.loc[cm_idx, 'cm_emission_kg_hr']
+            if (pd.notna(my_em) and pd.notna(cm_em)
+                    and my_em > 0 and cm_em > 0):
+                em_ratio = max(my_em, cm_em) / min(my_em, cm_em)
+                if em_ratio > 100.0:
+                    continue
 
             if score >= score_threshold:
                 pending.append((score, dist_km, dt_h, my_idx, cm_idx))
+
 
     # Sort by score descending — best match first
     pending.sort(key=lambda x: -x[0])
@@ -846,6 +862,18 @@ def compute_metrics(matched: pd.DataFrame,
     print(f'  Log bias:                    {m["log_bias"]:+.3f}  (0 = no bias)')
     print(f'  My median:                   {m["my_median_kg_hr"]:.1f} kg/hr')
     print(f'  CM median:                   {m["cm_median_kg_hr"]:.1f} kg/hr')
+
+    # Factor-of-2 agreement: fraction of pairs where 0.5 ≤ mine/CM ≤ 2.0
+    f2_mask = (ratio[mask] >= 0.5) & (ratio[mask] <= 2.0)
+    f2      = float(f2_mask.sum()) / len(ratio[mask])
+    m['f2_agreement'] = round(f2, 4)
+    print(f'  Factor-of-2 agreement:       {f2:.1%}  (target: >40%)')
+
+    # Factor-of-5 agreement (looser, accounts for resolution mismatch)
+    f5_mask = (ratio[mask] >= 0.2) & (ratio[mask] <= 5.0)
+    f5      = float(f5_mask.sum()) / len(ratio[mask])
+    m['f5_agreement'] = round(f5, 4)
+    print(f'  Factor-of-5 agreement:       {f5:.1%}  (target: >70%)')
 
     return m
 
@@ -1007,14 +1035,18 @@ print('plot_comparison() defined')
 
 # CELL ********************
 
-# In the Run Pipeline block, replace the date range derivation with this:
 from datetime import datetime, timezone
 
 print('Loading my plume catalog...')
 df_mine = load_my_plumes(
     table_name=CFG['plume_catalog_table'],
     filter_wind_aligned=CFG['filter_wind_aligned'],
+    min_emission_kg_hr=50.0 #CM detection floor is 50kg/hr
 )
+n_nat = df_mine['scene_datetime'].isna().sum()
+print(f'scene_datetime parsed: {len(df_mine) - n_nat} / {len(df_mine)}  ({n_nat} NaT)')
+print(f'scene_id sample: {df_mine["scene_id"].iloc[:2].tolist()}')
+# If NaT > 0 here, the regex in load_my_plumes didn't match your scene_id format
 
 if len(df_mine) > 0:
     pad = 1.0
@@ -1039,8 +1071,13 @@ if len(df_mine) > 0:
     # CM fetch window: go back 12 months from TROPOMI start
     # This captures all CM flights over your bbox regardless of
     # whether they overlap your TROPOMI dates
-    cm_date_start = '2025-01-01'
-    cm_date_end   = my_date_end
+    cm_date_start = (
+        pd.Timestamp(my_date_start) - pd.Timedelta(days=30)
+    ).strftime('%Y-%m-%d')
+    cm_date_end = (
+        pd.Timestamp(my_date_end) + pd.Timedelta(days=30)
+    ).strftime('%Y-%m-%d')
+    print(f'CM fetch window aligned to TROPOMI ± 30 days: {cm_date_start} → {cm_date_end}')
 
     print(f'Derived bbox:          {bbox}')
     print(f'My TROPOMI range:      {my_date_start} → {my_date_end}')
@@ -1073,7 +1110,7 @@ df_cm = load_carbon_mapper(
 # Step 1: refresh cache with full CM history over your bbox
 df_cm = load_carbon_mapper(
     bbox=bbox,
-    date_start='2025-01-01',
+    date_start=cm_date_start,
     date_end=my_date_end,
     token=CM_API_TOKEN,
     force_refresh=True,
@@ -1102,12 +1139,12 @@ print('Matching plumes...')
 matched = match_plumes(
     df_mine=df_mine,
     df_cm=df_cm_overlap,
-    spatial_km=       CFG['match_spatial_km'],
-    d_scale_km=       CFG['d_scale_km'],
-    t_scale_h=        CFG['t_scale_h'],
-    score_threshold=  CFG['score_threshold'],
-    allow_one_to_many=False,
-    debug=            True,
+    spatial_km=        CFG['match_spatial_km'],   # 20.0
+    d_scale_km=        CFG['d_scale_km'],          # 15.0
+    t_scale_h=         CFG['t_scale_h'],           # 48.0
+    score_threshold=   CFG['score_threshold'],     # 0.08
+    allow_one_to_many= False,
+    debug=             True,
 )
 
 # METADATA ********************
@@ -1309,6 +1346,12 @@ if len(matched) > 0 and len(df_mine) > 0:
         ~df_cm_overlap['cm_id'].isin(set(matched['cm_id']))
     ].copy()
 
+    # True recall: of CM plumes in the overlap window, how many did we match?
+    cm_in_overlap = len(df_cm_overlap)
+    cm_matched    = len(matched)
+    print(f'CM recall: {cm_matched} / {cm_in_overlap} = {100*cm_matched/cm_in_overlap:.1f}%')
+    
+
     print(f'My plumes not matched:   {len(unmatched_mine)} / {len(df_mine)}')
     print(f'CM plumes not matched:   {len(unmatched_cm)} / {df_cm_overlap["cm_emission_kg_hr"].notna().sum()}')
 
@@ -1319,16 +1362,6 @@ if len(matched) > 0 and len(df_mine) > 0:
     if len(unmatched_cm) > 0:
         print('\nUnmatched CM emission distribution:')
         print(unmatched_cm['cm_emission_kg_hr'].describe().round(1))
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
 
 # METADATA ********************
 

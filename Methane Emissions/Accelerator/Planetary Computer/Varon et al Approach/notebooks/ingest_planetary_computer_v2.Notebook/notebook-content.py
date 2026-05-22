@@ -34,20 +34,7 @@
 
 # CELL ********************
 
-#Requirements 
-#%pip install pystac-client planetary-computer xarray h5netcdf h5py fsspec geopandas
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-#IMPORTS 
+# IMPORTS
 
 ## Access Catalog
 import planetary_computer
@@ -56,24 +43,28 @@ import pystac_client
 ## Load Dataset
 import fsspec
 import xarray as xr
-from collections import Counter
 from datetime import datetime
 from planetary_computer import sign
 
 ## Data Manipulation
-import pandas as pd 
-import numpy as np 
+import pandas as pd
+import numpy as np
+from collections import Counter  # ← single import, moved here
 
-## Data Visualization 
-import matplotlib.pyplot as plt 
-import geopandas as gpd 
-from shapely.geometry import Point 
+## Data Visualization
+import matplotlib.pyplot as plt
+import geopandas as gpd
+from shapely.geometry import Point
 
-## Data storage 
+## Data Storage
 from pyspark.sql.utils import AnalysisException
-from pyspark.sql.functions import broadcast
-from pyspark.sql.functions import col
+from pyspark.sql.functions import broadcast, col
 from pyspark.sql.types import *
+from functools import reduce
+from pyspark.sql import DataFrame
+from pyspark.sql.types import StructType, StructField, DoubleType, StringType, TimestampType
+import io
+import requests
 
 # METADATA ********************
 
@@ -90,7 +81,6 @@ catalog = pystac_client.Client.open(
     modifier=planetary_computer.sign_inplace,
 )
 
-
 # METADATA ********************
 
 # META {
@@ -100,42 +90,44 @@ catalog = pystac_client.Client.open(
 
 # CELL ********************
 
-#SEARCHING CATALOG 
+# SEARCHING CATALOG
 longitude = -99.36    # Permian Basin, Texas, US
-latitude = 31.5
+latitude  = 31.5
 
-#AREA WISE SEARCH
-geometry = {
+# AREA WISE SEARCH — renamed to avoid collision with viz cell's `geometry`
+search_geometry = {
     "type": "Polygon",
     "coordinates": [[
-        [-105, 25],   # min lon, min lat
+        [-105, 25],
         [-105, 35],
-        [-90, 35],
-        [-90, 25],
-        [-105, 25]
+        [-90,  35],
+        [-90,  25],
+        [-105, 25],
     ]]
 }
 
-#loop to current date
-start_date = "2024-01-01"
-end_date = datetime.utcnow().strftime("%Y-%m-%d")
-
+start_date = "2026-04-01"
+end_date   = datetime.utcnow().strftime("%Y-%m-%d")
 
 search = catalog.search(
-    collections="sentinel-5p-l2-netcdf",
-    intersects=geometry,
+    collections=["sentinel-5p-l2-netcdf"],   # ← list, not bare string
+    intersects=search_geometry,              # ← renamed variable
     datetime=f"{start_date}/{end_date}",
     query={
-        "s5p:processing_mode": {"in": ["OFFL","NRTI"]}, #OFFL : sparse, high quality recent data, #NRTI: near real time, lower quality
-        "s5p:product_name": {"eq": "ch4"}   
+        "s5p:processing_mode": {"in": ["OFFL", "NRTI"]},
+        "s5p:product_name":    {"eq": "ch4"}
     },
+    max_items=500,   # ← guard against runaway result sets
 )
 
 items = list(search.items())
 
 dates = [item.datetime.date() for item in items]
 print("Available dates:", Counter(dates))
-print(max(item.datetime for item in items))
+if items:
+    print("Latest item:", max(item.datetime for item in items))
+else:
+    print("No items found for the given search parameters.")
 
 # METADATA ********************
 
@@ -146,22 +138,20 @@ print(max(item.datetime for item in items))
 
 # CELL ********************
 
-from collections import Counter
-
 for mode in ["OFFL", "NRTI"]:
     search = catalog.search(
-        collections="sentinel-5p-l2-netcdf",
-        intersects=geometry,
+        collections=["sentinel-5p-l2-netcdf"],
+        intersects=search_geometry,   # ← use renamed variable
         datetime=f"{start_date}/{end_date}",
         query={
             "s5p:processing_mode": {"eq": mode},
-            "s5p:product_name": {"eq": "ch4"}
+            "s5p:product_name":    {"eq": "ch4"}
         },
+        max_items=500,
     )
-
-    items = list(search.items())
-    if items:
-        print(f"{mode} max date:", max(item.datetime for item in items))
+    mode_items = list(search.items())
+    if mode_items:
+        print(f"{mode} max date:", max(i.datetime for i in mode_items))
     else:
         print(f"{mode}: no data")
 
@@ -174,15 +164,35 @@ for mode in ["OFFL", "NRTI"]:
 
 # CELL ********************
 
-# ADDING METADATA
+# Arrow off: avoids type-mapping issues between pandas Timestamps and Spark TimestampType
+spark.conf.set("spark.sql.execution.arrow.pyspark.enabled",          "false")
+spark.conf.set("spark.sql.execution.arrow.pyspark.fallback.enabled", "false")
 
-all_dfs = []
+schema = StructType([
+    StructField("latitude",         DoubleType(),    True),
+    StructField("longitude",        DoubleType(),    True),
+    StructField("ch4",              DoubleType(),    True),
+    StructField("qa_value",         DoubleType(),    True),
+    StructField("datetime",         TimestampType(), True),
+    StructField("gas",              StringType(),    True),
+    StructField("instrument",       StringType(),    True),
+    StructField("platform",         StringType(),    True),
+    StructField("collection",       StringType(),    True),
+    StructField("stac_id",          StringType(),    True),
+    StructField("provider",         StringType(),    True),
+    StructField("provider_all",     StringType(),    True),
+    StructField("provider_roles",   StringType(),    True),
+    StructField("processing_level", StringType(),    True),
+    StructField("mission_phase",    StringType(),    True),
+])
 
-# Sentinel-5P provider info is collection-level only — hardcoded per Planetary Computer catalog
 S5P_PROVIDERS = [
     {"name": "European Space Agency", "roles": ["producer"]},
-    {"name": "Microsoft", "roles": ["host"]},
+    {"name": "Microsoft",             "roles": ["host"]},
 ]
+PROVIDER_ALL   = ", ".join(p["name"] for p in S5P_PROVIDERS)
+PROVIDER_ROLES = ", ".join(",".join(p.get("roles", [])) for p in S5P_PROVIDERS)
+PROVIDER_NAME  = S5P_PROVIDERS[0]["name"]
 
 def get_mission_phase(dt):
     if dt is None:
@@ -195,79 +205,127 @@ def get_mission_phase(dt):
         return "commissioning"
     elif dt < pd.Timestamp("2019-01-01", tz="UTC"):
         return "early_operations"
-    else:
-        return "operational"
+    return "operational"
 
+def fetch_and_parse(href, timeout=120):
+    """
+    Stream-download NetCDF via requests into a BytesIO buffer,
+    parse with xarray. Streaming avoids loading the full file
+    into memory at once (S5P files can be 300–600 MB).
+    xarray's h5netcdf engine auto-masks _FillValue sentinels.
+    """
+    buf = io.BytesIO()
+    with requests.get(href, timeout=timeout, stream=True) as resp:
+        resp.raise_for_status()
+        for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):  # 8 MB chunks
+            buf.write(chunk)
+    buf.seek(0)
+
+    with xr.open_dataset(buf, group="PRODUCT", engine="h5netcdf") as ds:
+        ds = ds[["methane_mixing_ratio_bias_corrected", "qa_value",
+                 "latitude", "longitude"]]
+        df = ds.to_dataframe().reset_index()
+
+    # Drop xarray index columns that aren't needed
+    df = df.drop(columns=[c for c in ["scanline", "ground_pixel", "time"] if c in df.columns])
+    return df
+
+def flush_batch(pandas_dfs):
+    """Combine a list of per-item DataFrames into a single Spark DataFrame."""
+    combined = pd.concat(pandas_dfs, ignore_index=True)
+    # Dedup now works because datetime + stac_id are set before append (see loop)
+    combined = combined.drop_duplicates(["latitude", "longitude", "datetime", "stac_id"])
+    return spark.createDataFrame(combined, schema=schema)
+
+BATCH_SIZE   = 50
+HTTP_TIMEOUT = 120
+
+OUTPUT_COLS = [
+    "latitude", "longitude", "ch4", "qa_value", "datetime",
+    "gas", "instrument", "platform", "collection", "stac_id",
+    "provider", "provider_all", "provider_roles",
+    "processing_level", "mission_phase",
+]
+
+skipped    = []
+spark_dfs  = []
+batch_pdfs = []
 
 for i, item in enumerate(items):
-    print(f"Processing {i+1}/{len(items)}  id={item.id}")
+    print(f"[{i+1}/{len(items)}] {item.id}", end="  ")
 
     try:
-        href = sign(item.assets["ch4"].href) #access asset  #if no sign, you can't access data. 
+        href = sign(item.assets["ch4"].href)
     except KeyError:
-        print(f"  SKIP: no 'ch4' asset on item {item.id}")
+        skipped.append((item.id, "no ch4 asset"))
+        print("SKIP: no ch4 asset")
         continue
 
-    props = item.properties #get metadata, if absent below 
+    props = item.properties
 
-    # ── Providers (hardcoded — absent from Planetary Computer item-level STAC) ──
-    providers      = S5P_PROVIDERS
-    provider_all   = ", ".join(p["name"] for p in providers)
-    provider_roles = ", ".join(",".join(p.get("roles", [])) for p in providers)
-    provider_name  = provider_all.split(",")[0].strip()   # "European Space Agency"
-
-    # ── Mission phase ─────────────────────────────────────────────────────────
-    mission_phase_value = get_mission_phase(item.datetime)
-
-    # ── Load xarray dataset ───────────────────────────────────────────────────
     try:
-        with fsspec.open(href).open() as f:
-            ds = xr.open_dataset(f, group="PRODUCT", engine="h5netcdf")
-            ds = ds[[
-                "methane_mixing_ratio_bias_corrected", #bias corrected xch4
-                "qa_value",
-                "latitude",
-                "longitude"
-            ]] #select relevant variables
-            df = ds.to_dataframe().reset_index()
+        df = fetch_and_parse(href, timeout=HTTP_TIMEOUT)
+    except requests.Timeout:
+        skipped.append((item.id, f"timed out after {HTTP_TIMEOUT}s"))
+        print("SKIP: timeout")
+        continue
     except Exception as e:
-        print(f"  SKIP: failed to open dataset — {e}")
+        skipped.append((item.id, str(e)))
+        print(f"SKIP: {e}")
         continue
 
     df = df.rename(columns={"methane_mixing_ratio_bias_corrected": "ch4"})
+    df = df.replace([np.inf, -np.inf], np.nan)   # ← np.nan, not None; pandas handles it better
+    df["latitude"]  = pd.to_numeric(df["latitude"],  errors="coerce")
+    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+    df["ch4"]       = pd.to_numeric(df["ch4"],       errors="coerce")
+    df["qa_value"]  = pd.to_numeric(df["qa_value"],  errors="coerce")
     df = df.dropna(subset=["latitude", "longitude", "ch4", "qa_value"])
     df = df[df["qa_value"] > 0.5]
 
     if df.empty:
-        print(f"  SKIP: no rows passed QA filter")
+        skipped.append((item.id, "all rows failed QA"))
+        print("SKIP: no rows passed QA")
         continue
 
-    # ── Attach metadata ───────────────────────────────────────────────────────
+    # ← Metadata assigned BEFORE append so flush_batch dedup is effective
     df["datetime"]         = pd.to_datetime(item.datetime, utc=True)
     df["gas"]              = props.get("s5p:product_name", "ch4").upper()
     df["instrument"]       = (props.get("instruments") or [None])[0]
     df["platform"]         = props.get("platform")
     df["collection"]       = item.collection_id or "sentinel-5p-l2-netcdf"
     df["stac_id"]          = item.id
-    df["provider"]         = provider_name
-    df["provider_all"]     = provider_all
-    df["provider_roles"]   = provider_roles
+    df["provider"]         = PROVIDER_NAME
+    df["provider_all"]     = PROVIDER_ALL
+    df["provider_roles"]   = PROVIDER_ROLES
     df["processing_level"] = props.get("s5p:processing_mode")
-    df["mission_phase"]    = mission_phase_value
+    df["mission_phase"]    = get_mission_phase(item.datetime)
 
-    all_dfs.append(df)
-    print(f"  {len(df):,} rows added")
+    batch_pdfs.append(df[OUTPUT_COLS])
+    print(f"{len(df):,} rows")
 
-# ── Combine & deduplicate ─────────────────────────────────────────────────────
-if not all_dfs:
-    raise RuntimeError("all_dfs is empty — every item was skipped.")
+    if len(batch_pdfs) >= BATCH_SIZE:
+        spark_dfs.append(flush_batch(batch_pdfs))
+        print(f"  >>> Flushed batch → {len(spark_dfs)} Spark DFs so far")
+        batch_pdfs = []
 
-df_valid = pd.concat(all_dfs, ignore_index=True)
-df_valid = df_valid.drop_duplicates(subset=["latitude", "longitude", "datetime", "stac_id"])
+if batch_pdfs:
+    spark_dfs.append(flush_batch(batch_pdfs))
+    print(f"  >>> Flushed final batch → {len(spark_dfs)} Spark DFs total")
 
-print("\n=== Final null counts ===")
-print(df_valid.isnull().sum())
-print("\nDone:", df_valid.shape)
+if not spark_dfs:
+    raise RuntimeError("spark_dfs is empty — every item was skipped.")
+
+if skipped:
+    print(f"\nSkipped {len(skipped)} items:")
+    for sid, reason in skipped:
+        print(f"  {sid}: {reason}")
+
+spark_df = reduce(DataFrame.union, spark_dfs)
+spark_df = spark_df.dropDuplicates(["latitude", "longitude", "datetime", "stac_id"])
+# Repartition deferred to the write cell where we know the final row count
+
+print(f"\nPre-write count: {spark_df.count():,} rows")
 
 # METADATA ********************
 
@@ -279,45 +337,46 @@ print("\nDone:", df_valid.shape)
 # CELL ********************
 
 # VISUALIZATION OF DETECTIONS
-# Convert to GeoDataFrame
-geometry = [Point(xy) for xy in zip(df_valid["longitude"], df_valid["latitude"])]
 
-gdf = gpd.GeoDataFrame(
-    df_valid,
-    geometry=geometry,
-    crs="EPSG:4326"
+df_plot = (
+    spark_df
+    .select("longitude", "latitude", "ch4")
+    .sample(fraction=0.05, seed=42)
+    .toPandas()
 )
 
-# Clip extreme values (better color scaling)
-gdf["ch4_clipped"] = gdf["ch4"].clip(1800, 2000)
+if df_plot.empty:
+    print("No data to plot.")
+else:
+    gdf_geometry = [Point(xy) for xy in zip(df_plot["longitude"], df_plot["latitude"])]
 
-# Sample for performance
-gdf_sample = gdf.sample(frac=0.1, random_state=42)
+    gdf = gpd.GeoDataFrame(
+        df_plot,
+        geometry=gdf_geometry,
+        crs="EPSG:4326"
+    )
 
-# Load world map
-world = gpd.read_file(
-    "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
-)
+    gdf["ch4_clipped"] = gdf["ch4"].clip(1800, 2000)
 
-# Plot
-fig, ax = plt.subplots(figsize=(14,7))
+    world = gpd.read_file(
+        "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip"
+    )
 
-world.boundary.plot(ax=ax, linewidth=0.5, color="black")
-
-gdf_sample.plot(
-    ax=ax,
-    column="ch4_clipped",
-    markersize=2,
-    cmap="viridis",
-    legend=True,
-    alpha=0.7
-)
-
-ax.set_title("Methane Concentration (TROPOMI Observations)")
-ax.set_xlabel("Longitude")
-ax.set_ylabel("Latitude")
-
-plt.show()
+    fig, ax = plt.subplots(figsize=(14, 7))
+    world.boundary.plot(ax=ax, linewidth=0.5, color="black")
+    gdf.plot(
+        ax=ax,
+        column="ch4_clipped",
+        markersize=2,
+        cmap="viridis",
+        legend=True,
+        alpha=0.7,
+    )
+    ax.set_title("Methane Concentration (TROPOMI Observations)")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    plt.tight_layout()
+    plt.show()
 
 # METADATA ********************
 
@@ -328,115 +387,69 @@ plt.show()
 
 # CELL ********************
 
-#spark.sql("CREATE SCHEMA IF NOT EXISTS bronze")
+from pyspark.sql.utils import AnalysisException
 
-# METADATA ********************
+TABLE_NAME = "bronze.planetary_comp_raw_data"
 
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
+# Tune file size at write time instead of manual repartition
+spark.conf.set("spark.sql.files.maxRecordsPerFile", "500000")
 
-# CELL ********************
-
-#SAVING DATA TO TABLE 
-TABLE_NAME = "bronze.planetary_comp_raw_data" 
-
-# -------------------------------
-# 1. Clean Pandas data
-# -------------------------------
-df_valid = df_valid.replace([np.inf, -np.inf], None)
-
-df_valid["latitude"] = pd.to_numeric(df_valid["latitude"], errors="coerce")
-df_valid["longitude"] = pd.to_numeric(df_valid["longitude"], errors="coerce")
-df_valid["ch4"] = pd.to_numeric(df_valid["ch4"], errors="coerce")
-df_valid["qa_value"] = pd.to_numeric(df_valid["qa_value"], errors="coerce")
-df_valid["datetime"] = pd.to_datetime(df_valid["datetime"], errors="coerce")
-
-df_valid = df_valid.dropna(subset=["latitude", "longitude", "datetime"])
-
-# reorder columns like schema
-df_valid = df_valid[[
-    "latitude", "longitude", "ch4", "qa_value",
-    "datetime", "gas", "instrument", "platform",
-    "collection", "stac_id",
-    "provider", "provider_all", "provider_roles",
-    "processing_level", "mission_phase"
-]]
-
-# -------------------------------
-# 2. Define schema
-# -------------------------------
-schema = StructType([
-    StructField("latitude", DoubleType(), True),
-    StructField("longitude", DoubleType(), True),
-    StructField("ch4", DoubleType(), True),
-    StructField("qa_value", DoubleType(), True),
-    StructField("datetime", TimestampType(), True),
-    StructField("gas", StringType(), True),
-    StructField("instrument", StringType(), True),
-    StructField("platform", StringType(), True),
-
-    # NEW FIELDS
-    StructField("collection", StringType(), True),
-    StructField("stac_id", StringType(), True),
-    StructField("provider", StringType(), True),
-    StructField("provider_all", StringType(), True),
-    StructField("provider_roles", StringType(), True),
-    StructField("processing_level", StringType(), True),
-    StructField("mission_phase", StringType(), True),
-])
-
-# -------------------------------
-# 3. Convert to Spark
-# -------------------------------
-spark_df = spark.createDataFrame(df_valid, schema=schema)
-
-# -------------------------------
-# 4. Deduplicate
-# -------------------------------
-spark_df = spark_df.dropDuplicates(["latitude", "longitude", "datetime", "stac_id"])
-
-# -------------------------------
-# 5. Reduce partitions
-# -------------------------------
-spark_df = spark_df.coalesce(2)
-
-# -------------------------------
-# 6. Remove existing duplicates
-# -------------------------------
-table_exists = True
+table_exists        = True
+existing_keys_cached = None
 
 try:
     existing_df = spark.table(TABLE_NAME)
 
+    existing_key_count = existing_df.select(
+        "latitude", "longitude", "datetime", "stac_id"
+    ).distinct().count()
+    print(f"Existing table has ~{existing_key_count:,} distinct keys")
+
+    existing_keys_cached = (
+        existing_df
+        .select("latitude", "longitude", "datetime", "stac_id")
+        .distinct()
+        .cache()
+    )
+    existing_keys_cached.count()  # materialize cache
+
+    # Only broadcast if the existing key set is small (< 200k rows ≈ safe threshold)
+    if existing_key_count < 200_000:
+        join_right = broadcast(existing_keys_cached)
+    else:
+        join_right = existing_keys_cached
+
     spark_df = spark_df.alias("new").join(
-        existing_df.alias("old"),
-        on=["latitude", "longitude", "datetime","stac_id"],
+        join_right.alias("old"),
+        on=["latitude", "longitude", "datetime", "stac_id"],
         how="left_anti"
     )
 
 except AnalysisException:
     table_exists = False
-    print("Table not found, will create new")
+    print("Table not found — will create new.")
 
-# -------------------------------
-# 7. Write
-# -------------------------------
-if spark_df.limit(1).count() == 0:
-    print("No new data to write")
+new_row_count = spark_df.count()
+print(f"Rows to write: {new_row_count:,}")
 
-else:
+if new_row_count > 0:
     if table_exists:
         spark_df.write \
-    .mode("append") \
-    .format("delta") \
-    .option("mergeSchema", "true") \
-    .saveAsTable(TABLE_NAME)
+            .mode("append") \
+            .format("delta") \
+            .option("mergeSchema", "true") \
+            .saveAsTable(TABLE_NAME)
     else:
-        spark_df.write.mode("overwrite").format("delta").saveAsTable(TABLE_NAME)
+        spark_df.write \
+            .mode("overwrite") \
+            .format("delta") \
+            .saveAsTable(TABLE_NAME)
+    print("Data written to bronze layer.")
+else:
+    print("No new rows to write — table unchanged.")
 
-    print("Data written to bronze layer")
+if existing_keys_cached is not None:
+    existing_keys_cached.unpersist()
 
 # METADATA ********************
 
@@ -447,8 +460,9 @@ else:
 
 # CELL ********************
 
-df = spark.sql("SELECT * FROM Planetary_computer_LH.bronze.planetary_comp_raw_data LIMIT 1000")
-display(df)
+# Read back a sample to verify
+df_check = spark.sql(f"SELECT * FROM {TABLE_NAME} LIMIT 1000")
+display(df_check)
 
 # METADATA ********************
 
