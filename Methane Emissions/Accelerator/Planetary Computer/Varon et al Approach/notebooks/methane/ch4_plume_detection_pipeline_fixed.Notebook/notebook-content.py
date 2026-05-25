@@ -35,6 +35,7 @@
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType, StringType, LongType, TimestampType
+from datetime import datetime, timedelta
 
 # Scientific (used per-scene in Pandas)
 import numpy as np
@@ -138,10 +139,23 @@ CFG = {
 
 # CELL ********************
 
+from datetime import datetime, timedelta
+
 # Required columns from Notebook 1 silver output.
 REQUIRED_COLS = ['latitude', 'longitude', 'ch4', 'qa_value', 'datetime']
 
+# ── Date window: last 5 days only ─────────────────────────────────────────
+end_date   = datetime.utcnow()
+start_date = end_date - timedelta(days=5)
+
 df_silver = spark.read.table(CFG['silver_table'])
+
+df_silver = df_silver.filter(
+    F.col('datetime').between(
+        F.lit(start_date.strftime('%Y-%m-%d')),
+        F.lit(end_date.strftime('%Y-%m-%d'))
+    )
+)
 
 missing = [c for c in REQUIRED_COLS if c not in df_silver.columns]
 if missing:
@@ -173,10 +187,7 @@ print(f'Lat:       {stats["lat_min"]:.2f} – {stats["lat_max"]:.2f}')
 print(f'Time:      {stats["t_min"]} → {stats["t_max"]}')
 print(f'Columns:   {df_silver.columns}')
 
-# ── Constrain to Permian Basin — highest CM flight density ───────────────
-# CM has 92 plumes in this corridor vs your TROPOMI's 16.
-# Without this filter your plumes scatter across the hemisphere
-# and most have no CM overpass within 300 km.
+# ── Constrain to Permian Basin ────────────────────────────────────────────
 STUDY_BBOX = {
     'lat_min': 31.5, 'lat_max': 33.5,
     'lon_min': -105.0, 'lon_max': -101.5,
@@ -184,13 +195,10 @@ STUDY_BBOX = {
 
 df_silver = df_silver.filter(F.col('qa_value') >= CFG['qa_value_min'])
 
-# Add acquisition_date for per-day scene partitioning (speeds up derive_scene_id
-# and enables per-day wind lookups in a later improvement)
 if 'acquisition_date' not in df_silver.columns:
     df_silver = df_silver.withColumn(
         'acquisition_date', F.to_date(F.col('datetime'))
     )
-
 
 df_silver = df_silver.filter(
     (F.col('latitude').between(STUDY_BBOX['lat_min'],  STUDY_BBOX['lat_max'])) &
@@ -885,143 +893,98 @@ from pyspark.sql.types import (
     StringType, IntegerType, DoubleType, BooleanType, LongType
 )
 
-# ── Explicit output schema for plume catalog ───────────────────────────────
-# Every field is a scalar. BooleanType maps to Python bool (not pd.NA).
-# Nullable=True on all fields — plumes with n<3 have NaN shape features.
 PLUME_CATALOG_SCHEMA = StructType([
-    StructField('scene_id',           StringType(),  nullable=False),
-    StructField('plume_id',           IntegerType(), nullable=False),
-    StructField('centroid_lat',       DoubleType(),  nullable=False),
-    StructField('centroid_lon',       DoubleType(),  nullable=False),
-    StructField('n_pixels',           IntegerType(), nullable=False),
-    StructField('source_lat',         DoubleType(),  nullable=True),
-    StructField('source_lon',         DoubleType(),  nullable=True),
-    StructField('area_km2',           DoubleType(),  nullable=False),
-    StructField('max_delta_ch4_ppb',  DoubleType(),  nullable=False),
-    StructField('mean_delta_ch4_ppb', DoubleType(),  nullable=False),
-    StructField('ime_ppb_km2',        DoubleType(),  nullable=False),
-    StructField('emission_rate_confidence', StringType(), nullable=True),
-    StructField('ime_kg',             DoubleType(),  nullable=False),
-    StructField('major_axis_km',      DoubleType(),  nullable=True),
-    StructField('minor_axis_km',      DoubleType(),  nullable=True),
-    StructField('elongation',         DoubleType(),  nullable=True),
-    StructField('orientation_deg',    DoubleType(),  nullable=True),
-    StructField('wind_speed_ms',      DoubleType(),  nullable=True),
-    StructField('wind_dir_deg',       DoubleType(),  nullable=True),
-    StructField('angle_plume_wind_deg', DoubleType(), nullable=True),
-    StructField('wind_aligned',       BooleanType(), nullable=True),
-    StructField('emission_rate_kg_s', DoubleType(),  nullable=True),
+    StructField('scene_id',                StringType(),  nullable=False),
+    StructField('plume_id',                IntegerType(), nullable=False),
+    StructField('centroid_lat',            DoubleType(),  nullable=False),
+    StructField('centroid_lon',            DoubleType(),  nullable=False),
+    StructField('n_pixels',                IntegerType(), nullable=False),
+    StructField('source_lat',              DoubleType(),  nullable=True),
+    StructField('source_lon',              DoubleType(),  nullable=True),
+    StructField('area_km2',                DoubleType(),  nullable=False),
+    StructField('max_delta_ch4_ppb',       DoubleType(),  nullable=False),
+    StructField('mean_delta_ch4_ppb',      DoubleType(),  nullable=False),
+    StructField('ime_ppb_km2',             DoubleType(),  nullable=False),
+    StructField('emission_rate_confidence',StringType(),  nullable=True),
+    StructField('ime_kg',                  DoubleType(),  nullable=False),
+    StructField('major_axis_km',           DoubleType(),  nullable=True),
+    StructField('minor_axis_km',           DoubleType(),  nullable=True),
+    StructField('elongation',              DoubleType(),  nullable=True),
+    StructField('orientation_deg',         DoubleType(),  nullable=True),
+    StructField('wind_speed_ms',           DoubleType(),  nullable=True),
+    StructField('wind_dir_deg',            DoubleType(),  nullable=True),
+    StructField('angle_plume_wind_deg',    DoubleType(),  nullable=True),
+    StructField('wind_aligned',            BooleanType(), nullable=True),
+    StructField('emission_rate_kg_s',      DoubleType(),  nullable=True),
 ])
 
 PLUME_SCHEMA_COLS = [f.name for f in PLUME_CATALOG_SCHEMA]
 
 
 def clean_plume_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Normalize plume_df_all to a clean, Spark-safe Pandas DataFrame.
-
-    Fixes at the Pandas→Spark boundary:
-    1. Drops columns not in the schema (e.g. stray debug columns).
-    2. Adds missing schema columns as NaN/None (graceful — not all scenes
-       produce wind features).
-    3. Converts all Pandas nullable extension dtypes (BooleanDtype,
-       Int64Dtype, Float64Dtype) to their NumPy equivalents. These are
-       the types that produce StructType conflicts in Spark's schema
-       inference because their Arrow encoding differs from plain scalars.
-    4. Forces wind_aligned to plain Python bool with None for missing —
-       the specific column that triggers the BooleanType vs StructType
-       conflict when pd.NA mixes with True/False across concat'd frames.
-    5. Validates no object-dtype or nested columns remain.
-    """
-
     df = df.copy()
 
-    # ── 1. Detect and report schema problems before fixing ─────────────────
     print('--- plume_df_all dtype audit ---')
     problems = []
     for col in df.columns:
         dtype = df[col].dtype
-        # Pandas extension types are the primary Spark incompatibility
         is_extension = hasattr(dtype, 'numpy_dtype') or isinstance(
             dtype, (pd.BooleanDtype, pd.Int8Dtype, pd.Int16Dtype,
                     pd.Int32Dtype, pd.Int64Dtype, pd.UInt8Dtype,
                     pd.UInt16Dtype, pd.UInt32Dtype, pd.UInt64Dtype,
                     pd.Float32Dtype, pd.Float64Dtype, pd.StringDtype)
         )
-        # Object dtype may hide nested dicts/lists
         has_nested = (dtype == object) and df[col].dropna().apply(
             lambda x: isinstance(x, (dict, list))
         ).any()
-        if is_extension or has_nested:
-            problems.append((col, str(dtype), 'extension/nested'))
-        print(f'  {col:<25} {str(dtype):<20} {"⚠ PROBLEM" if (is_extension or has_nested) else "ok"}')
+        # Also flag numpy bool — Arrow needs nullable object bool for Spark BooleanType
+        is_numpy_bool = (dtype == np.dtype('bool'))
+        if is_extension or has_nested or is_numpy_bool:
+            problems.append((col, str(dtype), 'extension/nested/bool'))
+        print(f'  {col:<25} {str(dtype):<20} {"⚠ PROBLEM" if (is_extension or has_nested or is_numpy_bool) else "ok"}')
 
     if problems:
         print(f'\nFixing {len(problems)} problematic column(s): {[p[0] for p in problems]}')
 
-    # ── 2. Drop columns not in schema, add missing ones ────────────────────
     for col in PLUME_SCHEMA_COLS:
         if col not in df.columns:
-            df[col] = np.nan  # will be cast to correct type below
+            df[col] = np.nan
 
     extra_cols = [c for c in df.columns if c not in PLUME_SCHEMA_COLS]
     if extra_cols:
         print(f'Dropping extra columns not in schema: {extra_cols}')
         df = df.drop(columns=extra_cols)
 
-    df = df[PLUME_SCHEMA_COLS]  # enforce column order to match schema
-
-    # ── 3. Cast each column to its schema-defined NumPy type ───────────────
-    # This converts all Pandas extension types to concrete NumPy types
-    # that Spark's Arrow bridge handles without type-merge conflicts.
-    DTYPE_MAP = {
-        StringType():  'object',     # str columns stay as object
-        IntegerType(): np.int32,
-        LongType():    np.int64,
-        DoubleType():  np.float64,
-        BooleanType(): object,       # bool handled specially below
-    }
+    df = df[PLUME_SCHEMA_COLS]
 
     for field in PLUME_CATALOG_SCHEMA:
-        col   = field.name
-        dtype = type(field.dataType)
-        target = DTYPE_MAP.get(field.dataType.__class__)
+        col = field.name
 
         if field.dataType.__class__ == BooleanType:
-            # Convert pd.NA / np.nan / None → None; True/False → Python bool.
-            # This is the direct fix for the BooleanType vs StructType conflict.
-            # pd.NA cannot be stored in a NumPy bool array; use Python object
-            # array with None for missing so Arrow maps it to nullable bool.
+            # Numpy bool dtype has no null representation — convert to object
+            # array of Python bool/None so Arrow maps correctly to nullable bool.
             def _to_nullable_bool(v):
                 if v is None or (isinstance(v, float) and np.isnan(v)):
                     return None
                 try:
-                    # pd.NA, pd.BooleanDtype values
                     if pd.isna(v):
                         return None
                 except (TypeError, ValueError):
                     pass
                 return bool(v)
-
             df[col] = df[col].apply(_to_nullable_bool)
 
         elif field.dataType.__class__ == StringType:
-            # Ensure strings are str or None, never float NaN
             df[col] = df[col].where(df[col].notna(), other=None).astype(object)
 
         elif field.dataType.__class__ == IntegerType:
-            # NaN cannot exist in np.int32; convert to nullable then to Int32
-            # then to object so Spark receives Python int or None
             df[col] = pd.to_numeric(df[col], errors='coerce')
             df[col] = df[col].where(df[col].notna(), other=None)
-            # Convert non-None values to Python int
             df[col] = df[col].apply(lambda x: int(x) if x is not None else None)
 
         else:
-            # DoubleType — convert to float64, keep NaN (Arrow maps to null)
             df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float64)
 
-    # ── 4. Final validation — no nested objects remain ─────────────────────
     for col in df.columns:
         sample = df[col].dropna()
         if len(sample) > 0:
@@ -1036,32 +999,35 @@ def clean_plume_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     print(f'Shape: {df.shape}')
     return df
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
 
 if len(plume_df_all) > 0:
-    # Normalize at the Pandas→Spark boundary before createDataFrame
     plume_df_clean = clean_plume_dataframe(plume_df_all)
+    catalog_spark  = spark.createDataFrame(plume_df_clean, schema=PLUME_CATALOG_SCHEMA)
 
-    # Explicit schema — never let Spark infer types from a mixed Pandas frame
-    catalog_spark = spark.createDataFrame(plume_df_clean, schema=PLUME_CATALOG_SCHEMA)
+    if spark.catalog.tableExists(CFG['plume_catalog_table']):
+        existing_keys = spark.read.table(CFG['plume_catalog_table']) \
+                             .select('scene_id', 'plume_id')
+        catalog_spark = catalog_spark.join(
+            existing_keys,
+            on=['scene_id', 'plume_id'],
+            how='left_anti'
+        )
+        n_new = catalog_spark.count()
+        print(f'New plumes to write (after dedup): {n_new}')
+    else:
+        n_new = catalog_spark.count()
+        print(f'Catalog table does not exist yet — writing {n_new} rows fresh')
 
-    (
-        catalog_spark.write
-        .format('delta')
-        .mode('overwrite')
-        .option('overwriteSchema', 'true')
-        .saveAsTable(CFG['plume_catalog_table'])
-    )
+    if n_new > 0:
+        (
+            catalog_spark.write
+            .format('delta')
+            .mode('append')
+            .saveAsTable(CFG['plume_catalog_table'])
+        )
 
-    n = spark.read.table(CFG['plume_catalog_table']).count()
-    print(f'Catalog written: {CFG["plume_catalog_table"]} ({n} rows)')
+    n_total = spark.read.table(CFG['plume_catalog_table']).count()
+    print(f'Catalog: {CFG["plume_catalog_table"]} — {n_total:,} total rows ({n_new} added)')
 else:
     print('No plumes to write.')
 

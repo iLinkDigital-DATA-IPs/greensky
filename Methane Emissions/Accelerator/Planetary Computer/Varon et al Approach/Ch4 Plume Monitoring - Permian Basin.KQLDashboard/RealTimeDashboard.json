@@ -1,5 +1,5 @@
 {
-  "schema_version": 74,
+  "schema_version": 75,
   "tiles": [
     {
       "id": "dc32b6a0-25b0-4505-beb3-fca805bdd981",
@@ -708,6 +708,173 @@
         "crossFilter": [],
         "drillthrough": []
       }
+    },
+    {
+      "id": "cefa0046-f163-4c96-99a0-5ba35b30c91c",
+      "title": "Total Methane Released — Rolling 30D Trend",
+      "visualType": "line",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 9,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b12fdea8-c898-4bbe-9367-130d50290c4c"
+      },
+      "description": "Top-line emissions KPI showing daily volumes and 30-day smoothed trend.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "IME (kg)",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "seriesColors": {
+          "total_ime_kg": "color--(0)",
+          "rolling_30d_kg": "color--(1)"
+        },
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": "scene_date",
+        "yColumns": [
+          "total_ime_kg",
+          "rolling_30d_kg"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "e42cc29c-bdf3-4c6a-8bdd-1be49b91b559",
+      "title": "Total Financial Impact (USD)",
+      "description": "Aggregates all financial loss dimensions into executive-level headline numbers.",
+      "visualType": "card",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 6,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "22274f13-faa3-45d7-8b1a-5353a4dc5665"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "total_impact_usd",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "0807b272-6124-4377-b94a-0f014ffee1ec",
+      "title": "Lost Gas Value (USD)",
+      "description": "Aggregates all financial loss dimensions into executive-level headline numbers.",
+      "visualType": "card",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 6,
+        "y": 0,
+        "width": 5,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b26de4d0-6a35-4326-bd32-6f57c3ab50e4"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "total_gas_value_usd",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "0701e6ab-ae4c-409d-a054-c0968b74c71d",
+      "title": "CO₂e (tons) ",
+      "description": "Aggregates all financial loss dimensions into executive-level headline numbers.",
+      "visualType": "card",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 11,
+        "y": 0,
+        "width": 5,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "52ab427d-2942-4e39-b73e-c0b9b29a18e2"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "total_co2e_tons",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "1176e6b5-25ae-4e40-b6de-77c8fac353c5",
+      "title": "WEC Exposure (USD)",
+      "description": "Aggregates all financial loss dimensions into executive-level headline numbers.",
+      "visualType": "card",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 16,
+        "y": 0,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d572bfbd-61a7-48f9-8091-3b1a1bc8887f"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "total_wec_exposure_usd",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "64899341-b271-4edf-bab1-c5ae6d133884",
+      "title": "Avg Impact / Plume (USD)",
+      "description": "Aggregates all financial loss dimensions into executive-level headline numbers.",
+      "visualType": "card",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 19,
+        "y": 0,
+        "width": 5,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ec8b2870-b030-4073-b061-c4d410a6067e"
+      },
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "avg_impact_per_plume",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
     }
   ],
   "baseQueries": [],
@@ -767,17 +934,30 @@
     {
       "kind": "kusto-trident",
       "clusterUri": "https://trd-hv8bbwfdc4d09fum4n.z4.kusto.fabric.microsoft.com",
-      "name": "ch4",
+      "name": "emissions data",
       "databaseArtifactId": "513e882a-5e66-4d27-aab8-8ed8d5304573",
       "database": "513e882a-5e66-4d27-aab8-8ed8d5304573",
       "workspace": "00000000-0000-0000-0000-000000000000",
       "id": "4255c18d-0a56-42d7-82ff-1304cd757ca5"
+    },
+    {
+      "kind": "kusto-trident",
+      "name": "scada data",
+      "clusterUri": "https://trd-zwst1ruuwc55kk09c5.z5.kusto.fabric.microsoft.com",
+      "databaseArtifactId": "ec1b8698-9583-47cc-93f1-b8fc479578ee",
+      "database": "ec1b8698-9583-47cc-93f1-b8fc479578ee",
+      "workspace": "00000000-0000-0000-0000-000000000000",
+      "id": "c76ffe46-9267-46ad-afda-322cdaee20cb"
     }
   ],
   "pages": [
     {
-      "name": "Landing Page",
+      "name": "Emissions",
       "id": "170e331b-5c6e-4b10-b7ee-f12356a5ec80"
+    },
+    {
+      "name": "SCADA",
+      "id": "5824745a-83c2-4218-8dc1-1908880a66b1"
     }
   ],
   "queries": [
@@ -898,6 +1078,60 @@
     {
       "dataSource": {
         "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "// FIXED: make-series produces dynamic arrays required by series_fir\r\nlet step  = 1d;\r\nlet start = ago(90d);\r\nlet end   = now();\r\n\r\nexternal_table(\"ch4_plume_catalog\")\r\n| where isnotnull(emission_rate_kg_s)\r\n| extend scene_date = todatetime(scene_id)  // adjust per actual scene_id encoding\r\n| make-series\r\n    total_ime_kg        = sum(ime_kg),\r\n    total_emission_rate = sum(emission_rate_kg_s),\r\n    plume_count         = count(),\r\n    avg_confidence      = avg(toreal(emission_rate_confidence))\r\n  on scene_date\r\n  from start to end step step\r\n| extend\r\n    rolling_30d_kg = series_fir(total_ime_kg, repeat(1.0/30, 30), false, true),\r\n    rolling_7d_kg  = series_fir(total_ime_kg, repeat(1.0/7,  7),  false, true)\r\n| mv-expand\r\n    scene_date          to typeof(datetime),\r\n    total_ime_kg        to typeof(real),\r\n    total_emission_rate to typeof(real),\r\n    plume_count         to typeof(long),\r\n    avg_confidence      to typeof(real),\r\n    rolling_30d_kg      to typeof(real),\r\n    rolling_7d_kg       to typeof(real)\r\n| order by scene_date asc",
+      "id": "b12fdea8-c898-4bbe-9367-130d50290c4c",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "external_table(\"fact_plume_financial_impact\")\r\n| summarize\r\n    total_lost_gas_kg        = sum(lost_gas_kg),\r\n    total_lost_gas_mcf       = sum(lost_gas_mcf),\r\n    total_gas_value_usd      = sum(gas_value_usd),\r\n    total_co2e_tons          = sum(co2e_tons),\r\n    total_wec_exposure_usd   = sum(wec_exposure_usd),\r\n    total_deferred_value_usd = sum(deferred_value_usd),\r\n    total_maintenance_usd    = sum(maintenance_usd),\r\n    total_impact_usd         = sum(total_impact_usd),\r\n    plume_events             = count()\r\n| extend avg_impact_per_plume = total_impact_usd / plume_events",
+      "id": "22274f13-faa3-45d7-8b1a-5353a4dc5665",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "external_table(\"fact_plume_financial_impact\")\r\n| summarize\r\n    total_lost_gas_kg        = sum(lost_gas_kg),\r\n    total_lost_gas_mcf       = sum(lost_gas_mcf),\r\n    total_gas_value_usd      = sum(gas_value_usd),\r\n    total_co2e_tons          = sum(co2e_tons),\r\n    total_wec_exposure_usd   = sum(wec_exposure_usd),\r\n    total_deferred_value_usd = sum(deferred_value_usd),\r\n    total_maintenance_usd    = sum(maintenance_usd),\r\n    total_impact_usd         = sum(total_impact_usd),\r\n    plume_events             = count()\r\n| extend avg_impact_per_plume = total_impact_usd / plume_events",
+      "id": "b26de4d0-6a35-4326-bd32-6f57c3ab50e4",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "external_table(\"fact_plume_financial_impact\")\r\n| summarize\r\n    total_lost_gas_kg        = sum(lost_gas_kg),\r\n    total_lost_gas_mcf       = sum(lost_gas_mcf),\r\n    total_gas_value_usd      = sum(gas_value_usd),\r\n    total_co2e_tons          = sum(co2e_tons),\r\n    total_wec_exposure_usd   = sum(wec_exposure_usd),\r\n    total_deferred_value_usd = sum(deferred_value_usd),\r\n    total_maintenance_usd    = sum(maintenance_usd),\r\n    total_impact_usd         = sum(total_impact_usd),\r\n    plume_events             = count()\r\n| extend avg_impact_per_plume = total_impact_usd / plume_events",
+      "id": "52ab427d-2942-4e39-b73e-c0b9b29a18e2",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "external_table(\"fact_plume_financial_impact\")\r\n| summarize\r\n    total_lost_gas_kg        = sum(lost_gas_kg),\r\n    total_lost_gas_mcf       = sum(lost_gas_mcf),\r\n    total_gas_value_usd      = sum(gas_value_usd),\r\n    total_co2e_tons          = sum(co2e_tons),\r\n    total_wec_exposure_usd   = sum(wec_exposure_usd),\r\n    total_deferred_value_usd = sum(deferred_value_usd),\r\n    total_maintenance_usd    = sum(maintenance_usd),\r\n    total_impact_usd         = sum(total_impact_usd),\r\n    plume_events             = count()\r\n| extend avg_impact_per_plume = total_impact_usd / plume_events",
+      "id": "d572bfbd-61a7-48f9-8091-3b1a1bc8887f",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "c76ffe46-9267-46ad-afda-322cdaee20cb"
+      },
+      "text": "external_table(\"fact_plume_financial_impact\")\r\n| summarize\r\n    total_lost_gas_kg        = sum(lost_gas_kg),\r\n    total_lost_gas_mcf       = sum(lost_gas_mcf),\r\n    total_gas_value_usd      = sum(gas_value_usd),\r\n    total_co2e_tons          = sum(co2e_tons),\r\n    total_wec_exposure_usd   = sum(wec_exposure_usd),\r\n    total_deferred_value_usd = sum(deferred_value_usd),\r\n    total_maintenance_usd    = sum(maintenance_usd),\r\n    total_impact_usd         = sum(total_impact_usd),\r\n    plume_events             = count()\r\n| extend avg_impact_per_plume = total_impact_usd / plume_events",
+      "id": "ec8b2870-b030-4073-b061-c4d410a6067e",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
         "dataSourceId": "4255c18d-0a56-42d7-82ff-1304cd757ca5"
       },
       "text": "print Value = now(-30d)\n| project Value",
@@ -913,5 +1147,6 @@
       "id": "fb8b62bb-bb3e-4329-a7f2-75507ea6c19b",
       "usedVariables": []
     }
-  ]
+  ],
+  "embeddedApps": []
 }

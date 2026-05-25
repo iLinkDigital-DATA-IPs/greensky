@@ -432,8 +432,8 @@ def safe_get(data, key, i):
 # CELL ********************
 
 #Fetch All Dates (Auto till today)
-start_date = datetime(2026, 4, 1) #date change
 end_date = datetime.utcnow()
+start_date = end_date - timedelta(days=5)
 
 start_str = start_date.strftime("%Y-%m-%d")
 end_str = end_date.strftime("%Y-%m-%d")

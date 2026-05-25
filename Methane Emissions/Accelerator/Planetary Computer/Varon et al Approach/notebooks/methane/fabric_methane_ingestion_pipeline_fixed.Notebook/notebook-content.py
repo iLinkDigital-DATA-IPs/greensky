@@ -450,16 +450,18 @@ def write_plume_ready(
     df: DataFrame,
     output_table: str = CFG['output_table'],
     partition_by: str = CFG['partition_by'],
-    mode: str = 'overwrite',
+    mode: str = 'append',
 ) -> None:
-    (
+    writer = (
         df.write
         .format('delta')
         .mode(mode)
         .partitionBy(partition_by)
-        .option('overwriteSchema', 'true')  # CHANGE: was 'false'
-        .saveAsTable(output_table)
     )
+    if mode == 'overwrite':
+        writer = writer.option('overwriteSchema', 'true')
+    writer.saveAsTable(output_table)
+
     n = spark.read.table(output_table).count()
     print(f'[write] {output_table}: {n:,} rows, partitioned by {partition_by}')
 

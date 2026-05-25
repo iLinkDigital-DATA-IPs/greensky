@@ -43,7 +43,7 @@ import pystac_client
 ## Load Dataset
 import fsspec
 import xarray as xr
-from datetime import datetime
+from datetime import datetime, timedelta
 from planetary_computer import sign
 
 ## Data Manipulation
@@ -106,18 +106,19 @@ search_geometry = {
     ]]
 }
 
-start_date = "2026-04-01"
-end_date   = datetime.utcnow().strftime("%Y-%m-%d")
+end_date   = datetime.utcnow()
+start_date = (end_date - timedelta(days=5)).strftime("%Y-%m-%d")
+end_date   = end_date.strftime("%Y-%m-%d")
 
 search = catalog.search(
-    collections=["sentinel-5p-l2-netcdf"],   # ← list, not bare string
-    intersects=search_geometry,              # ← renamed variable
+    collections=["sentinel-5p-l2-netcdf"],
+    intersects=search_geometry,
     datetime=f"{start_date}/{end_date}",
     query={
         "s5p:processing_mode": {"in": ["OFFL", "NRTI"]},
         "s5p:product_name":    {"eq": "ch4"}
     },
-    max_items=500,   # ← guard against runaway result sets
+    max_items=500,
 )
 
 items = list(search.items())
