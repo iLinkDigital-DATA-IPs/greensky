@@ -14,7 +14,7 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "read data",
+        "name": "join data",
         "dependsOn": [
           {
             "activity": "ingest_weather_data",
@@ -40,7 +40,7 @@
         "name": "derive emissions",
         "dependsOn": [
           {
-            "activity": "read data",
+            "activity": "join data",
             "dependencyConditions": [
               "Succeeded"
             ]
