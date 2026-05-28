@@ -1,8 +1,0 @@
-// KQL script
-// Use management commands in this script to configure your database items, such as tables, functions, materialized views, and more.
-
-
-.create-merge table dim_date (date_key:int, full_date:datetime, year:int, quarter:int, month:int, day:int, week_of_year:int, day_of_week:int, day_name:string, month_name:string, is_weekday:int) 
-.create-merge table dim_facility (facility_key:long, facility_id:string, facility_name:string, facility_type:string, basin:string, operator:string, latitude:decimal, longitude:decimal, production_start_date:datetime, daily_oil_bbl:decimal, daily_gas_mcf:decimal, well_count:int, active_status:string, epa_facility_id:string, facility_age_days:int, facility_age_years:int, production_tier:string, daily_boe:real) 
-.create-merge table dim_equipment (equipment_key:long, equipment_id:string, facility_id:string, equipment_tag:string, equipment_type:string, manufacturer:string, model:string, install_date:datetime, last_maintenance_date:datetime, criticality:string, equipment_age_days:int, equipment_age_years:int, days_since_maintenance:int) 
-.create-merge table gold_emission_events (event_id:string, date_key:int, event_date:datetime, detection_timestamp:datetime, facility_key:long, equipment_key:long, emission_kg_per_hour:decimal, emission_severity:string, duration_hours:real, total_methane_loss_mcf:real, financial_impact_usd:real, compliance_risk_score:int, scada_anomaly_detected:int, work_order_generated:string, detection_source:string, response_time_hours:real, distance_meters:real) 
