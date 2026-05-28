@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "couple_plumes_and_inject_events"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "9facbe87-ee87-a64b-4303-847d13bb9869"
+  }
+}
