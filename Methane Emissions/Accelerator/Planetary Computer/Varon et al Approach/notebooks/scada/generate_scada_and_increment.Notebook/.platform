@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "generate_scada_and_increment"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "62c78e48-ef17-9d75-4bc1-bfd06db0909e"
+  }
+}
