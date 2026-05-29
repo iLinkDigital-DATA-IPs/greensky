@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "KQLDashboard",
+    "displayName": "Methane Emissions Dashboard - PC",
+    "description": "Methane Emissions Dashboard - PC"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "ad3047cc-9f6a-9728-472c-5a31456f3a23"
+  }
+}
