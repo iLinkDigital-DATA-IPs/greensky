@@ -4,8 +4,14 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "dc658663-e558-a204-4441-cb8da3091973",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
+          "notebookId": "f3dcc7cc-a075-9b08-4cfa-dfca44797c92",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
+          }
         },
         "policy": {
           "timeout": "0.12:00:00",
@@ -14,39 +20,21 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Generate Dimensions",
-        "description": "Note: Dummy data",
+        "name": "ingest_real_plumes",
+        "description": "Fetched updated data from emissions_pipeline",
         "dependsOn": []
       },
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "62c78e48-ef17-9d75-4bc1-bfd06db0909e",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "Generate SCADA Increment",
-        "description": "Note: Dummy data",
-        "dependsOn": [
-          {
-            "activity": "Generate Dimensions",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
+          "notebookId": "662b28c8-4699-9fe2-4ae6-698e5c9bfc66",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
           }
-        ]
-      },
-      {
-        "type": "TridentNotebook",
-        "typeProperties": {
-          "notebookId": "9846174b-488b-aeb3-496e-6503bc125151",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
         },
         "policy": {
           "timeout": "0.12:00:00",
@@ -55,11 +43,11 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Attribute Plumes",
+        "name": "build_attribution",
         "description": "Note: Dummy Data",
         "dependsOn": [
           {
-            "activity": "Generate SCADA Increment",
+            "activity": "ingest_real_plumes",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -69,8 +57,14 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "9facbe87-ee87-a64b-4303-847d13bb9869",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
+          "notebookId": "18e3e1a0-23f2-9852-44c0-8ac8db4c253f",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
+          }
         },
         "policy": {
           "timeout": "0.12:00:00",
@@ -79,11 +73,11 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Couple Plumes and Inject Events",
+        "name": "gen_financial",
         "description": "Note: Dummy Data",
         "dependsOn": [
           {
-            "activity": "Attribute Plumes",
+            "activity": "build_attribution",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -93,8 +87,14 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "b7fad39b-ba00-a6eb-4516-57b2dc5abbda",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
+          "notebookId": "bee2ef0d-e212-a02b-4b11-73cdd1f37153",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
+          }
         },
         "policy": {
           "timeout": "0.12:00:00",
@@ -103,11 +103,11 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Financial Impact",
+        "name": "gen_complicance",
         "description": "Note: Dummy Data",
         "dependsOn": [
           {
-            "activity": "Couple Plumes and Inject Events",
+            "activity": "gen_financial",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -117,8 +117,14 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "63c9c8c3-78a8-801c-431a-1170989acac9",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
+          "notebookId": "4ce25b3e-6521-a22c-4031-6958c5aff3d0",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
+          }
         },
         "policy": {
           "timeout": "0.12:00:00",
@@ -127,11 +133,41 @@
           "secureInput": false,
           "secureOutput": false
         },
-        "name": "Publish Gold",
-        "description": "Note: Dummy data",
+        "name": "gen_work_orders",
+        "description": "Note: Dummy Data",
         "dependsOn": [
           {
-            "activity": "Financial Impact",
+            "activity": "gen_complicance",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "7bbc5df4-ff29-9a09-4da7-76a6b8a9cf34",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "build_snapshots",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "gen_work_orders",
             "dependencyConditions": [
               "Succeeded"
             ]

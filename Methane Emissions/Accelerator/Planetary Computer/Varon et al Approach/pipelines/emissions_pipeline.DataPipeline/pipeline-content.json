@@ -50,29 +50,6 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "b9b7872e-9899-a0ad-4d3a-a6ce34052fd3",
-          "workspaceId": "00000000-0000-0000-0000-000000000000"
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "compare",
-        "dependsOn": [
-          {
-            "activity": "derive emissions",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "TridentNotebook",
-        "typeProperties": {
           "notebookId": "c0bc4790-efdd-81c7-4e87-427e2e11237a",
           "workspaceId": "00000000-0000-0000-0000-000000000000"
         },

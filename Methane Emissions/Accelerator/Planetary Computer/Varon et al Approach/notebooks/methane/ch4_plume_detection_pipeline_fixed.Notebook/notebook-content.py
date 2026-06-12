@@ -1042,220 +1042,202 @@ else:
 
 # ## 6. Visualisation
 
-# CELL ********************
+# MARKDOWN ********************
 
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
-import matplotlib.cm as cm
-import pandas as pd
+# import matplotlib.pyplot as plt
+# from matplotlib.colors import Normalize
+# import matplotlib.cm as cm
+# import pandas as pd
+# 
+# # --- SAFETY LIMITS ---
+# MAX_SCENES = 6
+# MAX_PIXELS_PER_SCENE = 20000
+# 
+# if len(pixel_df_all) == 0:
+#     print('No pixel data to plot')
+# 
+# else:
+#     # Keep only required columns (avoid huge hidden payloads)
+#     cols_to_keep = ['scene_id', 'longitude', 'latitude', 'delta_ch4', 'plume_id']
+#     pixel_df_all = pixel_df_all[cols_to_keep]
+# 
+#     # Limit number of scenes
+#     scenes = pixel_df_all['scene_id'].unique()[:MAX_SCENES]
+#     n = len(scenes)
+# 
+#     max_per_row = 3
+#     rows = (n + max_per_row - 1) // max_per_row
+#     rows = min(rows, 3)  # hard cap to avoid huge figures
+# 
+#     fig, axes = plt.subplots(rows, max_per_row, figsize=(6 * max_per_row, 5 * rows))
+#     axes = axes.flatten() if n > 1 else [axes]
+# 
+#     for i, sid in enumerate(scenes):
+#         ax = axes[i]
+# 
+#         sw = pixel_df_all[pixel_df_all['scene_id'] == sid]
+# 
+#         # --- SUBSAMPLE PIXELS ---
+#         if len(sw) > MAX_PIXELS_PER_SCENE:
+#             sw = sw.sample(MAX_PIXELS_PER_SCENE, random_state=42)
+# 
+#         pl = (
+#             plume_df_all[plume_df_all['scene_id'] == sid]
+#             if len(plume_df_all) > 0 else pd.DataFrame()
+#         )
+# 
+#         # --- BACKGROUND PIXELS ---
+#         bg_mask = sw['plume_id'].isna()
+#         ax.scatter(
+#             sw.loc[bg_mask, 'longitude'],
+#             sw.loc[bg_mask, 'latitude'],
+#             c=sw.loc[bg_mask, 'delta_ch4'],
+#             cmap='RdYlBu_r',
+#             norm=Normalize(-20, 20),
+#             s=8,
+#             alpha=0.3
+#         )
+# 
+#         # --- PLUME PIXELS ---
+#         pm = ~sw['plume_id'].isna()
+#         if pm.any():
+#             vmax = sw.loc[pm, 'delta_ch4'].quantile(0.98)
+# 
+#             ax.scatter(
+#                 sw.loc[pm, 'longitude'],
+#                 sw.loc[pm, 'latitude'],
+#                 c=sw.loc[pm, 'delta_ch4'],
+#                 cmap='hot',
+#                 norm=Normalize(0, vmax),
+#                 s=50,
+#                 edgecolors='black',
+#                 linewidths=0.5,
+#                 zorder=5
+#             )
+# 
+#             # --- LABEL PLUMES ---
+#             for _, row in pl.iterrows():
+#                 ax.text(
+#                     row['centroid_lon'],
+#                     row['centroid_lat'],
+#                     f'{int(row["plume_id"])}',
+#                     fontsize=9,
+#                     color='black',
+#                     ha='center',
+#                     va='center',
+#                     bbox=dict(facecolor='white', alpha=0.7, edgecolor='none')
+#                 )
+# 
+#         ax.set_title(f'{sid[:12]}...\n{len(sw)} px | {len(pl)} plumes', fontsize=9)
+#         ax.set_xlabel('Lon')
+#         ax.set_ylabel('Lat')
+#         ax.grid(alpha=0.2)
+# 
+#     # Remove empty subplots
+#     for j in range(i + 1, len(axes)):
+#         fig.delaxes(axes[j])
+# 
+#     # Layout + colorbar
+#     fig.subplots_adjust(right=0.88, top=0.90)
+# 
+#     cbar_ax = fig.add_axes([0.90, 0.2, 0.02, 0.6])
+#     cbar = fig.colorbar(
+#         cm.ScalarMappable(norm=Normalize(-20, 20), cmap='RdYlBu_r'),
+#         cax=cbar_ax
+#     )
+#     cbar.set_label('ΔCH₄ [ppb]')
+# 
+#     fig.suptitle('CH₄ Plume Detections (Readable)', fontsize=14)
+# 
+#     plt.savefig('plume_detections_clean.png', dpi=150, bbox_inches='tight')
+#     plt.show()
 
-# --- SAFETY LIMITS ---
-MAX_SCENES = 6
-MAX_PIXELS_PER_SCENE = 20000
 
-if len(pixel_df_all) == 0:
-    print('No pixel data to plot')
+# MARKDOWN ********************
 
-else:
-    # Keep only required columns (avoid huge hidden payloads)
-    cols_to_keep = ['scene_id', 'longitude', 'latitude', 'delta_ch4', 'plume_id']
-    pixel_df_all = pixel_df_all[cols_to_keep]
+# import matplotlib.pyplot as plt
+# import numpy as np
+# 
+# if len(plume_df_all) >= 2:
+# 
+#     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+#     axes = axes.flatten()
+# 
+#     plots = [
+#         ('area_km2',          'Plume Area [km²]'),
+#         ('max_delta_ch4_ppb', 'Peak ΔCH₄ [ppb]'),
+#         ('ime_ppb_km2',       'IME [ppb·km²]'),
+#         ('ime_kg',            'IME [kg CH₄]'),
+#         ('major_axis_km',     'Major Axis [km]'),
+#         ('elongation',        'Elongation (major/minor)'),
+#     ]
+# 
+#     for ax, (col, label) in zip(axes, plots):
+# 
+#         if col in plume_df_all.columns and plume_df_all[col].notna().any():
+#             vals = plume_df_all[col].dropna()
+# 
+#             # --- Robust clipping to remove extreme outliers ---
+#             lo, hi = vals.quantile([0.01, 0.99])
+#             vals_clipped = vals.clip(lo, hi)
+# 
+#             # --- Histogram instead of bar ---
+#             ax.hist(vals_clipped, bins=20, alpha=0.75, edgecolor='black')
+# 
+#             # --- Log scale where appropriate ---
+#             if (vals_clipped > 0).all() and vals_clipped.max() / max(vals_clipped.min(), 1e-6) > 50:
+#                 ax.set_xscale('log')
+# 
+#             # --- Median line ---
+#             median = vals.median()
+#             ax.axvline(median, linestyle='--', linewidth=1)
+# 
+#             ax.set_title(label, fontsize=10)
+#             ax.set_xlabel('')
+#             ax.set_ylabel('Count')
+#             ax.grid(alpha=0.3)
+# 
+#     fig.suptitle('Plume Feature Distributions (Robust)', fontsize=13)
+#     plt.tight_layout()
+#     plt.savefig('plume_features_clean.png', dpi=150)
+#     plt.show()
+# 
+# else:
+#     print('Need ≥ 2 plumes for distribution plot')
 
-    # Limit number of scenes
-    scenes = pixel_df_all['scene_id'].unique()[:MAX_SCENES]
-    n = len(scenes)
 
-    max_per_row = 3
-    rows = (n + max_per_row - 1) // max_per_row
-    rows = min(rows, 3)  # hard cap to avoid huge figures
+# MARKDOWN ********************
 
-    fig, axes = plt.subplots(rows, max_per_row, figsize=(6 * max_per_row, 5 * rows))
-    axes = axes.flatten() if n > 1 else [axes]
+# if 'ch4_bg' in pixel_df_all.columns and len(pixel_df_all) > 0:
+#     sid = pixel_df_all['scene_id'].iloc[0]
+#     sw  = pixel_df_all[pixel_df_all['scene_id'] == sid].sort_values('latitude')
+# 
+#     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+# 
+#     axes[0].scatter(sw['latitude'], sw['ch4'],    s=8, c='steelblue',  alpha=0.6, label='Observed')
+#     axes[0].scatter(sw['latitude'], sw['ch4_bg'], s=8, c='darkorange', alpha=0.6, label='Background')
+#     axes[0].set_xlabel('Latitude')
+#     axes[0].set_ylabel('CH₄ [ppb]')
+#     axes[0].set_title('Observed vs Background')
+#     axes[0].legend()
+#     axes[0].grid(alpha=0.3)
+# 
+#     thresh = float(sw['threshold'].iloc[0])
+#     mad    = float(sw['local_mad'].iloc[0])
+#     axes[1].hist(sw['delta_ch4'], bins=30, color='gray', alpha=0.7, edgecolor='k')
+#     axes[1].axvline(thresh,  color='red',   linestyle='--', lw=2, label=f'Threshold={thresh:.1f} ppb')
+#     axes[1].axvline(-thresh, color='blue',  linestyle='--', lw=1, alpha=0.5)
+#     axes[1].axvline(0,       color='black', linestyle='-',  lw=1, alpha=0.4)
+#     axes[1].set_xlabel('ΔCH₄ [ppb]')
+#     axes[1].set_ylabel('Count')
+#     axes[1].set_title(f'Enhancement distribution | MAD={mad:.2f} ppb')
+#     axes[1].legend()
+#     axes[1].grid(alpha=0.3)
+# 
+#     plt.tight_layout()
+#     plt.savefig('background_qc.png', dpi=150, bbox_inches='tight')
+#     plt.show()
 
-    for i, sid in enumerate(scenes):
-        ax = axes[i]
-
-        sw = pixel_df_all[pixel_df_all['scene_id'] == sid]
-
-        # --- SUBSAMPLE PIXELS ---
-        if len(sw) > MAX_PIXELS_PER_SCENE:
-            sw = sw.sample(MAX_PIXELS_PER_SCENE, random_state=42)
-
-        pl = (
-            plume_df_all[plume_df_all['scene_id'] == sid]
-            if len(plume_df_all) > 0 else pd.DataFrame()
-        )
-
-        # --- BACKGROUND PIXELS ---
-        bg_mask = sw['plume_id'].isna()
-        ax.scatter(
-            sw.loc[bg_mask, 'longitude'],
-            sw.loc[bg_mask, 'latitude'],
-            c=sw.loc[bg_mask, 'delta_ch4'],
-            cmap='RdYlBu_r',
-            norm=Normalize(-20, 20),
-            s=8,
-            alpha=0.3
-        )
-
-        # --- PLUME PIXELS ---
-        pm = ~sw['plume_id'].isna()
-        if pm.any():
-            vmax = sw.loc[pm, 'delta_ch4'].quantile(0.98)
-
-            ax.scatter(
-                sw.loc[pm, 'longitude'],
-                sw.loc[pm, 'latitude'],
-                c=sw.loc[pm, 'delta_ch4'],
-                cmap='hot',
-                norm=Normalize(0, vmax),
-                s=50,
-                edgecolors='black',
-                linewidths=0.5,
-                zorder=5
-            )
-
-            # --- LABEL PLUMES ---
-            for _, row in pl.iterrows():
-                ax.text(
-                    row['centroid_lon'],
-                    row['centroid_lat'],
-                    f'{int(row["plume_id"])}',
-                    fontsize=9,
-                    color='black',
-                    ha='center',
-                    va='center',
-                    bbox=dict(facecolor='white', alpha=0.7, edgecolor='none')
-                )
-
-        ax.set_title(f'{sid[:12]}...\n{len(sw)} px | {len(pl)} plumes', fontsize=9)
-        ax.set_xlabel('Lon')
-        ax.set_ylabel('Lat')
-        ax.grid(alpha=0.2)
-
-    # Remove empty subplots
-    for j in range(i + 1, len(axes)):
-        fig.delaxes(axes[j])
-
-    # Layout + colorbar
-    fig.subplots_adjust(right=0.88, top=0.90)
-
-    cbar_ax = fig.add_axes([0.90, 0.2, 0.02, 0.6])
-    cbar = fig.colorbar(
-        cm.ScalarMappable(norm=Normalize(-20, 20), cmap='RdYlBu_r'),
-        cax=cbar_ax
-    )
-    cbar.set_label('ΔCH₄ [ppb]')
-
-    fig.suptitle('CH₄ Plume Detections (Readable)', fontsize=14)
-
-    plt.savefig('plume_detections_clean.png', dpi=150, bbox_inches='tight')
-    plt.show()
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-import matplotlib.pyplot as plt
-import numpy as np
-
-if len(plume_df_all) >= 2:
-
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    axes = axes.flatten()
-
-    plots = [
-        ('area_km2',          'Plume Area [km²]'),
-        ('max_delta_ch4_ppb', 'Peak ΔCH₄ [ppb]'),
-        ('ime_ppb_km2',       'IME [ppb·km²]'),
-        ('ime_kg',            'IME [kg CH₄]'),
-        ('major_axis_km',     'Major Axis [km]'),
-        ('elongation',        'Elongation (major/minor)'),
-    ]
-
-    for ax, (col, label) in zip(axes, plots):
-
-        if col in plume_df_all.columns and plume_df_all[col].notna().any():
-            vals = plume_df_all[col].dropna()
-
-            # --- Robust clipping to remove extreme outliers ---
-            lo, hi = vals.quantile([0.01, 0.99])
-            vals_clipped = vals.clip(lo, hi)
-
-            # --- Histogram instead of bar ---
-            ax.hist(vals_clipped, bins=20, alpha=0.75, edgecolor='black')
-
-            # --- Log scale where appropriate ---
-            if (vals_clipped > 0).all() and vals_clipped.max() / max(vals_clipped.min(), 1e-6) > 50:
-                ax.set_xscale('log')
-
-            # --- Median line ---
-            median = vals.median()
-            ax.axvline(median, linestyle='--', linewidth=1)
-
-            ax.set_title(label, fontsize=10)
-            ax.set_xlabel('')
-            ax.set_ylabel('Count')
-            ax.grid(alpha=0.3)
-
-    fig.suptitle('Plume Feature Distributions (Robust)', fontsize=13)
-    plt.tight_layout()
-    plt.savefig('plume_features_clean.png', dpi=150)
-    plt.show()
-
-else:
-    print('Need ≥ 2 plumes for distribution plot')
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-if 'ch4_bg' in pixel_df_all.columns and len(pixel_df_all) > 0:
-    sid = pixel_df_all['scene_id'].iloc[0]
-    sw  = pixel_df_all[pixel_df_all['scene_id'] == sid].sort_values('latitude')
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-    axes[0].scatter(sw['latitude'], sw['ch4'],    s=8, c='steelblue',  alpha=0.6, label='Observed')
-    axes[0].scatter(sw['latitude'], sw['ch4_bg'], s=8, c='darkorange', alpha=0.6, label='Background')
-    axes[0].set_xlabel('Latitude')
-    axes[0].set_ylabel('CH₄ [ppb]')
-    axes[0].set_title('Observed vs Background')
-    axes[0].legend()
-    axes[0].grid(alpha=0.3)
-
-    thresh = float(sw['threshold'].iloc[0])
-    mad    = float(sw['local_mad'].iloc[0])
-    axes[1].hist(sw['delta_ch4'], bins=30, color='gray', alpha=0.7, edgecolor='k')
-    axes[1].axvline(thresh,  color='red',   linestyle='--', lw=2, label=f'Threshold={thresh:.1f} ppb')
-    axes[1].axvline(-thresh, color='blue',  linestyle='--', lw=1, alpha=0.5)
-    axes[1].axvline(0,       color='black', linestyle='-',  lw=1, alpha=0.4)
-    axes[1].set_xlabel('ΔCH₄ [ppb]')
-    axes[1].set_ylabel('Count')
-    axes[1].set_title(f'Enhancement distribution | MAD={mad:.2f} ppb')
-    axes[1].legend()
-    axes[1].grid(alpha=0.3)
-
-    plt.tight_layout()
-    plt.savefig('background_qc.png', dpi=150, bbox_inches='tight')
-    plt.show()
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
 
 # MARKDOWN ********************
 

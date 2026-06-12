@@ -1,0 +1,10 @@
+// KQL script
+// Use management commands in this script to configure your database items, such as tables, functions, materialized views, and more.
+
+
+.create-or-alter materialized-view  facility_kpi_mv on table sensor_telemetry { sensor_telemetry
+    | summarize
+        reading_count = count(),
+        avg_ch4       = avg(ch4_ppm),
+        exceedances   = countif(exceedance_flag == true)
+      by facility_sk, bin(reading_ts, 6h) }

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "gen_ldar"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1521c95a-a11d-920a-4b3c-456ee45214ea"
+  }
+}

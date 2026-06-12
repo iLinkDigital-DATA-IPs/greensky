@@ -1,11 +1,11 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
-    "type": "DataPipeline",
-    "displayName": "scada_pipeline"
+    "type": "Notebook",
+    "displayName": "gen_inspection"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "b5b1f2b4-84f2-9cf7-40ff-1ad0dded0471"
+    "logicalId": "aac12d63-b41d-90ac-44cf-9a78f59bced5"
   }
 }

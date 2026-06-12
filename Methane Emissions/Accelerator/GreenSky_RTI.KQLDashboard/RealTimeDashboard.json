@@ -1,11 +1,11 @@
 {
-  "schema_version": 74,
+  "schema_version": 75,
   "pagesNavWidth": 303.24441528320313,
   "tiles": [
     {
       "id": "239f10c8-1516-427d-afd3-f3441b8a3674",
       "title": "Emission Trends ",
-      "visualType": "timechart",
+      "visualType": "line",
       "pageId": "c40704eb-77a9-4736-8a1a-49088deb0426",
       "layout": {
         "x": 12,
@@ -31,6 +31,7 @@
           "additional": [],
           "showMultiplePanels": false
         },
+        "seriesColors": {},
         "hideLegend": false,
         "legendLocation": "bottom",
         "xColumnTitle": "Time",
@@ -42,11 +43,10 @@
         "seriesColumns": null,
         "xAxisScale": "linear",
         "verticalLine": "",
+        "crossFilter": [],
         "crossFilterDisabled": false,
         "drillthroughDisabled": false,
         "forceAxisTicks": false,
-        "seriesColors": {},
-        "crossFilter": [],
         "drillthrough": []
       }
     },
@@ -1066,7 +1066,7 @@
         "kind": "inline",
         "dataSourceId": "ede001d3-31fa-4486-b301-6e4ff55e1946"
       },
-      "text": "    external_table('gold_emission_events')\n    | where detection_timestamp >= ago(60d)\n    | summarize \n        total_events = count(),\n        super_emitter_count = countif(emission_severity == \"SUPER_EMITTER\"),\n        high_emitter_count = countif(emission_severity == \"HIGH\"),\n        total_methane_loss_mcf = sum(total_methane_loss_mcf),\n        total_financial_impact = sum(financial_impact_usd),\n        avg_emission_rate = avg(emission_kg_per_hour),\n        max_emission_rate = max(emission_kg_per_hour),\n        critical_facilities = dcountif(facility_key, compliance_risk_score >= 7)\n        by bin(detection_timestamp, 1h)\n    | extend \n        avg_financial_impact = total_financial_impact / total_events,\n        super_emitter_pct = round(100.0 * super_emitter_count / total_events, 1)\n| where detection_timestamp >= ago(60d)\n| summarize Critical = max(critical_facilities)\n| project Value = Critical, Label = \"Super Emitter\"\n\n",
+      "text": "    external_table('gold_emission_events')\n    | where detection_timestamp >= ago(360d)\n    | summarize \n        total_events = count(),\n        super_emitter_count = countif(emission_severity == \"SUPER_EMITTER\"),\n        high_emitter_count = countif(emission_severity == \"HIGH\"),\n        total_methane_loss_mcf = sum(total_methane_loss_mcf),\n        total_financial_impact = sum(financial_impact_usd),\n        avg_emission_rate = avg(emission_kg_per_hour),\n        max_emission_rate = max(emission_kg_per_hour),\n        critical_facilities = dcountif(facility_key, compliance_risk_score >= 5)\n        by bin(detection_timestamp, 1h)\n    | extend \n        avg_financial_impact = total_financial_impact / total_events,\n        super_emitter_pct = round(100.0 * super_emitter_count / total_events, 1)\n| where detection_timestamp >= ago(360d)\n| summarize Critical = max(critical_facilities)\n| project Value = Critical, Label = \"Super Emitter\"\n\n",
       "id": "1d8054c8-d931-4498-80e2-5274e526a239",
       "usedVariables": []
     },
@@ -1337,5 +1337,6 @@
       "id": "4fd660e3-e63f-4bd7-b780-6658b4bb45d7",
       "usedVariables": []
     }
-  ]
+  ],
+  "embeddedApps": []
 }

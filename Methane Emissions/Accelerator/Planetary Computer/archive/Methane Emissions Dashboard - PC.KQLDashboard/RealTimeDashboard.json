@@ -8,7 +8,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 0,
-        "y": 0,
+        "y": 3,
         "width": 4,
         "height": 3
       },
@@ -30,7 +30,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 9,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -129,7 +129,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 14,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -228,7 +228,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 4,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -327,7 +327,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 9,
-        "y": 3,
+        "y": 6,
         "width": 15,
         "height": 8
       },
@@ -352,7 +352,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 9,
-        "y": 11,
+        "y": 14,
         "width": 15,
         "height": 7
       },
@@ -406,7 +406,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 0,
-        "y": 11,
+        "y": 14,
         "width": 9,
         "height": 7
       },
@@ -451,7 +451,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 19,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -551,7 +551,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 0,
-        "y": 18,
+        "y": 21,
         "width": 11,
         "height": 7
       },
@@ -598,7 +598,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 0,
-        "y": 3,
+        "y": 6,
         "width": 9,
         "height": 8
       },
@@ -649,7 +649,7 @@
       "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
       "layout": {
         "x": 11,
-        "y": 18,
+        "y": 21,
         "width": 13,
         "height": 7
       },
@@ -716,7 +716,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 0,
-        "y": 3,
+        "y": 6,
         "width": 9,
         "height": 7
       },
@@ -764,7 +764,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 0,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -863,7 +863,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 5,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -962,7 +962,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 10,
-        "y": 0,
+        "y": 3,
         "width": 4,
         "height": 3
       },
@@ -1054,7 +1054,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 14,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1146,7 +1146,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 19,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1238,7 +1238,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 9,
-        "y": 3,
+        "y": 6,
         "width": 8,
         "height": 7
       },
@@ -1291,7 +1291,7 @@
       "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
       "layout": {
         "x": 17,
-        "y": 3,
+        "y": 6,
         "width": 7,
         "height": 7
       },
@@ -1333,7 +1333,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 5,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1415,7 +1415,7 @@
               }
             ],
             "chainingOperator": "and",
-            "colorStyle": "bold",
+            "colorStyle": "light",
             "color": "green",
             "tag": "",
             "icon": null,
@@ -1432,7 +1432,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 10,
-        "y": 0,
+        "y": 3,
         "width": 4,
         "height": 3
       },
@@ -1524,7 +1524,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 14,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1623,7 +1623,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 19,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1722,7 +1722,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 0,
-        "y": 0,
+        "y": 3,
         "width": 5,
         "height": 3
       },
@@ -1804,7 +1804,7 @@
               }
             ],
             "chainingOperator": "and",
-            "colorStyle": "bold",
+            "colorStyle": "light",
             "color": "green",
             "tag": "",
             "icon": null,
@@ -1821,7 +1821,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 0,
-        "y": 3,
+        "y": 6,
         "width": 14,
         "height": 7
       },
@@ -1848,7 +1848,7 @@
       "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
       "layout": {
         "x": 14,
-        "y": 3,
+        "y": 6,
         "width": 10,
         "height": 7
       },
@@ -1873,7 +1873,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 0,
-        "y": 3,
+        "y": 6,
         "width": 13,
         "height": 7
       },
@@ -1906,7 +1906,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 3,
-        "y": 0,
+        "y": 3,
         "width": 6,
         "height": 3
       },
@@ -2006,7 +2006,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 0,
-        "y": 10,
+        "y": 13,
         "width": 13,
         "height": 4
       },
@@ -2056,7 +2056,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 13,
-        "y": 10,
+        "y": 13,
         "width": 11,
         "height": 4
       },
@@ -2101,7 +2101,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 10,
-        "y": 0,
+        "y": 3,
         "width": 3,
         "height": 3
       },
@@ -2171,7 +2171,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 14,
-        "y": 0,
+        "y": 3,
         "width": 7,
         "height": 3
       },
@@ -2271,7 +2271,7 @@
       "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
       "layout": {
         "x": 13,
-        "y": 3,
+        "y": 6,
         "width": 11,
         "height": 7
       },
@@ -2288,6 +2288,62 @@
         "map__geoType": "numeric",
         "map__geoPointColumn": null
       }
+    },
+    {
+      "id": "651534e0-d92e-41f2-8461-490b80de758d",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "5824745a-83c2-4218-8dc1-1908880a66b1",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "68a31527-e728-49a4-a5f5-8fbde6309870",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "170e331b-5c6e-4b10-b7ee-f12356a5ec80",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "2e26ddb2-6d74-45c2-92d6-651a68cdbd59",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "e44ec9d4-c19f-4677-99f9-373873638021",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "2050b86d-1069-450d-ae4d-24864a1d14eb",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "5721837e-194c-4a58-bb41-d519692d1323",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
     }
   ],
   "baseQueries": [],
@@ -2373,7 +2429,7 @@
       "id": "170e331b-5c6e-4b10-b7ee-f12356a5ec80"
     },
     {
-      "name": "Real Time Monitoring",
+      "name": "Operational Dashboard",
       "id": "e44ec9d4-c19f-4677-99f9-373873638021"
     },
     {

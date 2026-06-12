@@ -90,43 +90,45 @@ catalog = pystac_client.Client.open(
 
 # CELL ********************
 
+import time
+import requests
+
 # SEARCHING CATALOG
 longitude = -99.36    # Permian Basin, Texas, US
 latitude  = 31.5
-
-# AREA WISE SEARCH — renamed to avoid collision with viz cell's `geometry`
-search_geometry = {
-    "type": "Polygon",
-    "coordinates": [[
-        [-105, 25],
-        [-105, 35],
-        [-90,  35],
-        [-90,  25],
-        [-105, 25],
-    ]]
-}
 
 end_date   = datetime.utcnow()
 start_date = (end_date - timedelta(days=5)).strftime("%Y-%m-%d")
 end_date   = end_date.strftime("%Y-%m-%d")
 
-search = catalog.search(
-    collections=["sentinel-5p-l2-netcdf"],
-    intersects=search_geometry,
-    datetime=f"{start_date}/{end_date}",
-    query={
-        "s5p:processing_mode": {"in": ["OFFL", "NRTI"]},
-        "s5p:product_name":    {"eq": "ch4"}
-    },
-    max_items=500,
-)
+payload = {
+    "collections": ["sentinel-5p-l2-netcdf"],
+    "intersects": {"type": "Point", "coordinates": [longitude, latitude]},
+    "datetime": f"{start_date}/{end_date}",
+    "limit": 50,
+}
 
-items = list(search.items())
+items = []
+for attempt in range(5):
+    try:
+        resp = requests.post(
+            "https://planetarycomputer.microsoft.com/api/stac/v1/search",
+            json=payload,
+            timeout=60,   # explicit 60-second timeout
+        )
+        resp.raise_for_status()
+        items = resp.json().get("features", [])
+        break
+    except Exception as e:
+        wait = 15 * (attempt + 1)   # 15s, 30s, 45s ...
+        print(f"Attempt {attempt+1} failed: {e}. Retrying in {wait}s...")
+        time.sleep(wait)
 
-dates = [item.datetime.date() for item in items]
+dates = [item["properties"]["datetime"][:10] for item in items]
 print("Available dates:", Counter(dates))
 if items:
-    print("Latest item:", max(item.datetime for item in items))
+    print("Latest item:", max(item["properties"]["datetime"] for item in items))
+    print(f"Total items found: {len(items)}")
 else:
     print("No items found for the given search parameters.")
 
@@ -139,22 +141,59 @@ else:
 
 # CELL ********************
 
+import time
+import requests
+
+items_by_mode = {"OFFL": [], "NRTI": []}
+
 for mode in ["OFFL", "NRTI"]:
-    search = catalog.search(
-        collections=["sentinel-5p-l2-netcdf"],
-        intersects=search_geometry,   # ← use renamed variable
-        datetime=f"{start_date}/{end_date}",
-        query={
-            "s5p:processing_mode": {"eq": mode},
-            "s5p:product_name":    {"eq": "ch4"}
-        },
-        max_items=500,
-    )
-    mode_items = list(search.items())
-    if mode_items:
-        print(f"{mode} max date:", max(i.datetime for i in mode_items))
+    payload = {
+        "collections": ["sentinel-5p-l2-netcdf"],
+        "intersects": {"type": "Point", "coordinates": [longitude, latitude]},
+        "datetime": f"{start_date}/{end_date}",
+        "limit": 50,
+    }
+
+    for attempt in range(5):
+        try:
+            resp = requests.post(
+                "https://planetarycomputer.microsoft.com/api/stac/v1/search",
+                json=payload,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            all_items = resp.json().get("features", [])
+
+            # filter client-side instead of via query param
+            mode_items = [
+                i for i in all_items
+                if i["properties"].get("s5p:processing_mode") == mode
+                and i["properties"].get("s5p:product_name") == "ch4"
+            ]
+            items_by_mode[mode] = mode_items
+            break
+        except Exception as e:
+            wait = 15 * (attempt + 1)
+            print(f"{mode} attempt {attempt+1} failed: {e}. Retrying in {wait}s...")
+            time.sleep(wait)
+
+    if items_by_mode[mode]:
+        print(f"{mode} max date:", max(i["properties"]["datetime"] for i in items_by_mode[mode]))
+        print(f"{mode} count:", len(items_by_mode[mode]))
     else:
         print(f"{mode}: no data")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pystac import Item
+items = [Item.from_dict(f) for f in items]
 
 # METADATA ********************
 
@@ -227,14 +266,12 @@ def fetch_and_parse(href, timeout=120):
                  "latitude", "longitude"]]
         df = ds.to_dataframe().reset_index()
 
-    # Drop xarray index columns that aren't needed
     df = df.drop(columns=[c for c in ["scanline", "ground_pixel", "time"] if c in df.columns])
     return df
 
 def flush_batch(pandas_dfs):
     """Combine a list of per-item DataFrames into a single Spark DataFrame."""
     combined = pd.concat(pandas_dfs, ignore_index=True)
-    # Dedup now works because datetime + stac_id are set before append (see loop)
     combined = combined.drop_duplicates(["latitude", "longitude", "datetime", "stac_id"])
     return spark.createDataFrame(combined, schema=schema)
 
@@ -253,30 +290,36 @@ spark_dfs  = []
 batch_pdfs = []
 
 for i, item in enumerate(items):
-    print(f"[{i+1}/{len(items)}] {item.id}", end="  ")
+    # items is a list of pystac.Item — access via attributes, not dict keys
+    item_id    = item.id
+    item_dt    = item.datetime
+    props      = item.properties                          # plain dict
+    collection = (item.collection_id                      # may be None without root catalog
+                  or props.get("collection")
+                  or "sentinel-5p-l2-netcdf")
+
+    print(f"[{i+1}/{len(items)}] {item_id}", end="  ")
 
     try:
         href = sign(item.assets["ch4"].href)
     except KeyError:
-        skipped.append((item.id, "no ch4 asset"))
+        skipped.append((item_id, "no ch4 asset"))
         print("SKIP: no ch4 asset")
         continue
-
-    props = item.properties
 
     try:
         df = fetch_and_parse(href, timeout=HTTP_TIMEOUT)
     except requests.Timeout:
-        skipped.append((item.id, f"timed out after {HTTP_TIMEOUT}s"))
+        skipped.append((item_id, f"timed out after {HTTP_TIMEOUT}s"))
         print("SKIP: timeout")
         continue
     except Exception as e:
-        skipped.append((item.id, str(e)))
+        skipped.append((item_id, str(e)))
         print(f"SKIP: {e}")
         continue
 
     df = df.rename(columns={"methane_mixing_ratio_bias_corrected": "ch4"})
-    df = df.replace([np.inf, -np.inf], np.nan)   # ← np.nan, not None; pandas handles it better
+    df = df.replace([np.inf, -np.inf], np.nan)
     df["latitude"]  = pd.to_numeric(df["latitude"],  errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     df["ch4"]       = pd.to_numeric(df["ch4"],       errors="coerce")
@@ -285,22 +328,21 @@ for i, item in enumerate(items):
     df = df[df["qa_value"] > 0.5]
 
     if df.empty:
-        skipped.append((item.id, "all rows failed QA"))
+        skipped.append((item_id, "all rows failed QA"))
         print("SKIP: no rows passed QA")
         continue
 
-    # ← Metadata assigned BEFORE append so flush_batch dedup is effective
-    df["datetime"]         = pd.to_datetime(item.datetime, utc=True)
+    df["datetime"]         = pd.to_datetime(item_dt, utc=True)
     df["gas"]              = props.get("s5p:product_name", "ch4").upper()
     df["instrument"]       = (props.get("instruments") or [None])[0]
     df["platform"]         = props.get("platform")
-    df["collection"]       = item.collection_id or "sentinel-5p-l2-netcdf"
-    df["stac_id"]          = item.id
+    df["collection"]       = collection
+    df["stac_id"]          = item_id
     df["provider"]         = PROVIDER_NAME
     df["provider_all"]     = PROVIDER_ALL
     df["provider_roles"]   = PROVIDER_ROLES
     df["processing_level"] = props.get("s5p:processing_mode")
-    df["mission_phase"]    = get_mission_phase(item.datetime)
+    df["mission_phase"]    = get_mission_phase(item_dt)
 
     batch_pdfs.append(df[OUTPUT_COLS])
     print(f"{len(df):,} rows")
@@ -324,7 +366,6 @@ if skipped:
 
 spark_df = reduce(DataFrame.union, spark_dfs)
 spark_df = spark_df.dropDuplicates(["latitude", "longitude", "datetime", "stac_id"])
-# Repartition deferred to the write cell where we know the final row count
 
 print(f"\nPre-write count: {spark_df.count():,} rows")
 

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "scada_daily"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "6090cd2d-e40d-a187-4b3d-2ff679be0191"
+  }
+}

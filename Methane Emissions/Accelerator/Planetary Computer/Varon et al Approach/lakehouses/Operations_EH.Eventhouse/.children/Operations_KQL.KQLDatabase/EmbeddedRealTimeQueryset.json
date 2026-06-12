@@ -1,0 +1,21 @@
+{
+  "queryset": {
+    "version": "1.0.0",
+    "dataSources": [
+      {
+        "id": "b770a3c0-7961-47d3-9db3-98b5c61053fa",
+        "clusterUri": "https://trd-sqdkbwqwa2x7txbzty.z2.kusto.fabric.microsoft.com",
+        "type": "Fabric",
+        "databaseItemId": "Operations_KQL"
+      }
+    ],
+    "tabs": [
+      {
+        "id": "ae39fb29-3fa8-4717-a1eb-a81541fb5fe1",
+        "content": "// ── Tables ────────────────────────────────────────────────────────────\n.create-merge table sensor_telemetry (\n    sensor_id: string, equipment_sk: long, facility_sk: long,\n    reading_ts: datetime, ch4_ppm: real, baseline_ppm: real,\n    exceedance_flag: bool, wind_speed_ms: real, wind_dir_deg: real,\n    sensor_status: string, ingest_ts: datetime\n)\n\n.create-merge table plume_detection_hot (\n    plume_id: string, detect_ts: datetime,\n    source_lat: real, source_lon: real,\n    emission_rate_kg_s: real, emission_rate_confidence: real,\n    wind_speed_ms: real, wind_dir_deg: real, is_synthetic: bool,\n    anchor_distance_km: real\n)\n\n.create-merge table workorder_event (\n    ticket_id: string, facility_sk: long, equipment_sk: long,\n    event_ts: datetime, from_status: string, to_status: string,\n    actor: string, note: string\n)\n\n.create-merge table facility_kpi_snapshot_6h (\n    snapshot_ts: datetime, facility_sk: long,\n    active_plumes: int, open_tickets: int,\n    compliance_violations: int, risk_score: real,\n    monthly_financial_impact: real, mean_time_to_repair_hr: real,\n    equipment_health_score: real, emission_rate_kg_s_sum: real\n)\n\n.alter tables (sensor_telemetry, plume_detection_hot, workorder_event)\n    policy caching hot = 90d\n\n.alter table facility_kpi_snapshot_6h policy caching hot = 365d\n\n.alter table sensor_telemetry policy retention '{\"SoftDeletePeriod\": \"1825.00:00:00\", \"Recoverability\": \"Enabled\"}'\n\n.alter table plume_detection_hot policy retention '{\"SoftDeletePeriod\": \"1825.00:00:00\", \"Recoverability\": \"Enabled\"}'\n\n.create-or-alter materialized-view with (backfill=true)\n    facility_kpi_mv on table sensor_telemetry\n{\n    sensor_telemetry\n    | summarize\n        reading_count = count(),\n        avg_ch4       = avg(ch4_ppm),\n        exceedances   = countif(exceedance_flag == true)\n      by facility_sk, bin(reading_ts, 6h)\n}",
+        "title": "core tables",
+        "dataSourceId": "b770a3c0-7961-47d3-9db3-98b5c61053fa"
+      }
+    ]
+  }
+}

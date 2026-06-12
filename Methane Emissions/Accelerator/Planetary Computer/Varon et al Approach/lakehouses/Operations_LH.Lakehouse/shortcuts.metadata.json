@@ -1,7 +1,20 @@
 [
   {
-    "name": "ch4_plume_catalog",
-    "path": "/Tables/silver",
+    "name": "weather",
+    "path": "/Tables/bronze",
+    "target": {
+      "type": "OneLake",
+      "oneLake": {
+        "path": "Tables/bronze/weather",
+        "itemId": "09a1d397-7547-9483-4699-9d0695f7f55e",
+        "workspaceId": "00000000-0000-0000-0000-000000000000",
+        "artifactType": "Lakehouse"
+      }
+    }
+  },
+  {
+    "name": "plume_raw",
+    "path": "/Tables/bronze",
     "target": {
       "type": "OneLake",
       "oneLake": {
