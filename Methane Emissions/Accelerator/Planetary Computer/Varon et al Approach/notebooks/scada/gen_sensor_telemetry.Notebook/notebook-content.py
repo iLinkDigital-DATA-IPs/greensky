@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -131,7 +131,7 @@ slots = (spark.range(0, n_slots)
            .withColumn("reading_ts",
                        F.expr(f"timestampadd(HOUR, CAST(id AS INT) * {interval_h}, timestamp'{start_ts}')")))
 
-tel = sensors.crossJoin(slots).withColumn("rid", F.monotonically_increasing_id())
+tel = sensors.crossJoin(slots)
 
 # deterministic pseudo-random per (sensor, slot)
 seed = F.abs(F.hash(F.concat_ws("|", F.lit(MASTER_SEED), F.col("sensor_id"), F.col("id"))))
@@ -140,21 +140,10 @@ u2 = ((seed * F.lit(31)) % F.lit(100003)) / F.lit(100003.0)
 hod = F.hour("reading_ts")
 diurnal = 0.05 * F.sin((hod / 24.0) * 2 * 3.14159)
 
-# overlay active episodes (equi-join on equipment_sk, then range filter)
-ep = spark.table("gold.fact_emission_episode").select(
-        "equipment_sk", "start_ts", "end_ts", "peak_rate_kg_s")
-ovl = (tel.select("rid", "equipment_sk", "reading_ts")
-         .join(ep, "equipment_sk", "inner")
-         .where((F.col("reading_ts") >= F.col("start_ts")) &
-                (F.col("reading_ts") <= F.col("end_ts")))
-         .groupBy("rid").agg(F.max("peak_rate_kg_s").alias("active_rate")))
-
-tel = (tel.join(ovl, "rid", "left")
+# baseline telemetry only — no episode overlay
+tel = (tel
           .withColumn("baseline_ppm", F.round(1.9 + 0.15 * u1 + diurnal, 4))
-          .withColumn("elevation",
-                      F.when(F.col("active_rate").isNotNull(),
-                             F.col("active_rate") * (50.0 + 200.0 * u2)).otherwise(F.lit(0.0)))
-          .withColumn("ch4_ppm", F.round(F.col("baseline_ppm") + F.col("elevation") + 0.05 * u2, 4))
+          .withColumn("ch4_ppm", F.round(F.col("baseline_ppm") + 0.05 * u2, 4))
           .withColumn("exceedance_flag", F.col("ch4_ppm") > (F.col("baseline_ppm") * 1.5))
           .withColumn("wind_speed_ms", F.round(F.lit(CALIBRATION["wind_speed_mean"]) + (u1 - 0.5) * 4.0, 2))
           .withColumn("wind_dir_deg",  F.round(u2 * 360.0, 1))

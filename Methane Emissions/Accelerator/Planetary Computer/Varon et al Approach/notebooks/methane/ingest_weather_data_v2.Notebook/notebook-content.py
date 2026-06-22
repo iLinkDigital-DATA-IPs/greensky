@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "95f7f55e-9d06-4699-9483-754709a1d397",
+# META       "default_lakehouse": "efa87071-e383-420b-b759-0a1988232862",
 # META       "default_lakehouse_name": "Planetary_computer_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "95f7f55e-9d06-4699-9483-754709a1d397"
+# META           "id": "efa87071-e383-420b-b759-0a1988232862"
 # META         }
 # META       ]
 # META     },
@@ -43,6 +43,7 @@ from delta.tables import DeltaTable
 from datetime import datetime, timedelta
 import requests
 import pandas as pd
+from notebookutils import mssparkutils
  
 logging.basicConfig(
     level=logging.INFO,
@@ -180,15 +181,17 @@ def safe_get(data, key, i):
 
 # CELL ********************
 
-# Date range: last 5 days up to today (UTC)
-end_date   = datetime.utcnow()
-start_date = end_date - timedelta(days=5)
- 
-start_str = start_date.strftime("%Y-%m-%d")
-end_str   = end_date.strftime("%Y-%m-%d")
- 
-logger.info("Fetching weather data from %s to %s.", start_str, end_str)
- 
+_default_end   = datetime.utcnow().strftime("%Y-%m-%d")
+_default_start = (datetime.utcnow() - timedelta(days=5)).strftime("%Y-%m-%d")
+
+try:
+    start_str = getArgument("start_date", _default_start)
+    end_str   = getArgument("end_date",   _default_end)
+except Exception:
+    start_str = _default_start
+    end_str   = _default_end
+
+logger.info("Date range: %s to %s", start_str, end_str)
 
 # METADATA ********************
 

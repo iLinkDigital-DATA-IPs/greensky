@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -56,22 +56,93 @@
 
 # CELL ********************
 
-plumes  = spark.table("gold.fact_plume_detection").toPandas()
-eqgeo   = spark.table("silver.equipment_geo").toPandas()
-fac     = spark.table("gold.dim_facility").filter("is_current=true").toPandas()
+import numpy as np
 
-assert "equipment_lat" in eqgeo.columns, \
-    "silver.equipment_geo missing equipment_lat — re-run gen_emissions_episodes Cell 3 first"
+# Bounding box from real plumes (with a small buffer)
+LAT_MIN, LAT_MAX = 31.5,  33.5
+LON_MIN, LON_MAX = -105.0, -101.3
+
+rng = np.random.default_rng(42)  # fixed seed for reproducibility
+
+# ── Update silver.equipment_geo ───────────────────────────────────────
+eq_df = spark.table("silver.equipment_geo").toPandas()
+
+# Assign each facility a random location within the plume bounding box,
+# then give all equipment at that facility the same lat/lon
+fac_ids = eq_df["facility_sk"].unique()
+fac_locs = {
+    fsk: (
+        rng.uniform(LAT_MIN, LAT_MAX),
+        rng.uniform(LON_MIN, LON_MAX)
+    )
+    for fsk in fac_ids
+}
+
+eq_df["facility_lat"] = eq_df["facility_sk"].map(lambda x: fac_locs[x][0])
+eq_df["facility_lon"] = eq_df["facility_sk"].map(lambda x: fac_locs[x][1])
+eq_df["equipment_lat"] = eq_df["facility_lat"]
+eq_df["equipment_lon"] = eq_df["facility_lon"]
+
+(spark.createDataFrame(eq_df)
+     .write.mode("overwrite").option("overwriteSchema", "true")
+     .format("delta").saveAsTable("silver.equipment_geo"))
+print(f"silver.equipment_geo updated: {len(eq_df)} rows, {len(fac_ids)} facilities reseeded")
+
+# ── Update gold.dim_facility to match ────────────────────────────────
+fac_df = spark.table("gold.dim_facility").toPandas()
+
+fac_df["facility_lat"] = fac_df["facility_sk"].map(
+    lambda x: fac_locs[x][0] if x in fac_locs else rng.uniform(LAT_MIN, LAT_MAX)
+)
+fac_df["facility_lon"] = fac_df["facility_sk"].map(
+    lambda x: fac_locs[x][1] if x in fac_locs else rng.uniform(LON_MIN, LON_MAX)
+)
+
+(spark.createDataFrame(fac_df)
+     .write.mode("overwrite").option("overwriteSchema", "true")
+     .format("delta").saveAsTable("gold.dim_facility"))
+print(f"gold.dim_facility updated: {len(fac_df)} rows")
+
+print("\nNew equipment lat range:", eq_df.equipment_lat.min(), "to", eq_df.equipment_lat.max())
+print("New equipment lon range:", eq_df.equipment_lon.min(), "to", eq_df.equipment_lon.max())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+plumes = spark.table("gold.fact_plume_detection") \
+    .filter("is_synthetic = false") \
+    .toPandas()
+eqgeo = spark.table("silver.equipment_geo").toPandas()
+fac   = spark.table("gold.dim_facility").filter("is_current=true").toPandas()
+
+# silver.equipment_geo has facility_lat/lon rather than equipment_lat/lon —
+# equipment is co-located at its facility so we alias them
+if "equipment_lat" not in eqgeo.columns:
+    if "facility_lat" in eqgeo.columns:
+        eqgeo["equipment_lat"] = eqgeo["facility_lat"]
+        eqgeo["equipment_lon"] = eqgeo["facility_lon"]
+    else:
+        print(f"Available columns in silver.equipment_geo: {list(eqgeo.columns)}")
+        raise AssertionError("silver.equipment_geo has no lat/lon columns — re-run build_dimensions")
 
 SEARCH_RADIUS_KM  = 8.0
 UPWIND_HALF_ANGLE = 45.0
-_ref_ts = pd.Timestamp(REAL_PLUME_END)   # used for age calculation in attribute scoring
+_ref_ts = pd.Timestamp.now("UTC")  # tz-aware UTC timestamp
 
 # Precompute normalised attribute scores on eqgeo once — avoids recomputing per plume
 _type_propensity = {k: v["leak_propensity"] for k, v in EQUIPMENT_TYPES.items()}
 _crit_score      = {"Low": 0.5, "Medium": 0.7, "High": 0.9, "Critical": 1.0}
 
-eqgeo["age_yrs"]      = (_ref_ts - pd.to_datetime(eqgeo["install_date"])).dt.days / 365.0
+# Ensure install_date is tz-aware (UTC) to match _ref_ts
+eqgeo["install_date"] = pd.to_datetime(eqgeo["install_date"], utc=True)
+
+eqgeo["age_yrs"]      = (_ref_ts - eqgeo["install_date"]).dt.days / 365.0
 eqgeo["age_factor"]   = np.clip(eqgeo["age_yrs"] / eqgeo["expected_life_years"], 0, 1.5) ** 1.5
 eqgeo["type_score"]   = eqgeo["equipment_type"].map(_type_propensity).fillna(0.5)
 eqgeo["crit_score"]   = eqgeo["criticality"].map(_crit_score).fillna(0.5)
@@ -231,34 +302,31 @@ eq_sdf.write.mode("overwrite").option("overwriteSchema", "true") \
     .format("delta").saveAsTable("gold.bridge_plume_equipment")
 print(f"bridge_plume_equipment: {len(eq_pdf)} rows written")
 
-# ── QA: two-level accuracy check ─────────────────────────────────────
-ep_gt = (spark.table("gold.fact_emission_episode")
-              .select("episode_sk", "equipment_sk", "facility_sk")
-              .toPandas())
+# ── QA: attribution summary (real plumes only — no synthetic ground truth) ──
+print(f"\nAttribution tiers: {conf_tiers}")
+print(f"Total plumes:      {len(plumes)}")
+print(f"Attributed:        {len(plumes) - conf_tiers.get('unattributed', 0)}")
+print(f"Unattributed:      {conf_tiers.get('unattributed', 0)}")
+if len(fac_pdf[fac_pdf.facility_sk.notna()]) > 0:
+    print(f"\nTop attributed facilities:")
+    print(fac_pdf[fac_pdf.facility_sk.notna()]
+          .groupby("facility_sk")["plume_id"].count()
+          .sort_values(ascending=False).head(10).to_string())
 
-syn_plumes = plumes[plumes.is_synthetic == True][["plume_id", "episode_sk"]]
-syn_merged = (syn_plumes
-              .merge(ep_gt, on="episode_sk", how="left")
-              .rename(columns={"equipment_sk": "true_equipment_sk",
-                               "facility_sk":  "true_facility_sk"}))
+# METADATA ********************
 
-if len(eq_pdf) == 0:
-    print("eq_bridge is empty — no attributions to evaluate")
-else:
-    primary_fac = fac_pdf[fac_pdf.primary_flag][["plume_id", "facility_sk"]]
-    qa_fac = syn_merged.merge(primary_fac, on="plume_id", how="inner")
-    if len(qa_fac):
-        fac_acc = (qa_fac.true_facility_sk == qa_fac.facility_sk).mean()
-        print(f"facility-level recovery : {fac_acc:.1%}  (target ~70-85%)")
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
 
-    primary_eq = eq_pdf[eq_pdf.primary_flag][["plume_id", "equipment_sk"]]
-    qa_eq = syn_merged.merge(primary_eq, on="plume_id", how="inner")
-    if len(qa_eq):
-        eq_acc = (qa_eq.true_equipment_sk == qa_eq.equipment_sk).mean()
-        print(f"equipment-level recovery: {eq_acc:.1%}  (target ~30-50% with attribute scoring)")
+# CELL ********************
 
-    print(f"\nNote: satellite localisation uncertainty (~300m) exceeds typical within-facility")
-    print(f"equipment separation (~65m). Facility-level is the primary attribution metric.")
+# Diagnose spatial overlap between plumes and facilities
+print("Plume source_lat range:", plumes.source_lat.min(), "to", plumes.source_lat.max())
+print("Plume source_lon range:", plumes.source_lon.min(), "to", plumes.source_lon.max())
+print("Equipment lat range:   ", eqgeo.equipment_lat.min(), "to", eqgeo.equipment_lat.max())
+print("Equipment lon range:   ", eqgeo.equipment_lon.min(), "to", eqgeo.equipment_lon.max())
 
 # METADATA ********************
 

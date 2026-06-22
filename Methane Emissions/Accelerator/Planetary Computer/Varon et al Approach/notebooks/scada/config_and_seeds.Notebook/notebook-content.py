@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -66,11 +66,11 @@ MASTER_SEED = 20260602  # change to regenerate the entire synthetic universe
 # CELL ********************
 
 # ---- Temporal window --------------------------------------------------
-REAL_PLUME_START = date(2025, 5, 10)     # real feed begins here (is_synthetic=False)
-REAL_PLUME_END   = date(2026, 6, 2)
-HISTORY_YEARS    = 5
-SYNTH_PLUME_END  = REAL_PLUME_START - timedelta(days=1)          # 2025-05-09
-HISTORY_START    = SYNTH_PLUME_END  - timedelta(days=365 * HISTORY_YEARS)  # 2020-05-09
+REAL_PLUME_START = date(2025, 5, 10)
+REAL_PLUME_END   = date.today()          # always current, not hardcoded
+
+HISTORY_START    = REAL_PLUME_START      # used by downstream notebooks as window start
+SYNTH_PLUME_END  = REAL_PLUME_START      # keep for backward compat but no longer meaningful
 
 # METADATA ********************
 

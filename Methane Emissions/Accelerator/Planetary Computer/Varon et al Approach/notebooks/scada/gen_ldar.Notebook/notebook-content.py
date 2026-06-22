@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -97,10 +97,14 @@ print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()}  
 # CELL ********************
 
 fac = spark.table("gold.dim_facility").filter("is_current = true").select("facility_sk").toPandas()
-ep  = (spark.table("gold.fact_emission_episode")
-         .select("facility_sk","start_ts").toPandas())
-ep["start_ts"] = pd.to_datetime(ep["start_ts"])
-
+try:
+    ep = (spark.table("gold.fact_plume_detection")
+             .filter("is_synthetic = false")
+             .select("facility_sk", F.col("detect_ts").alias("start_ts"))
+             .toPandas())
+    ep["start_ts"] = pd.to_datetime(ep["start_ts"])
+except Exception:
+    ep = pd.DataFrame(columns=["facility_sk", "start_ts"])
 H_START = pd.Timestamp(HISTORY_START); H_END = pd.Timestamp(REAL_PLUME_END)
 PROGRAMS = ["NSPS_OOOOb", "State", "Voluntary"]
 SURVEY_CADENCE_DAYS = 90

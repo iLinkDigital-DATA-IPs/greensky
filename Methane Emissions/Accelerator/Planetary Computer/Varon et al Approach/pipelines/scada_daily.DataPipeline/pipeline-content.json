@@ -10,6 +10,20 @@
             "run_mode": {
               "value": "incremental",
               "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
             }
           }
         },
@@ -32,6 +46,20 @@
           "parameters": {
             "run_mode": {
               "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
               "type": "string"
             }
           }
@@ -63,6 +91,20 @@
             "run_mode": {
               "value": "incremental",
               "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
             }
           }
         },
@@ -92,6 +134,20 @@
           "parameters": {
             "run_mode": {
               "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
               "type": "string"
             }
           }
@@ -123,6 +179,20 @@
             "run_mode": {
               "value": "incremental",
               "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
             }
           }
         },
@@ -153,6 +223,20 @@
             "run_mode": {
               "value": "incremental",
               "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
             }
           }
         },
@@ -174,6 +258,20 @@
           }
         ]
       }
-    ]
+    ],
+    "parameters": {
+      "run_mode": {
+        "type": "string",
+        "defaultValue": "incremental "
+      },
+      "start_date": {
+        "type": "string",
+        "defaultValue": "2026-01-01"
+      },
+      "end_date": {
+        "type": "string",
+        "defaultValue": "2026-06-17"
+      }
+    }
   }
 }

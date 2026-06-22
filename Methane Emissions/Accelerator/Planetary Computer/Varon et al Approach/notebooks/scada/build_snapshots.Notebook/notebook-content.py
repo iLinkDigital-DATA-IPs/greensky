@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -55,13 +55,19 @@
 # CELL ********************
 
 # ── run_mode handling (works in pipeline runs and interactively) ──────
-# Pipeline passes base parameter `run_mode`; interactive falls back to backfill.
 RUN_MODE = "backfill"
 try:
-    RUN_MODE = getArgument("run_mode", "backfill")      # set by pipeline activity
+    RUN_MODE = getArgument("run_mode", "backfill")
 except Exception:
     pass
 RUN_MODE = (str(RUN_MODE) or "backfill").lower()
+
+try:
+    _start_override = getArgument("start_date", "")
+    _end_override   = getArgument("end_date",   "")
+except Exception:
+    _start_override = ""
+    _end_override   = ""
 
 INCREMENTAL_LOOKBACK_DAYS = 1
 if RUN_MODE == "incremental":
@@ -70,8 +76,14 @@ if RUN_MODE == "incremental":
     WRITE_MODE   = "append"
 else:
     WINDOW_START = pd.Timestamp(HISTORY_START)
-    WINDOW_END   = pd.Timestamp(REAL_PLUME_END)
+    WINDOW_END   = pd.Timestamp.utcnow().floor("D")  # updated: was pd.Timestamp(REAL_PLUME_END)
     WRITE_MODE   = "overwrite"
+
+# Override with explicit dates if passed — these take precedence over run_mode
+if _start_override:
+    WINDOW_START = pd.Timestamp(_start_override)
+if _end_override:
+    WINDOW_END = pd.Timestamp(_end_override)
 
 def _add_date_sk(sdf, ts_col):
     """date_sk matches dim_date (yyyyMMdd as bigint)."""
@@ -106,6 +118,7 @@ def safe_table(name):
         return None
 
 W0, W1 = F.lit(str(WINDOW_START)), F.lit(str(WINDOW_END))
+print(f"Filtering plumes between {str(WINDOW_START)} and {str(WINDOW_END)}")
 
 # ── facility x day emission aggregates (from attributed plumes) ───────
 bridge = (spark.table("gold.bridge_plume_facility_attribution")
@@ -113,10 +126,19 @@ bridge = (spark.table("gold.bridge_plume_facility_attribution")
             .select("plume_id","facility_sk","allocation_factor","primary_flag"))
 plumes = (spark.table("gold.fact_plume_detection")
             .select("plume_id","detect_ts","emission_rate_kg_s")
+            .filter("is_synthetic = false")
             .where((F.col("detect_ts") >= W0) & (F.col("detect_ts") <= W1)))
+
+# Add this to confirm plumes are being found before proceeding
+print(f"Plumes in window: {plumes.count()}")
+print(f"Bridge rows: {bridge.count()}")
+
 pj = (bridge.join(plumes, "plume_id", "inner")
         .withColumn("d", F.to_date("detect_ts"))
         .withColumn("alloc_rate", F.col("emission_rate_kg_s") * F.col("allocation_factor")))
+
+print(f"Joined rows: {pj.count()}")
+
 emis = (pj.groupBy("facility_sk", "d")
           .agg(F.countDistinct(F.when(F.col("primary_flag"), F.col("plume_id"))).alias("active_plumes"),
                F.sum("alloc_rate").alias("emission_rate_kg_s_sum"))
@@ -143,7 +165,7 @@ else:
 
 # ── per-facility equipment health (volatile measure) ──────────────────
 eq = spark.table("silver.equipment_geo").toPandas()
-mfr_rel = dict(MANUFACTURERS); _ref = pd.Timestamp(REAL_PLUME_END)
+mfr_rel = dict(MANUFACTURERS); _ref = pd.Timestamp.now("UTC").replace(tzinfo=None)
 def _health(row):
     cond = equipment_condition_index(
         age_years=max(0.1, (_ref - pd.Timestamp(row.install_date)).days/365.0),
@@ -156,7 +178,6 @@ def _health(row):
 eq["health"] = eq.apply(_health, axis=1)
 health_pdf = eq.groupby("facility_sk")["health"].mean().reset_index()
 health = spark.createDataFrame(health_pdf).withColumnRenamed("health", "equipment_health_score")
-
 # ── assemble daily snapshot ───────────────────────────────────────────
 snap = (emis.join(wo_open, ["facility_sk","d"], "outer")
             .join(comp,    ["facility_sk","d"], "outer")
@@ -241,6 +262,23 @@ kpi6_out = (kpi6
             .select(*kpi6_cols))
 kpi6_out.write.mode(WRITE_MODE).format("delta").saveAsTable("gold.facility_kpi_snapshot_6h")
 print(f"gold.facility_kpi_snapshot_6h: {kpi6_out.count()} rows ({WRITE_MODE})")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.table("gold.fact_facility_daily_snapshot") \
+    .filter("snapshot_date >= '2026-05-19'") \
+    .selectExpr(
+        "count(*) as rows",
+        "sum(total_emissions_kg) as total_kg",
+        "sum(active_plumes) as total_plumes"
+    ).show()
 
 # METADATA ********************
 

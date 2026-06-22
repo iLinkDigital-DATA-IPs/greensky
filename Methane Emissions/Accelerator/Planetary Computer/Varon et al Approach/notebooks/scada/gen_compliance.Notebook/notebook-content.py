@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -55,14 +55,19 @@
 
 # CELL ********************
 
-# ── run_mode handling (works in pipeline runs and interactively) ──────
-# Pipeline passes base parameter `run_mode`; interactive falls back to backfill.
 RUN_MODE = "backfill"
 try:
-    RUN_MODE = getArgument("run_mode", "backfill")      # set by pipeline activity
+    RUN_MODE = getArgument("run_mode", "backfill")
 except Exception:
     pass
 RUN_MODE = (str(RUN_MODE) or "backfill").lower()
+
+try:
+    _start_override = getArgument("start_date", "")
+    _end_override   = getArgument("end_date",   "")
+except Exception:
+    _start_override = ""
+    _end_override   = ""
 
 INCREMENTAL_LOOKBACK_DAYS = 1
 if RUN_MODE == "incremental":
@@ -74,12 +79,15 @@ else:
     WINDOW_END   = pd.Timestamp(REAL_PLUME_END)
     WRITE_MODE   = "overwrite"
 
+if _start_override:
+    WINDOW_START = pd.Timestamp(_start_override)
+if _end_override:
+    WINDOW_END   = pd.Timestamp(_end_override)
+
 def _add_date_sk(sdf, ts_col):
-    """date_sk matches dim_date (yyyyMMdd as bigint)."""
     return sdf.withColumn("date_sk", F.date_format(F.col(ts_col), "yyyyMMdd").cast("long"))
 
 def write_new_fact(sdf, table):
-    """Create/append a NEW gold fact table."""
     w = sdf.write.mode(WRITE_MODE).format("delta")
     if WRITE_MODE == "overwrite":
         w = w.option("overwriteSchema", "true")
@@ -105,10 +113,13 @@ NSPS_SK = int(reg_sk.get("NSPS_OOOOb", 1)); TXRRC_SK = int(reg_sk.get("TX_RRC", 
 prim = (spark.table("gold.bridge_plume_facility_attribution")
           .where(F.col("primary_flag") & F.col("facility_sk").isNotNull())
           .select("plume_id", "facility_sk"))
+
 plumes = (spark.table("gold.fact_plume_detection")
             .select("plume_id","detect_ts","emission_rate_kg_s")
             .where((F.col("detect_ts") >= F.lit(str(WINDOW_START))) &
-                   (F.col("detect_ts") <= F.lit(str(WINDOW_END)))))
+                   (F.col("detect_ts") <= F.lit(str(WINDOW_END))) &
+                   (F.col("is_synthetic") == False)))
+                   
 df = prim.join(plumes, "plume_id", "inner").toPandas()
 print(f"candidate plume events: {len(df)}")
 

@@ -4,6 +4,11 @@
     "enabled": true,
     "minInterval": "2h"
   },
+  "changeDetection": {
+    "kind": "liveUpdates",
+    "minRefreshRate": "2h",
+    "fallbackRefreshRate": "30s"
+  },
   "tiles": [
     {
       "id": "79525990-e562-4740-9065-9463b4755b75",
@@ -1010,6 +1015,29 @@
             "icon": "critical",
             "ruleName": "",
             "visualType": "table"
+          },
+          {
+            "id": "c8c9de8b-5eeb-4d1f-9dbe-a2738c5239b5",
+            "ruleType": "colorByCondition",
+            "applyToColumn": "Emission Rate",
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "Status",
+                "values": [
+                  "🟠 High"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "table"
           }
         ]
       }
@@ -1507,7 +1535,7 @@
       "kind": "kusto-trident",
       "name": "Operations_KQL",
       "clusterUri": "",
-      "databaseArtifactId": "7fa3d871-a51e-480c-a888-b83c050b7f08",
+      "databaseArtifactId": "61840f11-115f-4c12-a69e-69071c3f6663",
       "database": "050b7f08-b83c-a888-480c-a51e7fa3d871",
       "workspace": "00000000-0000-0000-0000-000000000000",
       "id": "45111dc0-5b37-4916-bed1-928c6df43884"
@@ -1542,7 +1570,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 1.2: Methane Intensity % (KPI) ------------------------------\r\nlet _start = datetime(2020-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet emissions =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize emissions_kg = sum(total_emissions_kg);\r\nlet production =\r\n    fact_production_daily\r\n    | where prod_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize prod_mcf = sum(gross_gas_mcf);\r\nemissions\r\n| extend prod_mcf = toscalar(production)\r\n| extend intensity_pct = round((emissions_kg / 19.26) / prod_mcf * 100.0, 3)\r\n| project intensity_pct\r\n;",
+      "text": "// -- Tile 1.2: Methane Intensity % (KPI) ------------------------------\r\nlet _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet emissions =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize emissions_kg = sum(total_emissions_kg);\r\nlet production =\r\n    fact_production_daily\r\n    | where prod_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize prod_mcf = sum(gross_gas_mcf);\r\nemissions\r\n| extend prod_mcf = toscalar(production)\r\n| extend intensity_pct = iff(prod_mcf > 0, round((emissions_kg / 19.26) / prod_mcf * 100.0, 3), real(0))\r\n| project intensity_pct",
       "id": "72675de1-eef7-4e21-9677-f10b2b20dec9",
       "usedVariables": []
     },
@@ -1614,7 +1642,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2026-03-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by week = startofweek(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by week asc\r\n;",
+      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2024-03-01T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by week = startofweek(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by week asc\r\n;",
       "id": "5a41b844-98e2-4571-92c4-b548c9aa8a63",
       "usedVariables": []
     },
@@ -1623,18 +1651,16 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "let _start = datetime(2026-01-31);\r\nlet _end = datetime(2026-05-31);\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nlet top_facilities =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize total_violations = count() by facility_sk\r\n    | top 10 by total_violations desc\r\n    | project facility_sk;\r\nlet result =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner (dim_facility | where is_current == true\r\n                       | project facility_sk, facility_name) on facility_sk\r\n    | where array_length(_selected) == 0 or facility_name in (_selected)\r\n    | project facility_name, month, violations;\r\nlet fallback =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner (dim_facility | where is_current == true\r\n                       | project facility_sk, facility_name) on facility_sk\r\n    | project facility_name, month, violations;\r\nunion result,\r\n      (fallback | where toscalar(result | count) == 0)\r\n| order by violations desc\r\n;",
+      "text": "let _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end   = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = dynamic([]);\r\nlet top_facilities =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize total_violations = count() by facility_sk\r\n    | top 10 by total_violations desc\r\n    | project facility_sk;\r\nlet fac =\r\n    dim_facility\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name;\r\nlet result =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner fac on facility_sk\r\n    | where array_length(_selected) == 0 or facility_name in (_selected)\r\n    | project facility_name, month, violations;\r\nlet fallback =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner fac on facility_sk\r\n    | project facility_name, month, violations;\r\nunion result,\r\n      (fallback | where toscalar(result | count) == 0)\r\n| order by violations desc",
       "id": "186280f9-a9bf-4767-865a-8569a79b3ca4",
-      "usedVariables": [
-        "selected_facility"
-      ]
+      "usedVariables": []
     },
     {
       "dataSource": {
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 2.1: Active Exceedances Now (KPI) ----------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry_')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| where exceedance_flag == true\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize active = dcount(sensor_id),\r\n            facilities_affected = dcount(facility_sk)\r\n;",
+      "text": "// -- Tile 2.1: Active Exceedances Now (KPI) ----------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| where exceedance_flag == true\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize active = dcount(sensor_id),\r\n            facilities_affected = dcount(facility_sk)\r\n;",
       "id": "06d38081-77f8-41f4-ac0b-b03dfee2e11b",
       "usedVariables": [
         "selected_facility"
@@ -1667,7 +1693,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 2.4: Sensors Offline (KPI) ----------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry_')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize last_reading = max(reading_ts) by sensor_id, facility_sk\r\n| where last_reading < ago(8h)\r\n| summarize offline = count(), facilities = dcount(facility_sk)\r\n;",
+      "text": "// -- Tile 2.4: Sensors Offline (KPI) ----------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize last_reading = max(reading_ts) by sensor_id, facility_sk\r\n| where last_reading < ago(8h)\r\n| summarize offline = count(), facilities = dcount(facility_sk)\r\n;",
       "id": "f5d262b6-4930-4601-a43f-ec6bab26fdfa",
       "usedVariables": [
         "selected_facility"
@@ -1678,7 +1704,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "plume_detection_hot\r\n| where detect_ts >= ago(7d)\r\n| join kind=inner (\r\n    external_table('bridge_plume_facility_attribution')\r\n    | where primary_flag == true\r\n    | project plume_id, facility_sk, distance_km, attribution_confidence, allocation_factor\r\n) on plume_id\r\n| join kind=inner (\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | project facility_sk, facility_name, basin\r\n) on facility_sk\r\n| join kind=inner (\r\n    external_table('sensor_telemetry_')\r\n    | where reading_ts > ago(2200d)\r\n    | where exceedance_flag == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| join kind=inner (\r\n    fact_compliance_event\r\n    | where is_violation == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| extend rate_kg_hr = round(emission_rate_kg_s * 3600.0, 1),\r\n         sev = case(\r\n             emission_rate_kg_s * 3600 > 500, \"P1\",\r\n             emission_rate_kg_s * 3600 > 250, \"P2\",\r\n             emission_rate_kg_s * 3600 > 100, \"P3\",\r\n             \"P4\"),\r\n         source_label = iff(is_synthetic, \"synthetic\", \"satellite\")\r\n| top 100 by emission_rate_kg_s desc\r\n| extend emission = strcat(toint(rate_kg_hr))\r\n| extend len = strlen(emission)\r\n| extend formatted_rate =\r\n    case(\r\n        len <= 3, emission,\r\n        len <= 6, strcat(substring(emission, 0, len-3), \",\", substring(emission, len-3, 3)),\r\n        len <= 9, strcat(substring(emission, 0, len-6), \",\",\r\n                         substring(emission, len-6, 3), \",\",\r\n                         substring(emission, len-3, 3)),\r\n        emission\r\n    )\r\n| project\r\n    ['Detection Time'] = format_datetime(detect_ts, 'yyyy-MM-dd HH:mm'),\r\n    Facility = facility_name,\r\n    Basin = basin,\r\n    ['Emission Rate'] = strcat(formatted_rate, \" kg/hr\"),\r\n    Severity = sev,\r\n    ['Confidence'] = round(attribution_confidence, 2),\r\n    ['Distance (km)'] = round(distance_km, 2),\r\n    Allocation = round(allocation_factor, 2),\r\n    Source = source_label,\r\n    Status = case(\r\n        sev == \"P1\", \"🔴 Critical\",\r\n        sev == \"P2\", \"🟠 High\",\r\n        sev == \"P3\", \"🟡 Medium\",\r\n        \"🟢 Low\"\r\n    )\r\n| order by ['Detection Time'] desc\r\n;",
+      "text": "external_table('fact_plume_detection')\r\n| where is_synthetic == false\r\n| where detect_ts >= ago(7d)\r\n| summarize arg_max(detect_ts, *) by plume_id\r\n| join kind=inner (\r\n    external_table('bridge_plume_facility_attribution')\r\n    | where primary_flag == true\r\n    | summarize arg_max(allocation_factor, *) by plume_id\r\n    | project plume_id, facility_sk, distance_km, attribution_confidence, allocation_factor\r\n) on plume_id\r\n| join kind=inner (\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name, basin\r\n) on facility_sk\r\n| join kind=leftouter (\r\n    external_table('sensor_telemetry')\r\n    | where reading_ts > ago(2200d)\r\n    | where exceedance_flag == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| join kind=leftouter (\r\n    fact_compliance_event\r\n    | where is_violation == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| extend rate_kg_hr = round(emission_rate_kg_s * 3600.0, 1),\r\n         sev = case(\r\n             emission_rate_kg_s * 3600 > 500, \"P1\",\r\n             emission_rate_kg_s * 3600 > 250, \"P2\",\r\n             emission_rate_kg_s * 3600 > 100, \"P3\",\r\n             \"P4\"),\r\n         source_label = \"satellite\"\r\n| extend emission = strcat(toint(rate_kg_hr))\r\n| extend len = strlen(emission)\r\n| extend formatted_rate =\r\n    case(\r\n        len <= 3, emission,\r\n        len <= 6, strcat(substring(emission, 0, len-3), \",\", substring(emission, len-3, 3)),\r\n        len <= 9, strcat(substring(emission, 0, len-6), \",\",\r\n                         substring(emission, len-6, 3), \",\",\r\n                         substring(emission, len-3, 3)),\r\n        emission\r\n    )\r\n| project\r\n    ['Detection Time'] = format_datetime(detect_ts, 'yyyy-MM-dd HH:mm'),\r\n    Facility = facility_name,\r\n    Basin = basin,\r\n    ['Emission Rate'] = strcat(formatted_rate, \" kg/hr\"),\r\n    Severity = sev,\r\n    ['Confidence'] = round(attribution_confidence, 2),\r\n    ['Distance (km)'] = round(distance_km, 2),\r\n    Allocation = round(allocation_factor, 2),\r\n    Source = source_label,\r\n    Status = case(\r\n        sev == \"P1\", \"🔴 Critical\",\r\n        sev == \"P2\", \"🟠 High\",\r\n        sev == \"P3\", \"🟡 Medium\",\r\n        \"🟢 Low\"\r\n    )\r\n| order by ['Detection Time'] desc",
       "id": "f6aa7a68-f3b3-4a75-9b5e-c03f3fc196fa",
       "usedVariables": []
     },
@@ -1720,7 +1746,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2026-03-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by week = startofweek(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by week asc\r\n;",
+      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2024-03-01T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by week = startofweek(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by week asc\r\n;",
       "id": "8e0990f4-a2f8-4468-8f18-0ce101bea38c",
       "usedVariables": [
         "selected_facility"
@@ -1764,7 +1790,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Parameter: Facilities with Exceedances ---------------------------\nexternal_table('sensor_telemetry_')\n| where reading_ts > ago(2200d)\n| where exceedance_flag == true\n| distinct facility_sk\n| join kind=inner (external_table('dim_facility') | where is_current == true\n                   | project facility_sk, facility_name) on facility_sk\n| distinct facility_name\n| order by facility_name asc\n;",
+      "text": "// -- Parameter: Facilities with Exceedances ---------------------------\nexternal_table('sensor_telemetry')\n| where reading_ts > ago(2200d)\n| where exceedance_flag == true\n| distinct facility_sk\n| join kind=inner (external_table('dim_facility') | where is_current == true\n                   | project facility_sk, facility_name) on facility_sk\n| distinct facility_name\n| order by facility_name asc\n;",
       "id": "12a7d6b5-b63f-49b3-8ee2-f6ff7bb727ad",
       "usedVariables": []
     }

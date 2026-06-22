@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "95f7f55e-9d06-4699-9483-754709a1d397",
+# META       "default_lakehouse": "efa87071-e383-420b-b759-0a1988232862",
 # META       "default_lakehouse_name": "Planetary_computer_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "95f7f55e-9d06-4699-9483-754709a1d397"
+# META           "id": "efa87071-e383-420b-b759-0a1988232862"
 # META         }
 # META       ]
 # META     },
@@ -97,10 +97,15 @@ import requests
 longitude = -99.36    # Permian Basin, Texas, US
 latitude  = 31.5
 
-end_date   = datetime.utcnow()
-start_date = (end_date - timedelta(days=5)).strftime("%Y-%m-%d")
-end_date   = end_date.strftime("%Y-%m-%d")
+_default_end   = datetime.utcnow().strftime("%Y-%m-%d")
+_default_start = (datetime.utcnow() - timedelta(days=5)).strftime("%Y-%m-%d")
 
+try:
+    start_date = getArgument("start_date", _default_start)
+    end_date   = getArgument("end_date",   _default_end)
+except Exception:
+    start_date = _default_start
+    end_date   = _default_end
 payload = {
     "collections": ["sentinel-5p-l2-netcdf"],
     "intersects": {"type": "Point", "coordinates": [longitude, latitude]},
