@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -97,10 +97,6 @@ print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()}  
 # CELL ********************
 
 eq = spark.table("silver.equipment_geo").toPandas()
-ep = (spark.table("gold.fact_emission_episode")
-        .select("equipment_sk","start_ts","end_ts").toPandas())
-ep["start_ts"] = pd.to_datetime(ep["start_ts"]); ep["end_ts"] = pd.to_datetime(ep["end_ts"])
-ep_by_eq = {k: g[["start_ts","end_ts"]].values for k, g in ep.groupby("equipment_sk")}
 
 mfr_rel = dict(MANUFACTURERS)
 H_START = pd.Timestamp(HISTORY_START); H_END = pd.Timestamp(REAL_PLUME_END)
@@ -108,23 +104,13 @@ _ref = pd.Timestamp(REAL_PLUME_END)
 METHODS = ["OGI", "Method21", "AVO", "CMS"]
 rows = []; iid = 0
 
-def episode_near(eqsk, ts, win_days=14):
-    arr = ep_by_eq.get(eqsk)
-    if arr is None:
-        return False
-    lo = ts - pd.Timedelta(days=win_days); hi = ts + pd.Timedelta(days=win_days)
-    for s, e in arr:
-        if (s <= hi) and (e >= lo):
-            return True
-    return False
-
 for e in eq.itertuples():
     r    = get_rng("insp", e.equipment_id)
     insp = max(30, int(e.inspection_frequency_days))
     cond = equipment_condition_index(
         age_years=max(0.1, (_ref - pd.Timestamp(e.install_date)).days / 365.0),
         life_years=int(e.expected_life_years),
-        days_since_service=insp,                       # proxy: ~one cycle since service
+        days_since_service=insp,
         insp_days=insp,
         reliability_index=mfr_rel.get(e.manufacturer, 1.0),
         leak_propensity=EQUIPMENT_TYPES.get(e.equipment_type, {}).get("leak_propensity", 0.6),
@@ -133,7 +119,7 @@ for e in eq.itertuples():
     while t <= H_END:
         if WINDOW_START <= t <= WINDOW_END:
             iid += 1
-            p_leak = float(min(0.6, 0.04 + 0.45 * cond + (0.25 if episode_near(int(e.equipment_sk), t) else 0.0)))
+            p_leak = float(min(0.6, 0.04 + 0.55 * cond))  # condition index only, no episode boost
             leak = r.random() < p_leak
             n_checked = int(r.integers(5, 60))
             n_leaks   = int(r.integers(1, max(2, int(n_checked * 0.15)))) if leak else 0

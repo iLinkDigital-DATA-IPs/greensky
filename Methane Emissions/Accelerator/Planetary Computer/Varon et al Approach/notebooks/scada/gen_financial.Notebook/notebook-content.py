@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "11ca0f84-52dc-44fc-9270-538fcda8f1ad",
+# META       "default_lakehouse": "2d020c6b-6189-4bf7-9180-18c5717317e5",
 # META       "default_lakehouse_name": "Operations_LH",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
+# META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "11ca0f84-52dc-44fc-9270-538fcda8f1ad"
+# META           "id": "2d020c6b-6189-4bf7-9180-18c5717317e5"
 # META         }
 # META       ]
 # META     },
@@ -59,14 +59,19 @@
 
 # CELL ********************
 
-# ── run_mode handling (works in pipeline runs and interactively) ──────
-# Pipeline passes base parameter `run_mode`; interactive falls back to backfill.
 RUN_MODE = "backfill"
 try:
-    RUN_MODE = getArgument("run_mode", "backfill")      # set by pipeline activity
+    RUN_MODE = getArgument("run_mode", "backfill")
 except Exception:
     pass
 RUN_MODE = (str(RUN_MODE) or "backfill").lower()
+
+try:
+    _start_override = getArgument("start_date", "")
+    _end_override   = getArgument("end_date",   "")
+except Exception:
+    _start_override = ""
+    _end_override   = ""
 
 INCREMENTAL_LOOKBACK_DAYS = 1
 if RUN_MODE == "incremental":
@@ -78,12 +83,15 @@ else:
     WINDOW_END   = pd.Timestamp(REAL_PLUME_END)
     WRITE_MODE   = "overwrite"
 
+if _start_override:
+    WINDOW_START = pd.Timestamp(_start_override)
+if _end_override:
+    WINDOW_END   = pd.Timestamp(_end_override)
+
 def _add_date_sk(sdf, ts_col):
-    """date_sk matches dim_date (yyyyMMdd as bigint)."""
     return sdf.withColumn("date_sk", F.date_format(F.col(ts_col), "yyyyMMdd").cast("long"))
 
 def write_new_fact(sdf, table):
-    """Create/append a NEW gold fact table."""
     w = sdf.write.mode(WRITE_MODE).format("delta")
     if WRITE_MODE == "overwrite":
         w = w.option("overwriteSchema", "true")
@@ -138,11 +146,21 @@ write_new_fact(prod, "gold.fact_production_daily")
 # CELL ********************
 
 # ── fact_financial_impact (per attributed plume-facility) ─────────────
+_conf_map = {"high": 0.85, "medium": 0.60, "low": 0.35}
+
 bridge = (spark.table("gold.bridge_plume_facility_attribution")
             .where(F.col("facility_sk").isNotNull() & (F.col("allocation_factor") > 0))
             .select("plume_id","facility_sk","allocation_factor","attribution_confidence"))
+
 plumes = (spark.table("gold.fact_plume_detection")
-            .select("plume_id","detect_ts","emission_rate_kg_s","emission_rate_confidence"))
+            .select("plume_id","detect_ts","emission_rate_kg_s",
+                    F.when(F.col("emission_rate_confidence") == "high",   0.85)
+                     .when(F.col("emission_rate_confidence") == "medium", 0.60)
+                     .when(F.col("emission_rate_confidence") == "low",    0.35)
+                     .otherwise(F.col("emission_rate_confidence").cast("double"))
+                     .alias("emission_rate_confidence"))
+            .filter("is_synthetic = false"))
+
 j = bridge.join(plumes, "plume_id", "inner") \
           .where((F.col("detect_ts") >= F.lit(str(WINDOW_START))) &
                  (F.col("detect_ts") <= F.lit(str(WINDOW_END))))
@@ -162,17 +180,23 @@ r = get_rng("financial")
 
 recs = []
 for i, row in fin.iterrows():
-    alloc_kg = float(row.emission_rate_kg_s) * 3600.0 * float(row.allocation_factor)
-    lost_gas = alloc_kg / KG_CH4_PER_MCF * GAS_PRICE_USD_PER_MCF
-    co2e_t   = alloc_kg / 1000.0 * gwp
+    alloc_kg   = float(row.emission_rate_kg_s) * 3600.0 * float(row.allocation_factor)
+    lost_gas   = alloc_kg / KG_CH4_PER_MCF * GAS_PRICE_USD_PER_MCF
+    co2e_t     = alloc_kg / 1000.0 * gwp
     rate_kg_hr = float(row.emission_rate_kg_s) * 3600.0
-    is_olre  = rate_kg_hr > 100.0
-    nsps_fine = float(r.uniform(fine_lo, fine_hi)) if (is_olre and r.random() < 0.5) else 0.0
-    social   = (co2e_t * SOCIAL_COST_CO2_USD_T) if use_social else 0.0
-    wec      = 0.0   # reporting_only: WEC not collected (40 CFR Part 99 repealed)
-    total    = lost_gas + nsps_fine + social + wec
-    conf     = float(row.emission_rate_confidence) if pd.notna(row.emission_rate_confidence) else 0.5
-    sigma    = 0.55 * (1.0 - min(max(conf, 0.0), 0.95))   # less confidence -> wider band
+    is_olre    = rate_kg_hr > 100.0
+    nsps_fine  = float(r.uniform(fine_lo, fine_hi)) if (is_olre and r.random() < 0.5) else 0.0
+    social     = (co2e_t * SOCIAL_COST_CO2_USD_T) if use_social else 0.0
+    wec        = 0.0
+    total      = lost_gas + nsps_fine + social + wec
+    _c = row.emission_rate_confidence
+    if pd.isna(_c) or _c is None:
+        conf = 0.5
+    elif isinstance(_c, str):
+        conf = _conf_map.get(str(_c).strip().lower(), 0.5)
+    else:
+        conf = float(_c)
+    sigma = 0.55 * (1.0 - min(max(conf, 0.0), 0.95))
     recs.append({
         "facility_sk": int(row.facility_sk), "regulation_sk": (NSPS_SK if is_olre else RPT_SK),
         "plume_id": row.plume_id, "detect_ts": pd.Timestamp(row.detect_ts).to_pydatetime(),

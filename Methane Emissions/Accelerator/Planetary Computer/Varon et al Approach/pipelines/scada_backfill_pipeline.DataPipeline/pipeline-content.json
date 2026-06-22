@@ -57,66 +57,6 @@
       {
         "type": "TridentNotebook",
         "typeProperties": {
-          "notebookId": "ecc147cd-b37a-b40b-462a-13b02598a0c1",
-          "workspaceId": "00000000-0000-0000-0000-000000000000",
-          "parameters": {
-            "run_mode": {
-              "value": "backfill",
-              "type": "string"
-            }
-          }
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "generate emission episodes",
-        "description": "Note: Dummy Data",
-        "dependsOn": [
-          {
-            "activity": "build dimensions",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "TridentNotebook",
-        "typeProperties": {
-          "notebookId": "5c3b5c4a-769f-aff8-4ca5-11ab0b23d109",
-          "workspaceId": "00000000-0000-0000-0000-000000000000",
-          "parameters": {
-            "run_mode": {
-              "value": "backfill",
-              "type": "string"
-            }
-          }
-        },
-        "policy": {
-          "timeout": "0.12:00:00",
-          "retry": 0,
-          "retryIntervalInSeconds": 30,
-          "secureInput": false,
-          "secureOutput": false
-        },
-        "name": "generate synthetic plumes",
-        "description": "Note: Dummy Data",
-        "dependsOn": [
-          {
-            "activity": "generate emission episodes",
-            "dependencyConditions": [
-              "Succeeded"
-            ]
-          }
-        ]
-      },
-      {
-        "type": "TridentNotebook",
-        "typeProperties": {
           "notebookId": "662b28c8-4699-9fe2-4ae6-698e5c9bfc66",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
           "parameters": {
@@ -137,7 +77,7 @@
         "description": "Note: Dummy data",
         "dependsOn": [
           {
-            "activity": "generate synthetic plumes",
+            "activity": "ingest_real_plumes",
             "dependencyConditions": [
               "Succeeded"
             ]
@@ -408,6 +348,35 @@
         "dependsOn": [
           {
             "activity": "build_snapshots",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "f3dcc7cc-a075-9b08-4cfa-dfca44797c92",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "backfill",
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "ingest_real_plumes",
+        "dependsOn": [
+          {
+            "activity": "build dimensions",
             "dependencyConditions": [
               "Succeeded"
             ]
