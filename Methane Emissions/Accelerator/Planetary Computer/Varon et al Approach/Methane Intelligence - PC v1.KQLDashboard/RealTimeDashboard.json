@@ -639,7 +639,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 0,
-        "y": 6,
+        "y": 7,
         "width": 6,
         "height": 7
       },
@@ -664,7 +664,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 0,
-        "y": 3,
+        "y": 4,
         "width": 3,
         "height": 3
       },
@@ -757,7 +757,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 10,
-        "y": 3,
+        "y": 4,
         "width": 3,
         "height": 3
       },
@@ -834,7 +834,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 3,
-        "y": 3,
+        "y": 4,
         "width": 4,
         "height": 3
       },
@@ -857,7 +857,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 13,
-        "y": 3,
+        "y": 4,
         "width": 3,
         "height": 3
       },
@@ -950,9 +950,9 @@
         "x": 0,
         "y": 0,
         "width": 24,
-        "height": 3
+        "height": 4
       },
-      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)\r\n> ⚠️ **Note:** This page is fully functional only when a facility is selected from the main dashboard.  ",
       "visualOptions": {}
     },
     {
@@ -1049,7 +1049,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 16,
-        "y": 3,
+        "y": 4,
         "width": 4,
         "height": 3
       },
@@ -1149,7 +1149,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 20,
-        "y": 3,
+        "y": 4,
         "width": 4,
         "height": 3
       },
@@ -1249,7 +1249,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 6,
-        "y": 6,
+        "y": 7,
         "width": 9,
         "height": 7
       },
@@ -1300,7 +1300,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 15,
-        "y": 6,
+        "y": 7,
         "width": 9,
         "height": 7
       },
@@ -1361,7 +1361,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 0,
-        "y": 13,
+        "y": 14,
         "width": 12,
         "height": 4
       },
@@ -1388,7 +1388,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 12,
-        "y": 13,
+        "y": 14,
         "width": 12,
         "height": 4
       },
@@ -1415,7 +1415,7 @@
       "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
       "layout": {
         "x": 7,
-        "y": 3,
+        "y": 4,
         "width": 3,
         "height": 3
       },
@@ -1497,20 +1497,6 @@
         "height": 27
       },
       "markdownText": "# Methane Emissions Dashboard — README\n\n## Overview\n\nTwo-page dashboard for methane emissions monitoring. Start on the **Executive Overview** for portfolio-wide performance, then drill through to the **Facility Operations** page to investigate a specific facility.\n\n---\n\n## Executive Overview\n\nPortfolio-wide view for executives, sustainability leads, operations managers, and compliance teams.\n\n### KPI Cards\n\n| KPI | What it shows | How to interpret |\n|-----|--------------|-----------------|\n| **Total Methane Emissions** | Total tonnes CH₄, last 30 days  | Overview |\n| **Methane Intensity (%)** | Emissions ÷ Gas Produced × 100 | Lower = more efficient; useful for comparing facilities of different sizes. |\n| **Financial Impact (P10/P50/P90)** | Estimated financial exposure across  Fines | Use for planning |\n| **Active Methane Plumes** | Count of active emission events across monitored facilities | Rising count may signal equipment failures; review alongside Work Orders and Violations. |\n| **Open Work Orders** | Unresolved methane-related work orders | rising count alongside rising emissions = maintenance backlog. |\n| **Compliance Violations** | Regulatory violations this period | Critical violations require immediate action; track trends alongside plume activity. |\n\n### Visualizations\n\n| Chart | Type | What it shows |\n|-------|------|--------------|\n| **Daily Methane Emissions Trend** | Line chart | Daily portfolio emissions vs. a target threshold; spikes indicate operational failures. |\n| **Top Emitting Facilities Map** | Bubble map | Geographic emission concentration; bubble size = emissions volume; prioritize large bubbles with poor equipment health. |\n| **Top 10 Facilities by Financial Impact (P50)** | Bar chart | Facilities ranked by expected financial loss; guides where to prioritize mitigation investment. |\n| **Financial Impact Composition Trend** | Stacked area chart | Weekly Lost Gas vs. NSPS Fines; shifts in composition reveal whether costs are operational or compliance-driven. |\n| **High-Risk Methane Leak Events** | Interactive table | Recent plume detections with severity (P1–P4), confidence, emission rate, and source type; focus on P1/P2 with high confidence. |\n\n**Severity levels:** P1 = Critical, P2 = High, P3 = Medium, P4 = Low.\n\n### Recommended Workflow\n\n1. Review Total Methane Emissions trend.\n2. Check Active Plumes and Open Work Orders.\n3. Assess Compliance Violations.\n4. Review Financial Impact exposure.\n5. Identify top emitting facilities on the map.\n6. Investigate High-Risk Methane Leak Events.\n7. **Drill into a facility page** for root-cause analysis.\n\n---\n\n## Facility Operations\n\nDetailed operational view scoped entirely to the **selected facility**. All metrics, charts, and tables on this page reflect that facility only. Used after drilling through from the Executive Overview.\n\nDesigned for operations teams, maintenance planners, environmental specialists, and reliability engineers.\n\n### KPI Cards\n\n| KPI | What it shows | How to interpret |\n|-----|--------------|-----------------|\n| **Active Exceedances Now** | Sensors currently above configured methane thresholds | Multiple exceedances at once may indicate a widespread issue; review alongside Active Plumes. |\n| **Plumes Detected (Last 7 Days)** | Total plumes, high-confidence detections, and OLREs (Other Large Release Events) | Rising count = worsening leak activity; high-confidence detections should be prioritized. |\n| **Highest Active Emission Rate** | Most severe plume in the last 7 days: rate (kg/hr),  |  investigate first. |\n| **Open Work Orders** | Unresolved work orders  |  critical tickets = high-priority operational risk. |\n| **Sensors Offline** | Sensors with no data in the last 8 hours | Offline sensors create monitoring blind spots; investigate communication, power, or hardware faults. |\n| **Overdue Preventive Maintenance** | Assets past their PM schedule, including critical assets and avg. days overdue | Extended overdue periods correlate with elevated failure and leak risk; prioritize critical assets. |\n| **LDAR Leak Repairs Performance** | Leaks detected vs. repaired,  | Large detected-vs-repaired gap = backlog; low repair rate = LDAR program underperforming. |\n\n### Visualizations\n\n| Chart | Type | What it shows |\n|-------|------|--------------|\n| **Daily Emissions Trend** | Line chart | Facility-level daily emissions over time; spikes correspond to equipment failures or large release events. |\n| **Weekly Financial Impact Breakdown** | Stacked area chart | Lost Gas vs. NSPS Fines week-over-week; shifts indicate whether costs are operational or compliance-driven. |\n| **Compliance Violations Heatmap** | Heatmap | Monthly violation counts across selected facility |\n| **Work Order Trail Around Plume Event** | Investigation table | Work orders ±30 days around a selected plume detection; reveals whether maintenance preceded or followed a leak, and whether SLAs were met. |\n| **High-Risk Equipment List** | Prioritized table | Top 20 assets ranked by risk (maintenance overdue, criticality, leak history, age, inspection compliance); deploy maintenance resources here first. |\n\n### Recommended Workflow\n\n1. Review Active Exceedances and Active Plumes.\n2. Assess the Highest Active Emission Rate.\n3. Verify sensor coverage using Sensors Offline.\n4. Examine Daily Emissions Trend.\n5. Review Open Work Orders and Maintenance Backlog.\n6. Analyze Compliance Violation patterns.\n7. Investigate Work Order Trail around significant plume events.\n8. Prioritize corrective actions using the High-Risk Equipment List.\n9. Monitor Financial Impact to validate mitigation effectiveness.",
-      "visualOptions": {}
-    },
-    {
-      "id": "58166fef-99fa-4eae-9b82-d1187742ec56",
-      "title": "",
-      "visualType": "markdownCard",
-      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
-      "layout": {
-        "x": 0,
-        "y": 17,
-        "width": 24,
-        "height": 2
-      },
-      "markdownText": "> ⚠️ **Note:** This page is fully functional only when a facility is selected from the main dashboard.  ",
       "visualOptions": {}
     }
   ],
@@ -1665,9 +1651,11 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "let _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end   = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = dynamic([]);\r\nlet top_facilities =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize total_violations = count() by facility_sk\r\n    | top 10 by total_violations desc\r\n    | project facility_sk;\r\nlet fac =\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name;\r\nlet result =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner fac on facility_sk\r\n    | where array_length(_selected) == 0 or facility_name in (_selected)\r\n    | project facility_name, month, violations;\r\nlet fallback =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner fac on facility_sk\r\n    | project facility_name, month, violations;\r\nunion result,\r\n      (fallback | where toscalar(result | count) == 0)\r\n| order by violations desc",
+      "text": "let _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end   = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];   // ← dashboard parameter token, not dynamic([])\r\n\r\nlet top_facilities =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize total_violations = count() by facility_sk\r\n    | top 10 by total_violations desc\r\n    | project facility_sk;\r\n\r\nlet fac =\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name;\r\n\r\nfact_compliance_event\r\n| where event_ts between (_start .. _end) and is_violation == true\r\n| where facility_sk in (top_facilities)\r\n| summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n| join kind=inner fac on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| project facility_name, month, violations\r\n| order by violations desc",
       "id": "186280f9-a9bf-4767-865a-8569a79b3ca4",
-      "usedVariables": []
+      "usedVariables": [
+        "selected_facility"
+      ]
     },
     {
       "dataSource": {
