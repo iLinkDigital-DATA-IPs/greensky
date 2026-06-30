@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "efa87071-e383-420b-b759-0a1988232862",
+# META       "default_lakehouse": "3b82c067-238d-4941-9ecc-4c120e990a36",
 # META       "default_lakehouse_name": "Planetary_computer_LH",
 # META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "efa87071-e383-420b-b759-0a1988232862"
+# META           "id": "3b82c067-238d-4941-9ecc-4c120e990a36"
 # META         }
 # META       ]
 # META     },
@@ -182,7 +182,7 @@ def safe_get(data, key, i):
 # CELL ********************
 
 _default_end   = datetime.utcnow().strftime("%Y-%m-%d")
-_default_start = (datetime.utcnow() - timedelta(days=5)).strftime("%Y-%m-%d")
+_default_start = (datetime.utcnow() - timedelta(days=25)).strftime("%Y-%m-%d")
 
 try:
     start_str = getArgument("start_date", _default_start)

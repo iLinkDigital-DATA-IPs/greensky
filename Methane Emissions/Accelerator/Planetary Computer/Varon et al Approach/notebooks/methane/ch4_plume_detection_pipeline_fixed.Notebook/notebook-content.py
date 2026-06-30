@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "efa87071-e383-420b-b759-0a1988232862",
+# META       "default_lakehouse": "3b82c067-238d-4941-9ecc-4c120e990a36",
 # META       "default_lakehouse_name": "Planetary_computer_LH",
 # META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "efa87071-e383-420b-b759-0a1988232862"
+# META           "id": "3b82c067-238d-4941-9ecc-4c120e990a36"
 # META         }
 # META       ]
 # META     },
@@ -144,9 +144,14 @@ from datetime import datetime, timedelta
 # Required columns from Notebook 1 silver output.
 REQUIRED_COLS = ['latitude', 'longitude', 'ch4', 'qa_value', 'datetime']
 
-# ── Date window: ─────────────────────────────────────────
-_default_end   = datetime.utcnow().strftime("%Y-%m-%d")
-_default_start = (datetime.utcnow() - timedelta(days=5)).strftime("%Y-%m-%d")
+# ── Date window: rolling past 20 days, filtered on acquisition_date ──────
+# NOTE: filter on acquisition_date (the true per-pixel satellite date), NOT
+# `datetime`, which is the batch/processing timestamp (constant per ingest run).
+WINDOW_DAYS = 20
+
+_now           = datetime.utcnow()
+_default_end   = _now.strftime("%Y-%m-%d")
+_default_start = (_now - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
 
 try:
     start_date = getArgument("start_date", _default_start)
@@ -157,11 +162,16 @@ except Exception:
 
 df_silver = spark.read.table(CFG['silver_table'])
 
-df_silver = df_silver.filter(
-    F.col('datetime').between(
-        F.lit(start_date),
-        F.lit(end_date)
+# acquisition_date is a DATE column, so date-string bounds compare cleanly
+# (no timestamp midnight-truncation issue). between() is inclusive on both ends.
+if 'acquisition_date' not in df_silver.columns:
+    raise ValueError(
+        "Expected 'acquisition_date' in silver table but it's missing. "
+        f"Available: {sorted(df_silver.columns)}"
     )
+
+df_silver = df_silver.filter(
+    F.col('acquisition_date').between(F.lit(start_date), F.lit(end_date))
 )
 
 missing = [c for c in REQUIRED_COLS if c not in df_silver.columns]
@@ -184,14 +194,15 @@ stats = df_silver.agg(
     F.max('ch4').alias('ch4_max'),
     F.min('latitude').alias('lat_min'),
     F.max('latitude').alias('lat_max'),
-    F.min('datetime').alias('t_min'),
-    F.max('datetime').alias('t_max'),
+    F.min('acquisition_date').alias('d_min'),
+    F.max('acquisition_date').alias('d_max'),
+    F.countDistinct('acquisition_date').alias('n_days'),
 ).collect()[0]
 
 print(f'Pixels:    {stats["n_pixels"]:,}')
 print(f'CH4:       {stats["ch4_min"]:.1f} – {stats["ch4_max"]:.1f} ppb')
 print(f'Lat:       {stats["lat_min"]:.2f} – {stats["lat_max"]:.2f}')
-print(f'Time:      {stats["t_min"]} → {stats["t_max"]}')
+print(f'Dates:     {stats["d_min"]} → {stats["d_max"]}  ({stats["n_days"]} distinct days)')
 print(f'Columns:   {df_silver.columns}')
 
 # ── Constrain to Permian Basin ────────────────────────────────────────────
@@ -201,11 +212,6 @@ STUDY_BBOX = {
 }
 
 df_silver = df_silver.filter(F.col('qa_value') >= CFG['qa_value_min'])
-
-if 'acquisition_date' not in df_silver.columns:
-    df_silver = df_silver.withColumn(
-        'acquisition_date', F.to_date(F.col('datetime'))
-    )
 
 df_silver = df_silver.filter(
     (F.col('latitude').between(STUDY_BBOX['lat_min'],  STUDY_BBOX['lat_max'])) &
@@ -230,6 +236,28 @@ if stats_bbox['n'] == 0:
         'No pixels in Permian bbox — your silver table has no data in this region. '
         'Check upstream ingestion covers lon -105 to -97, lat 28 to 36.'
     )
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+#Debug:
+_raw = spark.read.table(CFG['silver_table'])
+
+print("=== datetime ===")
+_raw.select(
+    F.min('datetime').alias('min'),
+    F.max('datetime').alias('max'),
+    F.countDistinct('datetime').alias('n_distinct'),
+).show(truncate=False)
+
+print("=== acquisition_date ===")
+_raw.groupBy('acquisition_date').count().orderBy('acquisition_date').show(50, truncate=False)
 
 # METADATA ********************
 

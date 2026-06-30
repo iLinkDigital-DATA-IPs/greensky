@@ -1535,7 +1535,7 @@
       "kind": "kusto-trident",
       "name": "Operations_KQL",
       "clusterUri": "",
-      "databaseArtifactId": "344eaca8-f187-48cb-b2ca-70f1de0ce025",
+      "databaseArtifactId": "7be80828-bed5-4b80-845c-b67c5ed07f4f",
       "database": "050b7f08-b83c-a888-480c-a51e7fa3d871",
       "workspace": "00000000-0000-0000-0000-000000000000",
       "id": "45111dc0-5b37-4916-bed1-928c6df43884"

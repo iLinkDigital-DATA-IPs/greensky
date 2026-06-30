@@ -8,12 +8,12 @@
 # META   },
 # META   "dependencies": {
 # META     "lakehouse": {
-# META       "default_lakehouse": "efa87071-e383-420b-b759-0a1988232862",
+# META       "default_lakehouse": "3b82c067-238d-4941-9ecc-4c120e990a36",
 # META       "default_lakehouse_name": "Planetary_computer_LH",
 # META       "default_lakehouse_workspace_id": "f455d12f-81e4-45ae-9bb7-b195846025fe",
 # META       "known_lakehouses": [
 # META         {
-# META           "id": "efa87071-e383-420b-b759-0a1988232862"
+# META           "id": "3b82c067-238d-4941-9ecc-4c120e990a36"
 # META         }
 # META       ]
 # META     },
@@ -91,14 +91,16 @@ catalog = pystac_client.Client.open(
 # CELL ********************
 
 import time
-import requests
+from collections import Counter
 
 # SEARCHING CATALOG
 longitude = -99.36    # Permian Basin, Texas, US
 latitude  = 31.5
 
+WINDOW_DAYS = 20  # rolling lookback
+
 _default_end   = datetime.utcnow().strftime("%Y-%m-%d")
-_default_start = (datetime.utcnow() - timedelta(days=5)).strftime("%Y-%m-%d")
+_default_start = (datetime.utcnow() - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%d")
 
 try:
     start_date = getArgument("start_date", _default_start)
@@ -106,36 +108,33 @@ try:
 except Exception:
     start_date = _default_start
     end_date   = _default_end
-payload = {
-    "collections": ["sentinel-5p-l2-netcdf"],
-    "intersects": {"type": "Point", "coordinates": [longitude, latitude]},
-    "datetime": f"{start_date}/{end_date}",
-    "limit": 50,
-}
 
-items = []
-for attempt in range(5):
-    try:
-        resp = requests.post(
-            "https://planetarycomputer.microsoft.com/api/stac/v1/search",
-            json=payload,
-            timeout=60,   # explicit 60-second timeout
-        )
-        resp.raise_for_status()
-        items = resp.json().get("features", [])
-        break
-    except Exception as e:
-        wait = 15 * (attempt + 1)   # 15s, 30s, 45s ...
-        print(f"Attempt {attempt+1} failed: {e}. Retrying in {wait}s...")
-        time.sleep(wait)
+# Use the pystac_client catalog (opened in cell 2), NOT a raw POST.
+# Two critical differences from the old request:
+#   1. query filters to CH4 server-side, so the result set isn't crowded out
+#      by NO2/CO/O3/SO2/HCHO/aerosol/cloud products that also live in
+#      sentinel-5p-l2-netcdf.
+#   2. item_collection() auto-paginates through ALL matches. The old
+#      "limit": 50 was a hard cap with no paging, so once the most recent
+#      day(s) filled the 50 slots, every older day silently fell off.
+search = catalog.search(
+    collections=["sentinel-5p-l2-netcdf"],
+    intersects={"type": "Point", "coordinates": [longitude, latitude]},
+    datetime=f"{start_date}/{end_date}",
+    query={"s5p:product_name": {"eq": "ch4"}},
+)
 
-dates = [item["properties"]["datetime"][:10] for item in items]
-print("Available dates:", Counter(dates))
-if items:
-    print("Latest item:", max(item["properties"]["datetime"] for item in items))
-    print(f"Total items found: {len(items)}")
-else:
-    print("No items found for the given search parameters.")
+items = list(search.item_collection())
+
+# Client-side guard in case the backend ignores the product query filter
+items = [it for it in items if it.properties.get("s5p:product_name") == "ch4"]
+
+dates = [it.properties["datetime"][:10] for it in items]
+print("Window:", start_date, "→", end_date)
+print("Available CH4 dates:", Counter(dates))
+print(f"Total CH4 items found: {len(items)}")
+if not items:
+    print("No CH4 items found for the given search parameters.")
 
 # METADATA ********************
 
@@ -187,18 +186,6 @@ for mode in ["OFFL", "NRTI"]:
         print(f"{mode} count:", len(items_by_mode[mode]))
     else:
         print(f"{mode}: no data")
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-from pystac import Item
-items = [Item.from_dict(f) for f in items]
 
 # METADATA ********************
 
