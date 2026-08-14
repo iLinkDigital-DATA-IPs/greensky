@@ -1,0 +1,1801 @@
+{
+  "schema_version": 75,
+  "autoRefresh": {
+    "enabled": true,
+    "minInterval": "2h"
+  },
+  "changeDetection": {
+    "kind": "liveUpdates",
+    "minRefreshRate": "2h",
+    "fallbackRefreshRate": "30s"
+  },
+  "tiles": [
+    {
+      "id": "79525990-e562-4740-9065-9463b4755b75",
+      "title": "Total Ch4 Emissions (t)",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "41b97c61-b4f9-46a0-9c68-15586d3cddb1"
+      },
+      "description": "30-Day Methane Emissions Trend — Displays total methane emissions (tonnes) for the last 30 days, compared with the previous 30-day period, including the percentage change.\n",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "Value",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "4bad3660-c3d1-41ad-8852-8efd7aef28b5",
+      "title": "Methane Intensity %",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 4,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "72675de1-eef7-4e21-9677-f10b2b20dec9"
+      },
+      "description": "Methane Intensity (%) — Measures methane emissions relative to natural gas production, indicating how efficiently a facility produces gas while minimizing methane losses.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "intensity_pct",
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "434dc391-b77b-416b-9dff-1e349f527fa4",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "values": [
+                  "0.5"
+                ],
+                "operator": "<=",
+                "column": "intensity_pct"
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "green",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "04795d38-e772-486a-9594-9385ec690b11",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "intensity_pct",
+                "values": [
+                  "0.5"
+                ]
+              },
+              {
+                "operator": "<=",
+                "column": "intensity_pct",
+                "values": [
+                  "1"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "ab4b050f-ff7f-4aa1-8152-2a8963de306c",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "intensity_pct",
+                "values": [
+                  "1"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "f73a572c-3b3d-4f9f-a09e-679b3cc21377",
+      "title": "Financial Impact (Fines)",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 8,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "15c9d982-330b-4c15-a49b-469ec9f7061f"
+      },
+      "description": "Financial Impact Range (P10/P50/P90) — Displays low, expected, and high financial impact estimates (USD millions) from methane emissions, along with the total value of lost gas and regulatory fines.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "fines",
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "5c0fd148-1876-4772-bd27-8e507fe6441b",
+      "title": "Active Plumes",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 12,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "e5e882d4-90d7-46e6-a8eb-eb0ebc116e18"
+      },
+      "description": "Active Methane Plumes — Displays the number of unique methane plumes currently detected across all the facilities.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "5e4ce99f-4ffd-4b1a-95f6-cc888d51a884",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "active_plumes",
+                "values": [
+                  "1500"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "1cee1d23-3def-40ad-82f7-0eff85149a7b",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "values": [
+                  "750"
+                ],
+                "operator": ">=",
+                "column": "active_plumes"
+              },
+              {
+                "operator": "<",
+                "column": "active_plumes",
+                "values": [
+                  "1500"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": "arrowUp",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "de98f2b1-52e5-4fe8-b114-b38dd1f8a84e",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<",
+                "column": "active_plumes",
+                "values": [
+                  "750"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "green",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "8a4ff18c-7544-4a62-b579-68fe77ebbb4e",
+      "title": "Open Work Orders",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 16,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "c42534fa-c7fd-4e6f-817c-68ff0588d30d"
+      },
+      "description": "Open Work Orders — Displays the total number of unresolved work orders, including those that have exceeded their required response or completion deadlines.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "4a2cb2da-cb8f-40f6-b109-002073855d16",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "total",
+                "values": [
+                  "1500"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "bb29bea9-2227-4a25-aca6-908a86e98c38",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "total",
+                "values": [
+                  "500"
+                ]
+              },
+              {
+                "operator": "<=",
+                "column": "total",
+                "values": [
+                  "1500"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "f0865bef-2f61-4b2f-8e94-946b3c592403",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<=",
+                "column": "total",
+                "values": [
+                  "500"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "green",
+            "tag": "",
+            "icon": "arrowDown",
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "700a1d99-0449-4d1a-a4af-a2a76e90faa8",
+      "title": "Compliance Violations",
+      "visualType": "card",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 20,
+        "y": 3,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "3f09dacb-d6fb-466e-8afe-ee000b7aaa07"
+      },
+      "description": "Compliance Violations — Displays the total number of compliance violations recorded, including a breakdown of critical and major severity events.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "e551c989-de54-42cd-9444-136f2051a4ff",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "values": [
+                  "5000"
+                ],
+                "operator": ">=",
+                "column": "critical"
+              },
+              {
+                "operator": "<",
+                "column": "critical",
+                "values": [
+                  "10000"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "19ccc6ca-e460-42fb-9b36-cf5a0874584a",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<",
+                "column": "critical",
+                "values": [
+                  "5000"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "593f12f2-9410-4990-bacc-b9294305b338",
+      "title": "Daily Emissions Trend",
+      "visualType": "line",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 0,
+        "y": 13,
+        "width": 9,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "12b1f6af-9af1-46b1-b268-e2e46aebf00b"
+      },
+      "description": "Daily Methane Emissions Trend — Tracks total methane emissions by day over the selected period and compares performance against the emissions reduction target.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": [
+              {
+                "id": "ab836e3e-b5a5-4b81-8aa5-d198569cb886",
+                "value": 50000
+              }
+            ]
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "seriesColors": {},
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": [
+          "daily_kg"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "afcec3cb-212d-4e92-ac05-f47d9572f3b9",
+      "title": "Facility Map",
+      "visualType": "map",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 13,
+        "y": 6,
+        "width": 11,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "90478806-d5d9-4b9e-b534-ef70c4796e7d"
+      },
+      "description": "Top Emitting Facilities Map — Displays the highest-emitting active facilities with their locations, methane emissions, average risk scores, and equipment health metrics.",
+      "visualOptions": {
+        "map__latitudeColumn": "latitude",
+        "map__longitudeColumn": "longitude",
+        "map__labelColumn": null,
+        "map__sizeColumn": null,
+        "map__sizeDisabled": false,
+        "map__geoType": "numeric",
+        "map__geoPointColumn": null
+      }
+    },
+    {
+      "id": "7efca995-351f-4f01-8e4e-db90edc4e54a",
+      "title": "Top 10 Facilities by P50",
+      "visualType": "bar",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 9,
+        "y": 13,
+        "width": 7,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "abdd3176-68e3-4437-848c-7c5009f85e67"
+      },
+      "description": "P50 Financial Impact — The most likely estimated financial impact, representing the value at which there is an equal probability that actual costs will be higher or lower.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "seriesColors": {},
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": [
+          {
+            "pairs": [
+              {
+                "parameterId": "3ee0dd49-b093-4a86-862f-3fcd391f7378",
+                "property": "facility_name"
+              }
+            ],
+            "destinationPages": [
+              "1ca03c17-e73a-4cec-9e0c-ebb156e1c446"
+            ],
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "213aed1b-464f-4e76-85b6-94821967f076",
+      "title": "Financial Impact Composition",
+      "visualType": "stackedarea",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 16,
+        "y": 13,
+        "width": 8,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "5a41b844-98e2-4571-92c4-b548c9aa8a63"
+      },
+      "description": "Lost Gas Value — The estimated revenue lost due to methane emissions that could otherwise have been captured and sold as natural gas.\nNSPS Fines — The estimated regulatory penalties incurred from non-compliance with the U.S. EPA New Source Performance Standards (NSPS) methane regulations.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "Lost Gas Value",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [
+            {
+              "id": "7d0080e1-aa74-4f7c-acc4-75e2c830853f",
+              "columns": [
+                "nsps_fines"
+              ],
+              "label": "",
+              "yAxisMaximumValue": null,
+              "yAxisMinimumValue": null,
+              "yAxisScale": "linear",
+              "horizontalLines": []
+            }
+          ],
+          "showMultiplePanels": true
+        },
+        "seriesColors": {},
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": [
+          "lost_gas",
+          "nsps_fines"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "34a26539-f734-4aa2-80a0-9b46d03bd223",
+      "title": "Compliance Heatmap",
+      "visualType": "heatmap",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 0,
+        "y": 7,
+        "width": 6,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "186280f9-a9bf-4767-865a-8569a79b3ca4"
+      },
+      "description": "Top Facility Compliance Violations Trend — Shows monthly compliance violation counts for selected facilities, highlighting how violations change over time across key sites",
+      "visualOptions": {
+        "xColumn": null,
+        "yColumn": null,
+        "xColumnTitle": "",
+        "yColumnTitle": "",
+        "heatMap__dataColumn": null,
+        "heatMap__colorPaletteKey": "blue"
+      }
+    },
+    {
+      "id": "21841cb8-9c30-45ab-9d02-b0b7fd729795",
+      "title": "Active Exceedances",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 0,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "06d38081-77f8-41f4-ac0b-b03dfee2e11b"
+      },
+      "description": "Active Exceedances — The number of unique sensors currently reporting measurements above defined compliance or operational thresholds, along with the number of affected facilities.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "5a201c19-bbc3-4a07-a5ba-de3c65a0f903",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "active",
+                "values": [
+                  "5"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "7915e16e-d083-40b2-9570-8db7cc4e608a",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<=",
+                "column": "active",
+                "values": [
+                  "5"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "4a2464eb-a65b-46cb-94da-fbb2e9d0f293",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "active",
+                "values": [
+                  "0"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "green",
+            "tag": "",
+            "icon": "completed",
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "54d001f5-d455-461f-be10-20c1ce09e567",
+      "title": "Plume Detected (D-7)",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 10,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "06ec4b39-e39c-420d-804e-75a0ab6a2c6b"
+      },
+      "description": "Plumes Detected (Last 7 Days) — Displays the total methane plumes detected during the past week",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "e8ab6c69-924c-4c13-b3d7-e1a7e3fad735",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">=",
+                "column": "total",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "25745a0f-37eb-4419-80dd-bd710ba61b31",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<",
+                "column": "total",
+                "values": [
+                  "20"
+                ]
+              },
+              {
+                "operator": ">=",
+                "column": "total",
+                "values": [
+                  "10"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": "arrowUp",
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ba3ab926-8c20-4793-8e4e-c886d8701d35",
+      "title": "Highest Active Emission Rate",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 3,
+        "y": 4,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "579b7d4a-12ac-4160-ac81-bf2a2f2d025c"
+      },
+      "description": "Highest Active Emission Rate — Displays the most severe methane plume detected in the past 7 days",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": []
+      }
+    },
+    {
+      "id": "8374ed7a-d33d-42e1-91e7-748f248d08f6",
+      "title": "Sensors Offline",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 13,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "f5d262b6-4930-4601-a43f-ec6bab26fdfa"
+      },
+      "description": "Sensors Offline — Displays the number of sensors that have not reported data within the last 8 hours",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "adf2d016-c267-46bf-a771-849e0a72b506",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "offline",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "67684463-37cb-438c-8060-45088c312298",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "offline",
+                "values": [
+                  "10"
+                ]
+              },
+              {
+                "operator": "<=",
+                "column": "offline",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": "warning",
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "3fe7ad91-2828-4b11-b388-e759fe12fef4",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)",
+      "visualOptions": {}
+    },
+    {
+      "id": "96633581-4e6a-4ad3-b2c9-1a6a419c75b0",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 4
+      },
+      "markdownText": "![](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)\r\n> ⚠️ **Note:** This page is fully functional only when a facility is selected from the main dashboard.  ",
+      "visualOptions": {}
+    },
+    {
+      "id": "46cccd0b-25a0-4777-ac3c-2a8ed230e3ab",
+      "title": "Detections Table",
+      "visualType": "table",
+      "pageId": "fbb3207f-0391-44d0-8e23-5b8444fd96f2",
+      "layout": {
+        "x": 0,
+        "y": 6,
+        "width": 13,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "f6aa7a68-f3b3-4a75-9b5e-c03f3fc196fa"
+      },
+      "description": "High-Risk Methane Leak Events — Displays recent methane plume detections linked to facilities with sensor exceedances and compliance violations, prioritized by emission rate, severity, attribution confidence, and operational impact.",
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": false,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [
+          {
+            "pairs": [
+              {
+                "parameterId": "3ee0dd49-b093-4a86-862f-3fcd391f7378",
+                "property": "Facility"
+              }
+            ],
+            "destinationPages": [
+              "1ca03c17-e73a-4cec-9e0c-ebb156e1c446"
+            ],
+            "disabled": false
+          }
+        ],
+        "table__renderLinks": [],
+        "colorRules": [
+          {
+            "id": "0d79a0b4-2a62-4f5b-bc43-969c5f3b77b2",
+            "ruleType": "colorByCondition",
+            "applyToColumn": "Emission Rate",
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "Status",
+                "values": [
+                  "🔴 Critical"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "table"
+          },
+          {
+            "id": "c8c9de8b-5eeb-4d1f-9dbe-a2738c5239b5",
+            "ruleType": "colorByCondition",
+            "applyToColumn": "Emission Rate",
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "Status",
+                "values": [
+                  "🟠 High"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "table"
+          }
+        ]
+      }
+    },
+    {
+      "id": "f1fecd57-afcd-413c-9edc-56c043b8f499",
+      "title": "Overdue PM Count",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 16,
+        "y": 4,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d1679652-274e-40d6-af8c-2cfbf270bae6"
+      },
+      "description": "Overdue Preventive Maintenance Count — The number of equipment assets that have exceeded their scheduled preventive maintenance interval, indicating elevated operational and emissions risk.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "25cde2f0-fcc8-4fd6-ab8c-a3995d91f36a",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">=",
+                "column": "overdue_count",
+                "values": [
+                  "10"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "warning",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "f76ad493-49d8-4d95-885d-455285313315",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<=",
+                "column": "overdue_count",
+                "values": [
+                  "5"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "green",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "afe021fc-9260-45e1-9b80-4e6ef0a5868e",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "overdue_count",
+                "values": [
+                  "5"
+                ]
+              },
+              {
+                "operator": "<",
+                "column": "overdue_count",
+                "values": [
+                  "10"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "e9dd8fe3-e97a-4be4-a9c0-5ffe60317630",
+      "title": "LDAR Leaks Repaired",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 20,
+        "y": 4,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "fd50844e-f4c6-4f92-8a97-022b94b2f9e6"
+      },
+      "description": "LDAR Leak Repairs Performance — Shows total leaks detected and repaired through LDAR surveys",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": "repaired",
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "231ef6a4-0028-4117-abc1-37bfc6e987e4",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">=",
+                "column": "repaired",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "blue",
+            "tag": "",
+            "icon": "arrowUp",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "4b00cd64-0f62-4c07-8a46-72ded35ad67a",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<",
+                "column": "repaired",
+                "values": [
+                  "20"
+                ]
+              },
+              {
+                "operator": ">",
+                "column": "repaired",
+                "values": [
+                  "10"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "1cd49823-43ff-4ae6-89d9-a89b664218f2",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": "<=",
+                "column": "repaired",
+                "values": [
+                  "10"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": null,
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "da7d2867-b3ee-4c6e-823b-87f368ba4016",
+      "title": "Emissions Trend",
+      "visualType": "line",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 6,
+        "y": 7,
+        "width": 9,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "f97a1520-be7d-4abe-842d-0bc731cf5399"
+      },
+      "description": "Daily Emissions Trend — Tracks total methane emissions per day over time for the selected facilities, showing how emissions change across the chosen period.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": [
+              {
+                "id": "5c6ad203-9cb9-4162-b0dc-2011631a1982",
+                "value": 4500
+              }
+            ]
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        },
+        "seriesColors": {},
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": null,
+        "yColumns": null,
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "1ff6b100-4f77-4d99-82e1-bbf6428c2cec",
+      "title": "Financial Loss Breakdown by Facility ",
+      "visualType": "stackedarea",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 15,
+        "y": 7,
+        "width": 9,
+        "height": 7
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8e0990f4-a2f8-4468-8f18-0ce101bea38c"
+      },
+      "description": "Weekly Financial Impact Breakdown — Shows weekly trends in financial losses from methane events, split into lost gas value and regulatory (NSPS) fines.",
+      "visualOptions": {
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [
+            {
+              "id": "88703d88-ad9a-4005-ac60-c4e36ff7074c",
+              "columns": [
+                "nsps_fines"
+              ],
+              "label": "",
+              "yAxisMaximumValue": null,
+              "yAxisMinimumValue": null,
+              "yAxisScale": "linear",
+              "horizontalLines": []
+            }
+          ],
+          "showMultiplePanels": true
+        },
+        "seriesColors": {},
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "",
+        "xColumn": "week",
+        "yColumns": [
+          "lost_gas",
+          "nsps_fines"
+        ],
+        "seriesColumns": null,
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "forceAxisTicks": false,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "a7e005f7-6a33-4d5f-83bb-e8f48528e2bb",
+      "title": "Work Order Trail",
+      "visualType": "table",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "width": 12,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "bb6afc86-dce7-438d-863a-811fba3d0c13"
+      },
+      "description": "Work Order Trail Around Plume Event — Displays work orders created before and after a selected plume detection event for the affected facility, including priority, status, and SLA breach details",
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": true,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "7489e1c7-38b4-43f9-ae31-c0de6cce6875",
+      "title": "Top 20 High-Risk Equipment",
+      "visualType": "table",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 12,
+        "y": 14,
+        "width": 12,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "32c19b1c-b213-4c01-8f02-e8d4188adb72"
+      },
+      "description": "High-Risk Equipment List — Displays the top 20 equipment assets at highest operational risk based on overdue maintenance, leak history, criticality level, and inspection compliance.",
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "colorRulesDisabled": false,
+        "crossFilterDisabled": false,
+        "drillthroughDisabled": false,
+        "crossFilter": [],
+        "drillthrough": [],
+        "table__renderLinks": [],
+        "colorRules": []
+      }
+    },
+    {
+      "id": "c0f7e23b-896b-4235-bdc5-379583505d64",
+      "title": "Open Work Orders",
+      "visualType": "card",
+      "pageId": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446",
+      "layout": {
+        "x": 7,
+        "y": 4,
+        "width": 3,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "90f9935a-6d70-40c3-9518-18a8894e3592"
+      },
+      "description": "Open Work Orders Summary — Displays the number of unresolved work orders, including critical issues, SLA breaches, and the count for facility.",
+      "visualOptions": {
+        "multiStat__textSize": "auto",
+        "multiStat__valueColumn": null,
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "f6f095c4-25a1-40d1-bafd-692c4ecc80bc",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">=",
+                "column": "open_tickets",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "red",
+            "tag": "",
+            "icon": "critical",
+            "ruleName": "",
+            "visualType": "card"
+          },
+          {
+            "id": "7ac0fa77-8606-4c9b-ac97-92fc8bd4fdab",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "cells",
+            "conditions": [
+              {
+                "operator": ">",
+                "column": "open_tickets",
+                "values": [
+                  "10"
+                ]
+              },
+              {
+                "operator": "<",
+                "column": "open_tickets",
+                "values": [
+                  "20"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "light",
+            "color": "yellow",
+            "tag": "",
+            "icon": "arrowUp",
+            "ruleName": "",
+            "visualType": "card"
+          }
+        ]
+      }
+    },
+    {
+      "id": "c01f4b3b-4ba8-4f5e-a289-96bc9d2a739c",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "5cf29167-2d84-4da8-a451-87df31f23f3a",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 27
+      },
+      "markdownText": "# Methane Emissions Dashboard — README\n\n## Overview\n\nTwo-page dashboard for methane emissions monitoring. Start on the **Executive Overview** for portfolio-wide performance, then drill through to the **Facility Operations** page to investigate a specific facility.\n\n---\n\n## Executive Overview\n\nPortfolio-wide view for executives, sustainability leads, operations managers, and compliance teams.\n\n### KPI Cards\n\n| KPI | What it shows | How to interpret |\n|-----|--------------|-----------------|\n| **Total Methane Emissions** | Total tonnes CH₄, last 30 days  | Overview |\n| **Methane Intensity (%)** | Emissions ÷ Gas Produced × 100 | Lower = more efficient; useful for comparing facilities of different sizes. |\n| **Financial Impact (P10/P50/P90)** | Estimated financial exposure across  Fines | Use for planning |\n| **Active Methane Plumes** | Count of active emission events across monitored facilities | Rising count may signal equipment failures; review alongside Work Orders and Violations. |\n| **Open Work Orders** | Unresolved methane-related work orders | rising count alongside rising emissions = maintenance backlog. |\n| **Compliance Violations** | Regulatory violations this period | Critical violations require immediate action; track trends alongside plume activity. |\n\n### Visualizations\n\n| Chart | Type | What it shows |\n|-------|------|--------------|\n| **Daily Methane Emissions Trend** | Line chart | Daily portfolio emissions vs. a target threshold; spikes indicate operational failures. |\n| **Top Emitting Facilities Map** | Bubble map | Geographic emission concentration; bubble size = emissions volume; prioritize large bubbles with poor equipment health. |\n| **Top 10 Facilities by Financial Impact (P50)** | Bar chart | Facilities ranked by expected financial loss; guides where to prioritize mitigation investment. |\n| **Financial Impact Composition Trend** | Stacked area chart | Weekly Lost Gas vs. NSPS Fines; shifts in composition reveal whether costs are operational or compliance-driven. |\n| **High-Risk Methane Leak Events** | Interactive table | Recent plume detections with severity (P1–P4), confidence, emission rate, and source type; focus on P1/P2 with high confidence. |\n\n**Severity levels:** P1 = Critical, P2 = High, P3 = Medium, P4 = Low.\n\n### Recommended Workflow\n\n1. Review Total Methane Emissions trend.\n2. Check Active Plumes and Open Work Orders.\n3. Assess Compliance Violations.\n4. Review Financial Impact exposure.\n5. Identify top emitting facilities on the map.\n6. Investigate High-Risk Methane Leak Events.\n7. **Drill into a facility page** for root-cause analysis.\n\n---\n\n## Facility Operations\n\nDetailed operational view scoped entirely to the **selected facility**. All metrics, charts, and tables on this page reflect that facility only. Used after drilling through from the Executive Overview.\n\nDesigned for operations teams, maintenance planners, environmental specialists, and reliability engineers.\n\n### KPI Cards\n\n| KPI | What it shows | How to interpret |\n|-----|--------------|-----------------|\n| **Active Exceedances Now** | Sensors currently above configured methane thresholds | Multiple exceedances at once may indicate a widespread issue; review alongside Active Plumes. |\n| **Plumes Detected (Last 7 Days)** | Total plumes, high-confidence detections, and OLREs (Other Large Release Events) | Rising count = worsening leak activity; high-confidence detections should be prioritized. |\n| **Highest Active Emission Rate** | Most severe plume in the last 7 days: rate (kg/hr),  |  investigate first. |\n| **Open Work Orders** | Unresolved work orders  |  critical tickets = high-priority operational risk. |\n| **Sensors Offline** | Sensors with no data in the last 8 hours | Offline sensors create monitoring blind spots; investigate communication, power, or hardware faults. |\n| **Overdue Preventive Maintenance** | Assets past their PM schedule, including critical assets and avg. days overdue | Extended overdue periods correlate with elevated failure and leak risk; prioritize critical assets. |\n| **LDAR Leak Repairs Performance** | Leaks detected vs. repaired,  | Large detected-vs-repaired gap = backlog; low repair rate = LDAR program underperforming. |\n\n### Visualizations\n\n| Chart | Type | What it shows |\n|-------|------|--------------|\n| **Daily Emissions Trend** | Line chart | Facility-level daily emissions over time; spikes correspond to equipment failures or large release events. |\n| **Weekly Financial Impact Breakdown** | Stacked area chart | Lost Gas vs. NSPS Fines week-over-week; shifts indicate whether costs are operational or compliance-driven. |\n| **Compliance Violations Heatmap** | Heatmap | Monthly violation counts across selected facility |\n| **Work Order Trail Around Plume Event** | Investigation table | Work orders ±30 days around a selected plume detection; reveals whether maintenance preceded or followed a leak, and whether SLAs were met. |\n| **High-Risk Equipment List** | Prioritized table | Top 20 assets ranked by risk (maintenance overdue, criticality, leak history, age, inspection compliance); deploy maintenance resources here first. |\n\n### Recommended Workflow\n\n1. Review Active Exceedances and Active Plumes.\n2. Assess the Highest Active Emission Rate.\n3. Verify sensor coverage using Sensors Offline.\n4. Examine Daily Emissions Trend.\n5. Review Open Work Orders and Maintenance Backlog.\n6. Analyze Compliance Violation patterns.\n7. Investigate Work Order Trail around significant plume events.\n8. Prioritize corrective actions using the High-Risk Equipment List.\n9. Monitor Financial Impact to validate mitigation effectiveness.",
+      "visualOptions": {}
+    }
+  ],
+  "baseQueries": [],
+  "parameters": [
+    {
+      "kind": "string",
+      "id": "3ee0dd49-b093-4a86-862f-3fcd391f7378",
+      "displayName": "Selected Facility ",
+      "description": "",
+      "variableName": "selected_facility",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "facility_name",
+          "label": "facility_name"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "12a7d6b5-b63f-49b3-8ee2-f6ff7bb727ad"
+        },
+        "autoReset": true
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "kind": "kusto-trident",
+      "name": "Operations_KQL",
+      "clusterUri": "",
+      "databaseArtifactId": "85d85e9c-2342-460b-8085-5883c8266286",
+      "database": "050b7f08-b83c-a888-480c-a51e7fa3d871",
+      "workspace": "00000000-0000-0000-0000-000000000000",
+      "id": "45111dc0-5b37-4916-bed1-928c6df43884"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Executive Overview",
+      "id": "fbb3207f-0391-44d0-8e23-5b8444fd96f2"
+    },
+    {
+      "name": "Facility Operations",
+      "id": "1ca03c17-e73a-4cec-9e0c-ebb156e1c446"
+    },
+    {
+      "name": "README.md",
+      "id": "5cf29167-2d84-4da8-a451-87df31f23f3a"
+    }
+  ],
+  "queries": [
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "let _facility_sk = dynamic([]);\r\n\r\nlet current_total =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (ago(30d) .. now())\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize current_t = round(sum(total_emissions_kg) / 1000.0, 0);\r\n\r\nlet previous_total =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (ago(60d) .. ago(30d))\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize previous_t = round(sum(total_emissions_kg) / 1000.0, 0);\r\n\r\ncurrent_total\r\n| extend join_key = 1\r\n| join kind=inner (\r\n    previous_total\r\n    | extend join_key = 1\r\n) on join_key\r\n| extend pct_change =\r\n    iff(previous_t > 0,\r\n        round(100.0 * (current_t - previous_t) / previous_t, 1),\r\n        0.0)\r\n| project\r\n    Value = current_t,\r\n    ComparisonValue = previous_t,\r\n    ChangePct = pct_change",
+      "id": "41b97c61-b4f9-46a0-9c68-15586d3cddb1",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.2: Methane Intensity % (KPI) ------------------------------\r\nlet _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet emissions =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize emissions_kg = sum(total_emissions_kg);\r\nlet production =\r\n    fact_production_daily\r\n    | where prod_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize prod_mcf = sum(gross_gas_mcf);\r\nemissions\r\n| extend prod_mcf = toscalar(production)\r\n| extend intensity_pct = iff(prod_mcf > 0, round((emissions_kg / 19.26) / prod_mcf * 100.0, 3), real(0))\r\n| project intensity_pct",
+      "id": "72675de1-eef7-4e21-9677-f10b2b20dec9",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.3: Financial Impact P10/P50/P90 (KPI) ---------------------\r\nlet _start = datetime(2020-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize\r\n    p10_raw = sum(total_financial_impact_usd_p10),\r\n    p50_raw = sum(total_financial_impact_usd_p50),\r\n    p90_raw = sum(total_financial_impact_usd_p90),\r\n    lost_gas_raw = sum(lost_gas_value_usd),\r\n    fines_raw = sum(nsps_violation_fine_usd)\r\n| extend\r\n    p10 = strcat(tostring(round(p10_raw / 1000000, 2)), \"M\"),\r\n    p50 = strcat(tostring(round(p50_raw / 1000000, 2)), \"M\"),\r\n    p90 = strcat(tostring(round(p90_raw / 1000000, 2)), \"M\"),\r\n    lost_gas = strcat(tostring(round(lost_gas_raw / 1000000, 2)), \"M\"),\r\n    fines = strcat(tostring(round(fines_raw / 1000000, 2)), \"M\")\r\n| project p10, p50, p90, lost_gas, fines\r\n;",
+      "id": "15c9d982-330b-4c15-a49b-469ec9f7061f",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.4: Active Plumes (KPI) ------------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet plume_facilities =\r\n    bridge_plume_facility_attribution\r\n    | where primary_flag == true\r\n    | project plume_id = tostring(plume_id), facility_sk;\r\nplume_detection_hot\r\n| where detect_ts > ago(2200d)\r\n| extend plume_id = tostring(plume_id)\r\n| join kind=leftouter plume_facilities on plume_id\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize active_plumes = dcount(plume_id)\r\n;",
+      "id": "e5e882d4-90d7-46e6-a8eb-eb0ebc116e18",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.5: Open Work Orders (KPI) ---------------------------------\r\nlet _facility_sk = dynamic([]);\r\nfact_work_order\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| where status != \"Closed\"\r\n| summarize total = count(), breached = countif(is_breached == true)\r\n;",
+      "id": "c42534fa-c7fd-4e6f-817c-68ff0588d30d",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.6: Compliance Violations (KPI) -----------------------------\r\nlet _start = datetime(2020-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_compliance_event\r\n| where event_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| where is_violation == true\r\n| summarize total = count(),\r\n            critical = countif(severity == \"Critical\"),\r\n            major = countif(severity == \"Major\")\r\n;",
+      "id": "3f09dacb-d6fb-466e-8afe-ee000b7aaa07",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.7: Daily Emissions Trend (line chart) ----------------------\r\nlet _start = datetime(2026-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_facility_daily_snapshot\r\n| where snapshot_date between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize daily_kg = sum(total_emissions_kg) by snapshot_date\r\n| order by snapshot_date asc\r\n| extend target_kg = 12000.0\r\n;",
+      "id": "12b1f6af-9af1-46b1-b268-e2e46aebf00b",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "let _facility_sk = dynamic([]);\r\nlet recent_metrics =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date > ago(2200d)\r\n    | summarize emissions_kg = sum(total_emissions_kg),\r\n                avg_risk = avg(risk_score),\r\n                health = avg(equipment_health_score) by facility_sk;\r\ndim_facility\r\n| where is_current == true and active_flag == true\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=leftouter recent_metrics on facility_sk\r\n| project facility_name, basin, anchor_site, latitude, longitude,\r\n          emissions_kg = coalesce(emissions_kg, 0.0),\r\n          avg_risk = coalesce(avg_risk, 0.0),\r\n          health = coalesce(health, 0.7)\r\n| top 25 by emissions_kg desc\r\n;",
+      "id": "90478806-d5d9-4b9e-b534-ef70c4796e7d",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.9: Top 10 Facilities by P50 (bar chart) -------------------\r\nlet _start = datetime(2020-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize p50 = sum(total_financial_impact_usd_p50) by facility_sk\r\n| join kind=inner (dim_facility | where is_current == true) on facility_sk\r\n| project facility_name, basin, p50\r\n| top 10 by p50 desc\r\n;",
+      "id": "abdd3176-68e3-4437-848c-7c5009f85e67",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2024-03-01T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by day = startofday(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by day asc\r\n;",
+      "id": "5a41b844-98e2-4571-92c4-b548c9aa8a63",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "let _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end   = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];   // dashboard parameter token\r\n\r\nlet top_facilities =\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize total_violations = count() by facility_sk\r\n    | top 10 by total_violations desc\r\n    | project facility_sk;\r\n\r\nlet fac =\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name;\r\n\r\n// Monthly violations for the top facilities, with names. Materialized because\r\n// it's referenced several times below.\r\nlet base = materialize(\r\n    fact_compliance_event\r\n    | where event_ts between (_start .. _end) and is_violation == true\r\n    | where facility_sk in (top_facilities)\r\n    | summarize violations = count() by facility_sk, month = startofmonth(event_ts)\r\n    | join kind=inner fac on facility_sk\r\n    | project facility_name, month, violations\r\n);\r\n\r\n// Your original result: selection applied.\r\nlet primary =\r\n    base\r\n    | where array_length(_selected) == 0 or facility_name in (_selected);\r\n\r\n// Fallback: top 5 facilities by total violations.\r\nlet fallback =\r\n    base\r\n    | where facility_name in (\r\n        ( base\r\n          | summarize total = sum(violations) by facility_name\r\n          | top 5 by total desc\r\n          | project facility_name )\r\n      );\r\n\r\nlet has_data = toscalar(primary | count) > 0;\r\n\r\nunion\r\n    (primary  | where has_data),\r\n    (fallback | where not(has_data))\r\n| project facility_name, month, violations\r\n| order by violations desc",
+      "id": "186280f9-a9bf-4767-865a-8569a79b3ca4",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 2.1: Active Exceedances Now (KPI) ----------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| where exceedance_flag == true\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize active = dcount(sensor_id),\r\n            facilities_affected = dcount(facility_sk)\r\n;",
+      "id": "06d38081-77f8-41f4-ac0b-b03dfee2e11b",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 2.2: Plumes Detected (Last 7 Days) (KPI) ----------------------------\r\nlet _selected = ['selected_facility'];\r\nlet result =\r\n    plume_detection_hot\r\n    | extend plume_id = tostring(plume_id)\r\n    | extend emission_rate_confidence = toreal(emission_rate_confidence),\r\n             emission_rate_kg_s = toreal(emission_rate_kg_s)\r\n    | where detect_ts >= ago(7d)\r\n    | join kind=inner (\r\n        bridge_plume_facility_attribution\r\n        | extend plume_id = tostring(plume_id)\r\n        | join kind=inner (\r\n            external_table('dim_facility')\r\n            | where is_current == true\r\n            | project facility_sk, facility_name\r\n        ) on facility_sk\r\n        | project plume_id, facility_name\r\n    ) on plume_id\r\n    | where array_length(_selected) == 0 or facility_name in (_selected)\r\n    | summarize total = tolong(count()),\r\n                high_conf = tolong(countif(emission_rate_confidence > 0.7)),\r\n                olre = tolong(countif(emission_rate_kg_s * 3600 > 100));\r\nunion result,\r\n(datatable(total:long, high_conf:long, olre:long)\r\n    [long(0), long(0), long(0)])\r\n| top 1 by total desc",
+      "id": "06ec4b39-e39c-420d-804e-75a0ab6a2c6b",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 2.3: Highest Active Emission Rate (KPI) ---------------------\r\nlet _selected = ['selected_facility'];\r\nlet result =\r\n    plume_detection_hot\r\n    | extend plume_id = tostring(plume_id)\r\n    | where detect_ts >= ago(7d)\r\n    | join kind=inner (\r\n        bridge_plume_facility_attribution\r\n        | extend plume_id = tostring(plume_id)\r\n        | join kind=inner (\r\n            external_table('dim_facility')\r\n            | where is_current == true\r\n            | project facility_sk, facility_name\r\n        ) on facility_sk\r\n        | project plume_id, facility_name\r\n    ) on plume_id\r\n    | where array_length(_selected) == 0 or facility_name in (_selected)\r\n    | top 1 by emission_rate_kg_s desc\r\n    | extend rate_kg_hr = round(emission_rate_kg_s * 3600.0, 1)\r\n    | project plume_id, rate_kg_hr,\r\n              confidence = emission_rate_confidence,\r\n              detect_ts, anchor_distance_km;\r\nunion result,\r\n(datatable(plume_id:string, rate_kg_hr:real, confidence:real, detect_ts:datetime, anchor_distance_km:real)\r\n    [\"no-data\", 0.0, 0.0, datetime(null), 0.0])\r\n| where isnotempty(plume_id)\r\n| top 1 by rate_kg_hr desc",
+      "id": "579b7d4a-12ac-4160-ac81-bf2a2f2d025c",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 2.4: Sensors Offline (KPI) ----------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nexternal_table('sensor_telemetry')\r\n| where reading_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize last_reading = max(reading_ts) by sensor_id, facility_sk\r\n| where last_reading < ago(8h)\r\n| summarize offline = count(), facilities = dcount(facility_sk)\r\n;",
+      "id": "f5d262b6-4930-4601-a43f-ec6bab26fdfa",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "external_table('fact_plume_detection')\r\n| where is_synthetic == false\r\n| where detect_ts >= ago(15d)\r\n| extend plume_id = tostring(plume_id)                          // cast here\r\n| summarize arg_max(detect_ts, *) by plume_id\r\n| join kind=inner (\r\n    external_table('bridge_plume_facility_attribution')\r\n    | where primary_flag == true\r\n    | extend plume_id = tostring(plume_id)                      // cast here\r\n    | summarize arg_max(allocation_factor, *) by plume_id\r\n    | project plume_id, facility_sk, distance_km, attribution_confidence, allocation_factor\r\n) on plume_id\r\n| join kind=inner (\r\n    external_table('dim_facility')\r\n    | where is_current == true\r\n    | summarize arg_max(facility_sk, *) by facility_sk\r\n    | project facility_sk, facility_name, basin\r\n) on facility_sk\r\n| join kind=leftouter (\r\n    external_table('sensor_telemetry')\r\n    | where reading_ts > ago(2200d)\r\n    | where exceedance_flag == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| join kind=leftouter (\r\n    fact_compliance_event\r\n    | where is_violation == true\r\n    | distinct facility_sk\r\n) on facility_sk\r\n| extend rate_kg_hr = round(emission_rate_kg_s * 3600.0, 1),\r\n         sev = case(\r\n             emission_rate_kg_s * 3600 > 500, \"P1\",\r\n             emission_rate_kg_s * 3600 > 250, \"P2\",\r\n             emission_rate_kg_s * 3600 > 100, \"P3\",\r\n             \"P4\"),\r\n         source_label = \"satellite\"\r\n| extend emission = strcat(toint(rate_kg_hr))\r\n| extend len = strlen(emission)\r\n| extend formatted_rate =\r\n    case(\r\n        len <= 3, emission,\r\n        len <= 6, strcat(substring(emission, 0, len-3), \",\", substring(emission, len-3, 3)),\r\n        len <= 9, strcat(substring(emission, 0, len-6), \",\",\r\n                         substring(emission, len-6, 3), \",\",\r\n                         substring(emission, len-3, 3)),\r\n        emission\r\n    )\r\n| project\r\n    ['Detection Time'] = format_datetime(detect_ts, 'yyyy-MM-dd HH:mm'),\r\n    Facility = facility_name,\r\n    Basin = basin,\r\n    ['Emission Rate'] = strcat(formatted_rate, \" kg/hr\"),\r\n    Severity = sev,\r\n    ['Confidence'] = round(attribution_confidence, 2),\r\n    ['Distance (km)'] = round(distance_km, 2),\r\n    Allocation = round(allocation_factor, 2),\r\n    Source = source_label,\r\n    Status = case(\r\n        sev == \"P1\", \"🔴 Critical\",\r\n        sev == \"P2\", \"🟠 High\",\r\n        sev == \"P3\", \"🟡 Medium\",\r\n        \"🟢 Low\"\r\n    )\r\n| order by ['Detection Time'] desc",
+      "id": "f6aa7a68-f3b3-4a75-9b5e-c03f3fc196fa",
+      "usedVariables": []
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 4.2: Overdue PM Count (KPI) ---------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nlet last_pm =\r\n    fact_maintenance\r\n    | where maintenance_type == \"Preventive\"\r\n    | summarize last_ts = max(maintenance_ts) by equipment_sk;\r\ndim_equipment\r\n| where is_current == true\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| join kind=leftouter last_pm on equipment_sk\r\n| extend days_since = case(isnotnull(last_ts),\r\n                           datetime_diff('day', now(), last_ts),\r\n                           9999)\r\n| where days_since > inspection_frequency_days\r\n| summarize overdue_count = count(),\r\n            critical_overdue = countif(criticality == \"Critical\"),\r\n            avg_days_overdue = round(avg(todouble(days_since - inspection_frequency_days)), 0)\r\n;",
+      "id": "d1679652-274e-40d6-af8c-2cfbf270bae6",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 4.3: LDAR Leaks Repaired (KPI) ------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_ldar_survey\r\n| where survey_ts > ago(2200d)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize detected = sum(leaks_detected),\r\n            repaired = sum(leaks_repaired),\r\n            cost = sum(repair_cost_usd),\r\n            surveys = count()\r\n| extend repair_rate_pct = round(100.0 * todouble(repaired) / todouble(detected), 1)\r\n;",
+      "id": "fd50844e-f4c6-4f92-8a97-022b94b2f9e6",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.7: Daily Emissions Trend (line chart) ----------------------\r\nlet _start = datetime(2026-05-01);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_facility_daily_snapshot\r\n| where snapshot_date between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize daily_kg = sum(total_emissions_kg) by snapshot_date\r\n| order by snapshot_date asc\r\n;",
+      "id": "f97a1520-be7d-4abe-842d-0bc731cf5399",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 1.10: Financial Impact Composition (stacked area) ------------\r\nlet _start = datetime(2024-03-01T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_financial_impact\r\n| where detect_ts between (_start .. _end)\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize lost_gas = sum(lost_gas_value_usd),\r\n            nsps_fines = sum(nsps_violation_fine_usd)\r\n  by week = startofday(detect_ts)\r\n| extend lost_gas_log = log10(lost_gas + 1),\r\n         nsps_fines_log = log10(nsps_fines + 1)\r\n| order by week asc\r\n;",
+      "id": "8e0990f4-a2f8-4468-8f18-0ce101bea38c",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile 3.8: Work Order Trail ---------------------------------------\r\nlet _selected = ['selected_facility'];\r\nlet _plume_id = toscalar(\r\n    plume_detection_hot\r\n    | extend plume_id = tostring(plume_id)\r\n    | join kind=inner (\r\n        bridge_plume_facility_attribution\r\n        | extend plume_id = tostring(plume_id)\r\n        | where primary_flag == true\r\n        | join kind=inner (\r\n            external_table('dim_facility')\r\n            | where is_current == true\r\n            | project facility_sk, facility_name\r\n        ) on facility_sk\r\n        | project plume_id, facility_name\r\n    ) on plume_id\r\n    | where isnull(_selected) or array_length(_selected) == 0 or facility_name in (_selected)\r\n    | top 1 by detect_ts desc\r\n    | project plume_id\r\n);\r\nlet _plume_facility =\r\n    bridge_plume_facility_attribution\r\n    | where tostring(plume_id) == _plume_id and primary_flag == true\r\n    | project facility_sk;\r\nlet _plume_ts =\r\n    toscalar(\r\n        plume_detection_hot\r\n        | where tostring(plume_id) == _plume_id\r\n        | project detect_ts\r\n    );\r\nfact_work_order\r\n| where isnotnull(_plume_id)\r\n| where facility_sk in (_plume_facility)\r\n| where created_ts between ((_plume_ts - 30d) .. (_plume_ts + 30d))\r\n| project ticket_id, created_ts, closed_ts, priority, status,\r\n          sla_hours, resolution_time_hours, is_breached, source\r\n| order by created_ts asc",
+      "id": "bb6afc86-dce7-438d-863a-811fba3d0c13",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "\r\n// -- Tile 4.7: Top 20 High-Risk Equipment (table) ---------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nlet last_maint =\r\n    fact_maintenance\r\n    | summarize last_ts = max(maintenance_ts) by equipment_sk;\r\nlet leaks =\r\n    bridge_plume_equipment\r\n    | where primary_flag == true\r\n    | summarize leak_count = count() by equipment_sk;\r\ndim_equipment\r\n| where is_current == true\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=leftouter last_maint on equipment_sk\r\n| join kind=leftouter leaks on equipment_sk\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| extend age_yrs = round(todouble(datetime_diff('day', now(), install_date)) / 365.0, 1),\r\n         days_since = case(isnotnull(last_ts),\r\n                           datetime_diff('day', now(), last_ts),\r\n                           9999),\r\n         leak_count = coalesce(leak_count, tolong(0))\r\n| extend overdue_days = days_since - inspection_frequency_days\r\n| where overdue_days > 0 or criticality in (\"High\", \"Critical\") or leak_count > 0\r\n| project equipment_id, facility_name, equipment_type, manufacturer,\r\n          criticality, age_yrs, last_maint_ts = last_ts,\r\n          days_since, overdue_days, leak_count\r\n| order by overdue_days desc, criticality asc, leak_count desc\r\n| take 20\r\n;",
+      "id": "32c19b1c-b213-4c01-8f02-e8d4188adb72",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "// -- Tile: Open Work Orders (KPI) -------------------------------------\r\nlet _facility_sk = dynamic([]);\r\nlet _selected = ['selected_facility'];\r\nfact_work_order\r\n| where status != \"Closed\"\r\n| where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n| join kind=inner (dim_facility | where is_current == true\r\n                   | project facility_sk, facility_name) on facility_sk\r\n| where array_length(_selected) == 0 or facility_name in (_selected)\r\n| summarize open_tickets = count(),\r\n            critical = countif(priority == \"Critical\"),\r\n            breached_sla = countif(is_breached == true),\r\n            facilities_affected = dcount(facility_sk)\r\n;",
+      "id": "90f9935a-6d70-40c3-9518-18a8894e3592",
+      "usedVariables": [
+        "selected_facility"
+      ]
+    },
+    {
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
+      },
+      "text": "external_table('dim_facility')\n| where is_current == true\n| distinct facility_name\n| order by facility_name asc",
+      "id": "12a7d6b5-b63f-49b3-8ee2-f6ff7bb727ad",
+      "usedVariables": []
+    }
+  ],
+  "embeddedApps": []
+}

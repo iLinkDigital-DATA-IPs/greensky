@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "gen_sensor_telemetry"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "986bde46-6257-a0dd-44c3-c09398b0192e"
+  }
+}

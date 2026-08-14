@@ -1,0 +1,277 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "f3dcc7cc-a075-9b08-4cfa-dfca44797c92",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "ingest_real_plumes",
+        "description": "Fetched updated data from emissions_pipeline",
+        "dependsOn": []
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "662b28c8-4699-9fe2-4ae6-698e5c9bfc66",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "build_attribution",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "ingest_real_plumes",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "18e3e1a0-23f2-9852-44c0-8ac8db4c253f",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "gen_financial",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "build_attribution",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "bee2ef0d-e212-a02b-4b11-73cdd1f37153",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "gen_complicance",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "gen_financial",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "4ce25b3e-6521-a22c-4031-6958c5aff3d0",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "gen_work_orders",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "gen_complicance",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "7bbc5df4-ff29-9a09-4da7-76a6b8a9cf34",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": "incremental",
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@pipeline().parameters.start_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@pipeline().parameters.end_date",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "build_snapshots",
+        "description": "Note: Dummy Data",
+        "dependsOn": [
+          {
+            "activity": "gen_work_orders",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "run_mode": {
+        "type": "string",
+        "defaultValue": "incremental "
+      },
+      "start_date": {
+        "type": "string",
+        "defaultValue": "2026-01-01"
+      },
+      "end_date": {
+        "type": "string",
+        "defaultValue": "2026-06-17"
+      }
+    }
+  }
+}
