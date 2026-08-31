@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "06_temporal_persistence"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "3ff6d29b-3742-8e9a-47af-75d00e30e8a3"
+  }
+}
