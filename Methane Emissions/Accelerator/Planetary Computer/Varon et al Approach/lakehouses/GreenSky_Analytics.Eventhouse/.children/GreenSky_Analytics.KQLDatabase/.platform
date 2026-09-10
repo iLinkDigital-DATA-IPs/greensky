@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "KQLDatabase",
+    "displayName": "GreenSky_Analytics"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "08734eea-a285-9b0c-496d-d3d4fe23d680"
+  }
+}

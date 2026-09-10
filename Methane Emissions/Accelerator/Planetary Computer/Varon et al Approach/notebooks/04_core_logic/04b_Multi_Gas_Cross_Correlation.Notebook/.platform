@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "04b_Multi_Gas_Cross_Correlation"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "82309064-92e3-92f2-4c1a-901c35fa9818"
+  }
+}

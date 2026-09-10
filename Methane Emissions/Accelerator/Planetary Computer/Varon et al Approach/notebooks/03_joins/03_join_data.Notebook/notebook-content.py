@@ -53,7 +53,7 @@ from pyspark.sql.window import Window
 from pyspark.sql.functions import broadcast
 
 # Load methane pixels (Permian Basin only)
-methane = spark.table("bronze_methane_pixels").filter(
+methane = spark.table("bronze_ch4_pixels").filter(
     (col("latitude") >= BBOX["min_lat"]) &
     (col("latitude") <= BBOX["max_lat"]) &
     (col("longitude") >= BBOX["min_lon"]) &
@@ -293,7 +293,6 @@ silver_df = nearest.select(
     col("datetime"),
     col("stac_id"),
     col("gas"),
-    col("processing_level"),
 
     # Open-Meteo weather
     col("wind_speed_10m"),

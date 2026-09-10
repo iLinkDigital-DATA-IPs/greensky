@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Eventhouse",
+    "displayName": "GreenSky_Analytics",
+    "description": "GreenSky_Analytics"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "3b31488f-dc54-9f8d-4065-5253e3fe2cee"
+  }
+}
