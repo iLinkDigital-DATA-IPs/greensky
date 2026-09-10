@@ -52,7 +52,6 @@
 
 # CELL ********************
 
-import re
 import planetary_computer
 import pystac_client
 import fsspec
@@ -184,24 +183,27 @@ for i, item in enumerate(new_items):
 
     # ── Processing mode + orbit, needed to key NRTI/OFFL dedup in 03_join_data ──
     # s5p:processing_mode is already used as a STAC query filter above, so it is
-    # guaranteed present on every returned item. Orbit has no confirmed STAC property on
-    # this collection, so it is parsed from the standard ESA Sentinel-5P product
-    # identifier: ..._<start>_<stop>_<orbit>_<collection>_<processor>_<production>. If
-    # either is unavailable, the item is skipped rather than guessed at.
+    # guaranteed present on every returned item. Orbit is read from sat:absolute_orbit
+    # (confirmed present on all returned CH4 items), NOT parsed from item.id: Planetary
+    # Computer item IDs are truncated forms of the full ESA product name (e.g.
+    # "S5P_L2_CH4____20260612T223751_20260613T001921_44897" -- no collection /
+    # processor-version / production-time suffix), so filename parsing is not a reliable
+    # source of the orbit number here. sat:absolute_orbit is authoritative; its value is
+    # not assumed to have any fixed digit width, since S5P absolute orbit numbers will
+    # exceed 99999 in the future. If either property is unavailable, the item is skipped
+    # rather than guessed at.
     processing_mode = item.properties.get("s5p:processing_mode")
     if not processing_mode:
         print("→ SKIP: no s5p:processing_mode on item properties")
         failed_items.append((item_id, "missing_processing_mode"))
         continue
 
-    orbit_match = re.search(
-        r"_(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5})_(\d{2})_(\d{6})_(\d{8}T\d{6})$", item_id
-    )
-    if orbit_match is None:
-        print("→ SKIP: could not parse orbit number from item id")
-        failed_items.append((item_id, "orbit_parse_failed"))
+    orbit = item.properties.get("sat:absolute_orbit")
+    if orbit is None:
+        print("→ SKIP: no sat:absolute_orbit on item properties")
+        failed_items.append((item_id, "missing_orbit"))
         continue
-    orbit = int(orbit_match.group(3))
+    orbit = int(orbit)
 
     # ── Get signed asset URL ──
     try:
