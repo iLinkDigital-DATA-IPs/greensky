@@ -47,7 +47,7 @@
 
 from pyspark.sql.functions import (
     col, radians, sin, cos, sqrt, lit, exp,
-    unix_timestamp, row_number
+    unix_timestamp, row_number, when
 )
 from pyspark.sql.window import Window
 from pyspark.sql.functions import broadcast
@@ -76,6 +76,39 @@ try:
 except Exception:
     print("ERA5 table not found -- will use Open-Meteo wind only")
     print("ERA5 columns will be added as null placeholders")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Diagnostic: duplication check on bronze_ch4_pixels (pre-join):
+#
+# Checks whether duplicate pixel rows already exist in bronze before any join. Includes a
+# distinct count on (orbit, scanline, ground_pixel) alongside the (stac_id, ...) counts,
+# because NRTI and OFFL items for the same orbit carry different stac_ids for the same
+# physical pixel -- a dedup key that includes stac_id would silently miss that overlap. If
+# total rows is roughly 2x distinct_orbit_scanline_gp and the processing_mode split below
+# is roughly even, that confirms NRTI/OFFL overlap as the source of duplication.
+
+# CELL ********************
+
+from pyspark.sql.functions import countDistinct
+
+print("=== Duplication check: bronze_ch4_pixels (post BBOX filter, pre-join) ===")
+print(f"Total rows: {methane_count:,}")
+methane.select(
+    countDistinct("stac_id", "scanline", "ground_pixel").alias("distinct_stac_scanline_gp"),
+    countDistinct("stac_id", "latitude", "longitude").alias("distinct_stac_lat_lon"),
+    countDistinct("orbit", "scanline", "ground_pixel").alias("distinct_orbit_scanline_gp"),
+).show(truncate=False)
+
+print("Row count by processing_mode:")
+methane.groupBy("processing_mode").count().show(truncate=False)
 
 # METADATA ********************
 
@@ -166,6 +199,35 @@ joined = methane.join(
 joined_count = joined.count()
 print(f"After temporal join: {joined_count:,} rows")
 print(f"Expansion factor: {joined_count / methane_count:.1f}x (each pixel matched to {weather.select('weather_lat', 'weather_lon').distinct().count()} weather stations)")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Diagnostic: duplication check after the weather join (pre nearest-station selection):
+#
+# Same checks as above, run on the joined (fanned-out) table. distinct_orbit_scanline_gp
+# should be unchanged from the pre-join check -- same set of physical pixels, just
+# multiplied across weather stations -- if it grew, the join itself is introducing
+# duplication rather than the expected one-pixel-to-many-weather-stations fan-out.
+
+# CELL ********************
+
+print("=== Duplication check: after weather temporal join (pre nearest-station selection) ===")
+print(f"Total rows: {joined_count:,}")
+joined.select(
+    countDistinct("stac_id", "scanline", "ground_pixel").alias("distinct_stac_scanline_gp"),
+    countDistinct("stac_id", "latitude", "longitude").alias("distinct_stac_lat_lon"),
+    countDistinct("orbit", "scanline", "ground_pixel").alias("distinct_orbit_scanline_gp"),
+).show(truncate=False)
+
+print("Row count by processing_mode:")
+joined.groupBy("processing_mode").count().show(truncate=False)
 
 # METADATA ********************
 
@@ -293,6 +355,11 @@ silver_df = nearest.select(
     col("datetime"),
     col("stac_id"),
     col("gas"),
+    col("scanline"),
+    col("ground_pixel"),
+    col("n_ground_pixels"),
+    col("processing_mode"),
+    col("orbit"),
 
     # Open-Meteo weather
     col("wind_speed_10m"),
@@ -310,6 +377,35 @@ silver_df = nearest.select(
     col("v10").alias("era5_v10"),
     col("boundary_layer_height").alias("era5_blh"),
 )
+
+# ── Deduplicate on (orbit, scanline, ground_pixel) ──
+# 07c found the same physical detector cell appearing twice with near-identical CH4
+# (e.g. 1931.955 vs 1931.908 ppb at the same lat/lon). Root cause: this pipeline ingests
+# both NRTI and OFFL processing modes (02_ingest_tropomi_ch4), and the same orbit is
+# delivered as two separate STAC items -- with different stac_ids -- covering the same
+# physical pixels. Keying dedup on stac_id would silently miss this, since the stac_ids
+# differ. OFFL is the reprocessed, higher-quality product and supersedes NRTI; ties within
+# the same processing_mode are broken deterministically (qa_value descending, then
+# weather_dist_km ascending, then latitude ascending) rather than an arbitrary
+# dropDuplicates, so the pipeline stays reproducible.
+dedup_window = Window.partitionBy("orbit", "scanline", "ground_pixel").orderBy(
+    when(col("processing_mode") == "OFFL", 0).otherwise(1).asc(),
+    col("qa_value").desc(),
+    col("weather_dist_km").asc(),
+    col("latitude").asc(),
+)
+
+pre_dedup_count = silver_df.count()
+
+silver_df = silver_df.withColumn(
+    "_dedup_rank", row_number().over(dedup_window)
+).filter(col("_dedup_rank") == 1).drop("_dedup_rank")
+
+post_dedup_count = silver_df.count()
+removed = pre_dedup_count - post_dedup_count
+pct_removed = (100.0 * removed / pre_dedup_count) if pre_dedup_count else 0.0
+print(f"Dedup on (orbit, scanline, ground_pixel): {pre_dedup_count:,} -> {post_dedup_count:,} rows "
+      f"({removed:,} removed, {pct_removed:.2f}%)")
 
 TABLE_NAME = "silver_plume_ready_pixels"
 

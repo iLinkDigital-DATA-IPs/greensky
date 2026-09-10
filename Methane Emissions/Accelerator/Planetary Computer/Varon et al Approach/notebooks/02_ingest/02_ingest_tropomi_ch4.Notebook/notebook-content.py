@@ -52,6 +52,7 @@
 
 # CELL ********************
 
+import re
 import planetary_computer
 import pystac_client
 import fsspec
@@ -61,7 +62,7 @@ import numpy as np
 from planetary_computer import sign
 from collections import Counter
 from pyspark.sql.types import (
-    StructType, StructField, DoubleType, StringType, TimestampType
+    StructType, StructField, DoubleType, StringType, TimestampType, IntegerType
 )
 from pyspark.sql.utils import AnalysisException
 
@@ -181,6 +182,27 @@ for i, item in enumerate(new_items):
     item_id = item.id
     print(f"[{i+1}/{len(new_items)}] {item_id}", end=" ")
 
+    # ── Processing mode + orbit, needed to key NRTI/OFFL dedup in 03_join_data ──
+    # s5p:processing_mode is already used as a STAC query filter above, so it is
+    # guaranteed present on every returned item. Orbit has no confirmed STAC property on
+    # this collection, so it is parsed from the standard ESA Sentinel-5P product
+    # identifier: ..._<start>_<stop>_<orbit>_<collection>_<processor>_<production>. If
+    # either is unavailable, the item is skipped rather than guessed at.
+    processing_mode = item.properties.get("s5p:processing_mode")
+    if not processing_mode:
+        print("→ SKIP: no s5p:processing_mode on item properties")
+        failed_items.append((item_id, "missing_processing_mode"))
+        continue
+
+    orbit_match = re.search(
+        r"_(\d{8}T\d{6})_(\d{8}T\d{6})_(\d{5})_(\d{2})_(\d{6})_(\d{8}T\d{6})$", item_id
+    )
+    if orbit_match is None:
+        print("→ SKIP: could not parse orbit number from item id")
+        failed_items.append((item_id, "orbit_parse_failed"))
+        continue
+    orbit = int(orbit_match.group(3))
+
     # ── Get signed asset URL ──
     try:
         href = sign(item.assets[GAS_SPECIES].href)
@@ -194,7 +216,27 @@ for i, item in enumerate(new_items):
         with fsspec.open(href).open() as f:
             ds = xr.open_dataset(f, group="PRODUCT", engine="h5netcdf")
             ds = ds[[NETCDF_VAR, "qa_value", "latitude", "longitude"]]
+
+            # ── Swath index arrays, needed for destriping ──
+            # scanline = along-track index, ground_pixel = across-track detector index.
+            # Build 2D index grids over (scanline, ground_pixel) with np.indices, attach
+            # as dataset variables, and let xarray's own to_dataframe() broadcast/flatten
+            # them so each row carries the indices of the cell it came from.
+            n_ground_pixels_item = ds.sizes["ground_pixel"]
+            scanline_grid, ground_pixel_grid = np.indices(
+                (ds.sizes["scanline"], n_ground_pixels_item)
+            )
+            ds = ds.assign(
+                scanline_idx=(("scanline", "ground_pixel"), scanline_grid),
+                ground_pixel_idx=(("scanline", "ground_pixel"), ground_pixel_grid),
+            )
+
             df = ds.to_dataframe().reset_index()
+            df = df.rename(columns={
+                "scanline_idx": "scanline",
+                "ground_pixel_idx": "ground_pixel",
+            })
+            df["n_ground_pixels"] = n_ground_pixels_item
     except Exception as e:
         print(f"→ SKIP: {e}")
         failed_items.append((item_id, str(e)))
@@ -225,9 +267,14 @@ for i, item in enumerate(new_items):
     df["datetime"] = pd.to_datetime(item.datetime, utc=True)
     df["stac_id"] = item_id
     df["gas"] = GAS_SPECIES.upper()
+    df["processing_mode"] = processing_mode
+    df["orbit"] = orbit
 
     # ── Keep only the columns we need ──
-    df = df[["latitude", "longitude", "ch4", "qa_value", "datetime", "stac_id", "gas"]]
+    df = df[[
+        "latitude", "longitude", "ch4", "qa_value", "datetime", "stac_id", "gas",
+        "scanline", "ground_pixel", "n_ground_pixels", "processing_mode", "orbit",
+    ]]
 
     all_dfs.append(df)
     print(f"→ {len(df):,} pixels")
@@ -257,6 +304,10 @@ if not all_dfs:
 else:
     # ── Combine ──
     combined_pdf = pd.concat(all_dfs, ignore_index=True)
+    # This only removes duplicate rows sharing the same stac_id (e.g. re-processing the
+    # same item within one run). It does NOT catch NRTI/OFFL overlap of the same physical
+    # pixel, since those land under two different stac_ids -- that is handled by the
+    # (orbit, scanline, ground_pixel) dedup in 03_join_data.Notebook.
     combined_pdf = combined_pdf.drop_duplicates(
         subset=["latitude", "longitude", "datetime", "stac_id"]
     )
@@ -271,7 +322,18 @@ else:
     combined_pdf["ch4"] = pd.to_numeric(combined_pdf["ch4"], errors="coerce")
     combined_pdf["qa_value"] = pd.to_numeric(combined_pdf["qa_value"], errors="coerce")
     combined_pdf["datetime"] = pd.to_datetime(combined_pdf["datetime"], errors="coerce")
-    combined_pdf = combined_pdf.dropna(subset=["latitude", "longitude", "ch4", "datetime"])
+    combined_pdf["scanline"] = pd.to_numeric(combined_pdf["scanline"], errors="coerce")
+    combined_pdf["ground_pixel"] = pd.to_numeric(combined_pdf["ground_pixel"], errors="coerce")
+    combined_pdf["n_ground_pixels"] = pd.to_numeric(combined_pdf["n_ground_pixels"], errors="coerce")
+    combined_pdf["orbit"] = pd.to_numeric(combined_pdf["orbit"], errors="coerce")
+    combined_pdf = combined_pdf.dropna(subset=[
+        "latitude", "longitude", "ch4", "datetime", "scanline", "ground_pixel",
+        "n_ground_pixels", "processing_mode", "orbit",
+    ])
+    combined_pdf["scanline"] = combined_pdf["scanline"].astype(int)
+    combined_pdf["ground_pixel"] = combined_pdf["ground_pixel"].astype(int)
+    combined_pdf["n_ground_pixels"] = combined_pdf["n_ground_pixels"].astype(int)
+    combined_pdf["orbit"] = combined_pdf["orbit"].astype(int)
 
     # ── Schema ──
     schema = StructType([
@@ -282,6 +344,11 @@ else:
         StructField("datetime", TimestampType(), True),
         StructField("stac_id", StringType(), True),
         StructField("gas", StringType(), True),
+        StructField("scanline", IntegerType(), True),
+        StructField("ground_pixel", IntegerType(), True),
+        StructField("n_ground_pixels", IntegerType(), True),
+        StructField("processing_mode", StringType(), True),
+        StructField("orbit", IntegerType(), True),
     ])
 
     # ── Convert to Spark ──
