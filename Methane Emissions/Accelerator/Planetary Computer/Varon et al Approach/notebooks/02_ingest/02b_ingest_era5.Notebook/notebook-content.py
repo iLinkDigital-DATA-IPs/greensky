@@ -9,7 +9,7 @@
 # META   "dependencies": {
 # META     "lakehouse": {
 # META       "default_lakehouse": "5d5c8002-789e-4319-81d1-a60f08a77996",
-# META       "default_lakehouse_name": "greensky_lakehouse",
+# META       "default_lakehouse_name": "greensky_v2_lakehouse",
 # META       "default_lakehouse_workspace_id": "640876ea-6158-4ffd-8598-5eb210e088a0",
 # META       "known_lakehouses": [
 # META         {
