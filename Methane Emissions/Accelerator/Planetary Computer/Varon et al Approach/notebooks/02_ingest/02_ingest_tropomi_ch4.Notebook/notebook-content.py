@@ -219,25 +219,24 @@ for i, item in enumerate(new_items):
             ds = xr.open_dataset(f, group="PRODUCT", engine="h5netcdf")
             ds = ds[[NETCDF_VAR, "qa_value", "latitude", "longitude"]]
 
-            # ── Swath index arrays, needed for destriping ──
+            # ── Swath indices, needed for destriping ──
             # scanline = along-track index, ground_pixel = across-track detector index.
-            # Build 2D index grids over (scanline, ground_pixel) with np.indices, attach
-            # as dataset variables, and let xarray's own to_dataframe() broadcast/flatten
-            # them so each row carries the indices of the cell it came from.
+            # These are dimension coordinates on the PRODUCT group, not values we need to
+            # construct: ds.to_dataframe().reset_index() already emits "scanline" and
+            # "ground_pixel" columns holding exactly these indices. n_ground_pixels still
+            # needs computing explicitly, since it's a scalar (swath width), not a
+            # per-pixel index.
             n_ground_pixels_item = ds.sizes["ground_pixel"]
-            scanline_grid, ground_pixel_grid = np.indices(
-                (ds.sizes["scanline"], n_ground_pixels_item)
-            )
-            ds = ds.assign(
-                scanline_idx=(("scanline", "ground_pixel"), scanline_grid),
-                ground_pixel_idx=(("scanline", "ground_pixel"), ground_pixel_grid),
-            )
 
             df = ds.to_dataframe().reset_index()
-            df = df.rename(columns={
-                "scanline_idx": "scanline",
-                "ground_pixel_idx": "ground_pixel",
-            })
+            assert {"scanline", "ground_pixel"}.issubset(df.columns), (
+                f"Expected 'scanline' and 'ground_pixel' from reset_index(); "
+                f"got columns: {list(df.columns)}"
+            )
+            assert not df.columns.duplicated().any(), (
+                f"Duplicate columns after reset_index(): "
+                f"{df.columns[df.columns.duplicated()].tolist()}"
+            )
             df["n_ground_pixels"] = n_ground_pixels_item
     except Exception as e:
         print(f"→ SKIP: {e}")
