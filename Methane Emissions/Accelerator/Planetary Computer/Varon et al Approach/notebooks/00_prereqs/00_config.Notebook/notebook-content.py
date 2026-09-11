@@ -53,11 +53,18 @@ CONFIG = {
     "mad_sigma": 3,
     "enhancement_floor_ppb": 6,
 
+    # Destriping (across-track detector-column bias correction)
+    "destripe_enabled": True,
+    "destripe_min_scanlines": 20,       # skip destriping for granules with too few rows
+    "destripe_max_correction_ppb": 50,  # sanity cap; warn if exceeded
+
     # Plume clustering
     "cluster_radius_km": 12,
     "min_cluster_pixels": 3,
     "max_cluster_pixels": 15,
     "shape_threshold": 20,
+    "collinearity_max_r2": 0.98,        # reject clusters whose pixels fit a line this well
+    "collinearity_min_pixels": 4,       # only apply the test above this size
 
     # Wind alignment
     "wind_alignment_threshold_deg": 75,
