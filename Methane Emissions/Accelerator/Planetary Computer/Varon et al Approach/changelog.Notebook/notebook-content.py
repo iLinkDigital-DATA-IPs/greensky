@@ -282,3 +282,85 @@
 # - [ ] Investigate the emission rate scale discrepancy further using the 27
 #       co-temporal Carbon Mapper plumes
 
+
+# MARKDOWN ********************
+
+# ### 2026-09-10 -- Day 6 (In Progress)
+#
+# #### Created (Notebooks)
+# - 07b_detection_diagnostics: read-only diagnostic notebook (writes no tables) testing
+#   whether the 109 plumes in gold_plume_catalog are real methane point sources or
+#   artefacts at the TROPOMI instrument noise floor. Cells: discarded large-cluster audit
+#   (are super-emitters being cut by max_cluster_pixels?), per-plume enhancement backed
+#   out from IME vs the ~10-20 ppb TROPOMI precision band, CAMS and Carbon Mapper
+#   emission-rate distribution comparisons (including 5 km spatial matching against
+#   Carbon Mapper, regardless of date), and a mad_sigma sensitivity sweep (2/3/4/5).
+# - 07c_quantification_diagnostics: read-only diagnostic notebook (writes no tables)
+#   testing where the gap against Carbon Mapper lives in the quantification path rather
+#   than detection. Reconstructs plume membership from silver_plume_ready_pixels (scene
+#   separation + kNN background + clustering, matched back to gold_plume_catalog by
+#   (scene_id, source_lat, source_lon) since plume_id is an unstable counter), audits
+#   plume geometry (pairwise / nearest-neighbour pixel distances), compares the existing
+#   kNN background against an alternative annulus background (25-100 km ring), recomputes
+#   emission rate under four background/L combinations, and does a single-plume visual
+#   deep dive.
+#
+# #### Findings (07b/07c diagnostics)
+# - 07b: plume enhancements are real (mean ~32 ppb, above the TROPOMI noise floor); the
+#   discarded large clusters are not the missing super-emitters; emission rate is nearly
+#   insensitive to mad_sigma (plume count moves ~44x across sigma 2->5, median rate only
+#   ~1.6x) -- pointing at the quantification path, not the detection threshold, as the
+#   source of the ~100x gap against Carbon Mapper.
+# - 07c: found duplicate pixel rows in accepted plumes -- e.g. plume 88 had 13 member
+#   rows across 7 unique locations, each location appearing twice with near-identical CH4
+#   (1931.955 vs 1931.908 ppb at the same lat/lon).
+#
+# #### Root Cause: NRTI/OFFL Overlap
+# 02_ingest_tropomi_ch4 ingests both NRTI and OFFL processing modes. The same orbit is
+# delivered as two separate STAC items with different stac_ids, covering the same
+# physical pixels with slightly different retrievals -- exactly matching the 07c finding.
+# Deduplicating on stac_id (or any key that includes it) is a silent no-op here, since the
+# stac_ids differ for what is physically the same detector cell.
+#
+# #### Fixed
+# - bronze_ch4_pixels (02_ingest_tropomi_ch4): added scanline, ground_pixel,
+#   n_ground_pixels, processing_mode, orbit columns. scanline/ground_pixel are TROPOMI
+#   PRODUCT-group dimension coordinates and come from ds.to_dataframe().reset_index()
+#   directly (an earlier attempt to construct them via np.indices collided with these
+#   same-named dimension coordinates and produced a duplicate-column DataFrame, which
+#   crashed pd.to_numeric() downstream -- corrected, and assertions added right after
+#   reset_index() to catch any recurrence loudly). orbit is read from the
+#   sat:absolute_orbit STAC property, not parsed from item.id -- verified against live
+#   STAC results that Planetary Computer truncates item IDs (no collection /
+#   processor-version / production-time suffix), so the full ESA filename convention does
+#   not apply; no fixed digit width is assumed for orbit.
+# - silver_plume_ready_pixels (03_join_data): two new diagnostic cells print total rows,
+#   distinct (stac_id, scanline, ground_pixel), distinct (stac_id, latitude, longitude),
+#   distinct (orbit, scanline, ground_pixel), and the row split by processing_mode --
+#   once right after bronze_ch4_pixels is read, once after the weather join -- to show
+#   whether duplication is already present in bronze or introduced by the join fan-out.
+#   Added a deterministic dedup keyed on (orbit, scanline, ground_pixel): OFFL preferred
+#   over NRTI, then highest qa_value, then weather_dist_km ascending, then latitude
+#   ascending -- no arbitrary dropDuplicates. scanline, ground_pixel, n_ground_pixels,
+#   processing_mode, and orbit are now carried through to silver_plume_ready_pixels.
+#
+# #### Documentation
+# - Added ARCHITECTURE.md at the repo root: full notebook table (purpose/inputs/outputs),
+#   bronze -> silver -> gold Mermaid lineage diagram, exact column lists for every table
+#   as derived from the code that writes it (not from filenames or docs), a
+#   dependency-ordered execution sequence with parallelism notes, and every hard-coded
+#   constant found outside 00_config with file:line references.
+#
+# #### Backlog
+# - 02_ingest_tropomi_no2 was NOT changed -- no scanline / ground_pixel /
+#   n_ground_pixels / processing_mode / orbit columns yet. Deferred because NO2 is only
+#   used for co-location in 04b, not detection; noted in CLAUDE.md Known Issues.
+#
+# #### Remaining for Day 6
+# - [ ] Re-run 02_ingest_tropomi_ch4 and 03_join_data end to end and confirm the
+#       duplication diagnostics + dedup actually collapse the NRTI/OFFL overlap
+# - [ ] Re-run 04_derive_emissions on the deduplicated silver table and compare against
+#       the 109-plume baseline (emission rates, confidence distribution)
+# - [ ] 07c's quantification hypotheses (background contamination, L definition) not yet
+#       evaluated against a rerun -- detection logic in 04 itself is still unchanged
+
