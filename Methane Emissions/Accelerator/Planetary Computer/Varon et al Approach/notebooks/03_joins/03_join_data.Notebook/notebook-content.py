@@ -89,10 +89,12 @@ except Exception:
 # ### Diagnostic: duplication check on bronze_ch4_pixels (pre-join):
 #
 # Checks whether duplicate pixel rows already exist in bronze before any join. Includes a
-# distinct count on (orbit, scanline, ground_pixel) alongside the (stac_id, ...) counts,
+# distinct count on (orbit, latitude, longitude) alongside the (stac_id, ...) counts,
 # because NRTI and OFFL items for the same orbit carry different stac_ids for the same
-# physical pixel -- a dedup key that includes stac_id would silently miss that overlap. If
-# total rows is roughly 2x distinct_orbit_scanline_gp and the processing_mode split below
+# physical pixel -- a dedup key that includes stac_id would silently miss that overlap.
+# (orbit, scanline, ground_pixel) is not used here: scanline is granule-relative, not
+# orbit-relative, so it never collides across granules and is uninformative for this check.
+# If total rows is roughly 2x distinct_orbit_lat_lon and the processing_mode split below
 # is roughly even, that confirms NRTI/OFFL overlap as the source of duplication.
 
 # CELL ********************
@@ -104,7 +106,7 @@ print(f"Total rows: {methane_count:,}")
 methane.select(
     countDistinct("stac_id", "scanline", "ground_pixel").alias("distinct_stac_scanline_gp"),
     countDistinct("stac_id", "latitude", "longitude").alias("distinct_stac_lat_lon"),
-    countDistinct("orbit", "scanline", "ground_pixel").alias("distinct_orbit_scanline_gp"),
+    countDistinct("orbit", "latitude", "longitude").alias("distinct_orbit_lat_lon"),
 ).show(truncate=False)
 
 print("Row count by processing_mode:")
@@ -155,24 +157,29 @@ weather.select(
 
 # CELL ********************
 
+# Casting a double to long truncates toward zero, so the previous
+# (unix_timestamp / 3600).cast("long") * 3600 was actually a floor, not a round --
+# 19:58:59 became 19:00:00, matching a pixel to weather up to 59 minutes stale. Since
+# U_eff drives T_mix = L/U_eff in 04, that staleness propagates directly into the
+# emission-rate quantification. Round to the nearest hour instead.
+from pyspark.sql.functions import from_unixtime, round as spark_round, minute
+
 # Round methane timestamps to nearest hour
 methane = methane.withColumn(
     "datetime_hour",
-    (
-        (unix_timestamp("datetime") / 3600).cast("long") * 3600
-    ).cast("timestamp")
+    from_unixtime(spark_round(unix_timestamp("datetime") / 3600) * 3600).cast("timestamp")
 )
 
 # Round weather timestamps to nearest hour
 weather = weather.withColumn(
     "time_hour",
-    (
-        (unix_timestamp("time") / 3600).cast("long") * 3600
-    ).cast("timestamp")
+    from_unixtime(spark_round(unix_timestamp("time") / 3600) * 3600).cast("timestamp")
 )
 
-print("Timestamps rounded to nearest hour")
+print("Timestamps rounded to nearest hour (not floored)")
 methane.select("datetime", "datetime_hour").show(3, truncate=False)
+print("Sample from the second half of an hour (verifies rounding, not flooring):")
+methane.filter(minute("datetime") >= 30).select("datetime", "datetime_hour").show(3, truncate=False)
 weather.select("time", "time_hour").show(3, truncate=False)
 
 # METADATA ********************
@@ -211,7 +218,7 @@ print(f"Expansion factor: {joined_count / methane_count:.1f}x (each pixel matche
 
 # ### Diagnostic: duplication check after the weather join (pre nearest-station selection):
 #
-# Same checks as above, run on the joined (fanned-out) table. distinct_orbit_scanline_gp
+# Same checks as above, run on the joined (fanned-out) table. distinct_orbit_lat_lon
 # should be unchanged from the pre-join check -- same set of physical pixels, just
 # multiplied across weather stations -- if it grew, the join itself is introducing
 # duplication rather than the expected one-pixel-to-many-weather-stations fan-out.
@@ -223,7 +230,7 @@ print(f"Total rows: {joined_count:,}")
 joined.select(
     countDistinct("stac_id", "scanline", "ground_pixel").alias("distinct_stac_scanline_gp"),
     countDistinct("stac_id", "latitude", "longitude").alias("distinct_stac_lat_lon"),
-    countDistinct("orbit", "scanline", "ground_pixel").alias("distinct_orbit_scanline_gp"),
+    countDistinct("orbit", "latitude", "longitude").alias("distinct_orbit_lat_lon"),
 ).show(truncate=False)
 
 print("Row count by processing_mode:")
@@ -287,12 +294,14 @@ print(f"Should match original methane count: {methane_count:,}")
 # CELL ********************
 
 if era5_available:
-    # Round ERA5 time to nearest hour
+    # Round ERA5 time to nearest hour -- must match the rounding used for datetime_hour
+    # above (nearest, not floor), since this join key is compared against datetime_hour
+    # directly below. A mismatch here silently nulls out era5_u10/era5_v10 for any pixel
+    # whose hour rounds differently under the two schemes, and 04 falls back to the fixed
+    # 48h mixing time without raising -- see the null-rate assertion after this join.
     era5 = era5.withColumn(
         "era5_time_hour",
-        (
-            (unix_timestamp("era5_time") / 3600).cast("long") * 3600
-        ).cast("timestamp")
+        from_unixtime(spark_round(unix_timestamp("era5_time") / 3600) * 3600).cast("timestamp")
     )
 
     # Temporal join
@@ -323,7 +332,19 @@ if era5_available:
     ).drop("era5_rank", "era5_dist_km")
 
     era5_filled = nearest.filter(col("u10").isNotNull()).count()
+    era5_null = nearest_count - era5_filled
+    era5_null_pct = (100.0 * era5_null / nearest_count) if nearest_count else 0.0
     print(f"ERA5 data joined: {era5_filled:,} rows with ERA5 wind")
+    print(f"ERA5 null rate: {era5_null:,}/{nearest_count:,} ({era5_null_pct:.2f}%)")
+
+    # Guards against join-key drift between datetime_hour and era5_time_hour (e.g. one
+    # side floored and the other rounded, as happened once already). A silent null here
+    # makes 04 fall back to the fixed 48h mixing time for the affected pixels, which
+    # changes emission rates by roughly two orders of magnitude, without raising anything.
+    assert era5_null_pct <= 10.0, (
+        f"ERA5 join produced {era5_null_pct:.2f}% null era5_u10 (> 10% threshold) -- "
+        "likely a mismatch between the datetime_hour and era5_time_hour rounding/join keys."
+    )
 else:
     nearest = (
         nearest
@@ -378,17 +399,30 @@ silver_df = nearest.select(
     col("boundary_layer_height").alias("era5_blh"),
 )
 
-# ── Deduplicate on (orbit, scanline, ground_pixel) ──
+# ── Deduplicate on (orbit, latitude, longitude) ──
 # 07c found the same physical detector cell appearing twice with near-identical CH4
 # (e.g. 1931.955 vs 1931.908 ppb at the same lat/lon). Root cause: this pipeline ingests
 # both NRTI and OFFL processing modes (02_ingest_tropomi_ch4), and the same orbit is
 # delivered as two separate STAC items -- with different stac_ids -- covering the same
 # physical pixels. Keying dedup on stac_id would silently miss this, since the stac_ids
-# differ. OFFL is the reprocessed, higher-quality product and supersedes NRTI; ties within
+# differ.
+#
+# scanline/ground_pixel are NOT a valid substitute key here: scanline is granule-relative,
+# not orbit-relative -- two granules from the same orbit both number their scanlines from
+# zero, so the same physical pixel gets different scanline values across granules and
+# (orbit, scanline, ground_pixel) never collides. Verified on a full pull: 35,522 rows,
+# 35,522 distinct on (orbit, scanline, ground_pixel), but only 35,428 distinct on
+# (orbit, latitude, longitude) -- the 94 genuine duplicates are all consecutive NRTI
+# granules overlapping at their 5-minute boundaries. Do not reinstate the swath-index key;
+# it is not a stable cross-granule pixel identifier. (scanline/ground_pixel are kept as
+# columns below -- ground_pixel is still the correct detector index within a single
+# granule and is needed by 04 for destriping.)
+#
+# OFFL is the reprocessed, higher-quality product and supersedes NRTI; ties within
 # the same processing_mode are broken deterministically (qa_value descending, then
 # weather_dist_km ascending, then latitude ascending) rather than an arbitrary
 # dropDuplicates, so the pipeline stays reproducible.
-dedup_window = Window.partitionBy("orbit", "scanline", "ground_pixel").orderBy(
+dedup_window = Window.partitionBy("orbit", "latitude", "longitude").orderBy(
     when(col("processing_mode") == "OFFL", 0).otherwise(1).asc(),
     col("qa_value").desc(),
     col("weather_dist_km").asc(),
@@ -404,7 +438,7 @@ silver_df = silver_df.withColumn(
 post_dedup_count = silver_df.count()
 removed = pre_dedup_count - post_dedup_count
 pct_removed = (100.0 * removed / pre_dedup_count) if pre_dedup_count else 0.0
-print(f"Dedup on (orbit, scanline, ground_pixel): {pre_dedup_count:,} -> {post_dedup_count:,} rows "
+print(f"Dedup on (orbit, latitude, longitude): {pre_dedup_count:,} -> {post_dedup_count:,} rows "
       f"({removed:,} removed, {pct_removed:.2f}%)")
 
 TABLE_NAME = "silver_plume_ready_pixels"
@@ -412,6 +446,7 @@ TABLE_NAME = "silver_plume_ready_pixels"
 silver_df.write \
     .format("delta") \
     .mode("overwrite") \
+    .option("overwriteSchema", "true") \
     .saveAsTable(TABLE_NAME)
 
 count = spark.table(TABLE_NAME).count()
