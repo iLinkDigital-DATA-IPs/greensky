@@ -803,21 +803,19 @@ else:
 # IME = sum over pixels of: delta_CH4 * column_density * pixel_area * M_CH4 / M_air
 #
 # Simplified approach for TROPOMI:
-# - TROPOMI pixel area ~ 5.5 km x 7 km = 38.5 km^2
-# - Dry air column ~ 2.12e25 molecules/m^2 (standard atmosphere)
-# - CH4 molecular weight: 16.04 g/mol
-# - Dry air molecular weight: 28.97 g/mol
+# - TROPOMI pixel area ~ 5.5 km x 7 km = 38.5 km^2   (PIXEL_AREA_M2, m^2)
+# - Dry air column ~ 2.12e25 molecules/cm^2 = 2.12e29 molecules/m^2 (standard
+#   atmosphere; DRY_AIR_COLUMN_PER_CM2 and DRY_AIR_COLUMN_PER_M2)
+# - CH4 molecular weight: 16.04 g/mol                (M_CH4, kg/mol)
+# - Dry air molecular weight: 28.97 g/mol            (M_AIR, kg/mol)
+# - Avogadro constant                                (AVOGADRO, molecules/mol)
 # - 1 ppb = 1e-9 mol/mol
-
-PIXEL_AREA_M2 = 5500.0 * 7000.0  # 38.5 km^2 in m^2
-DRY_AIR_COLUMN = 2.12e25  # molecules/m^2
-AVOGADRO = 6.022e23
-M_CH4 = 16.04e-3  # kg/mol
-M_AIR = 28.97e-3  # kg/mol
-
-# Conversion factor: 1 ppb enhancement over 1 TROPOMI pixel -> kg CH4
-# mass = delta_ppb * 1e-9 * (DRY_AIR_COLUMN / AVOGADRO) * M_CH4 * PIXEL_AREA_M2
-PPB_TO_KG = 1e-9 * (DRY_AIR_COLUMN / AVOGADRO) * M_CH4 * PIXEL_AREA_M2
+#
+# All of the above, and PPB_TO_KG itself, now come from 00_config (%run at the top of
+# this notebook) rather than being defined here. They used to live in this cell and be
+# copy-pasted into 07b and 07c, which is how a cm^2/m^2 unit error came to sit in three
+# notebooks at once -- see the unit-error note in 00_config for the full derivation.
+# The assertion that guards PPB_TO_KG lives there too, next to the computation.
 
 print(f"Conversion factor: 1 ppb over 1 pixel = {PPB_TO_KG:.6f} kg CH4")
 print(f"  = {PPB_TO_KG * 1000:.4f} g CH4")
@@ -835,7 +833,14 @@ if len(plumes_pdf) > 0:
         
         # Plume characteristics
         n_pixels = len(plume_group)
-        plume_area_km2 = n_pixels * (5.5 * 7.0)  # approximate
+        # Derived from PIXEL_AREA_M2 (00_config) rather than a second 5.5 x 7.0 km
+        # literal, so the TROPOMI pixel area has exactly one definition. This matters
+        # because plume_area_km2 feeds L_m, L_m feeds t_mix, and t_mix divides the IME
+        # to give the emission rate -- a pixel area that disagrees with PIXEL_AREA_M2
+        # propagates into every emission rate the pipeline produces.
+        # The value is unchanged: PIXEL_AREA_M2 / 1e6 is 38.5 km^2. Correcting the
+        # pre-Aug-2019 pixel size itself is a separately tracked task.
+        plume_area_km2 = n_pixels * (PIXEL_AREA_M2 / 1e6)  # approximate
         peak_enhancement = enhancements.max()
         mean_enhancement = enhancements.mean()
         
@@ -1195,7 +1200,9 @@ def stage_emission_rates_kg_h(cluster_frames, enh_col):
     rates = []
     for cluster_data in cluster_frames:
         ime_kg = np.sum(cluster_data[enh_col].values * PPB_TO_KG)
-        plume_area_km2 = len(cluster_data) * (5.5 * 7.0)
+        # Single-source pixel area, as in step 6 -- see the note there on why an
+        # inconsistency here would propagate into every emission rate.
+        plume_area_km2 = len(cluster_data) * (PIXEL_AREA_M2 / 1e6)
         L_m = np.sqrt(plume_area_km2 * 1e6)
         U_eff = np.sqrt(
             cluster_data["era5_u10"].mean()**2 + cluster_data["era5_v10"].mean()**2

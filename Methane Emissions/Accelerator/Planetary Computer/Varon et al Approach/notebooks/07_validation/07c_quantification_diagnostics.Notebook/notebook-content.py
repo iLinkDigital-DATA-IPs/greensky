@@ -67,17 +67,13 @@ import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 from collections import defaultdict
 
-# ── IME conversion factor, duplicated from 04_derive_emissions.Notebook (Step 6: IME
-# Calculation). PIXEL_AREA_M2 is now duplicated in THREE places: 04_derive_emissions.Notebook
-# (source of truth), 07b_detection_diagnostics.Notebook, and here. All three must be updated
-# together if the TROPOMI pixel-area correction (post-Aug-2019 value) is ever applied. ──
-PIXEL_AREA_M2 = 5500.0 * 7000.0   # TROPOMI pixel area, 5.5 km x 7.0 km (pre-Aug-2019 value)
-DRY_AIR_COLUMN = 2.12e25          # molecules/m^2
-AVOGADRO = 6.022e23
-M_CH4 = 16.04e-3                  # kg/mol
-PPB_TO_KG = 1e-9 * (DRY_AIR_COLUMN / AVOGADRO) * M_CH4 * PIXEL_AREA_M2
+# ── IME conversion factor, now supplied by 00_config (%run above): PIXEL_AREA_M2,
+# AVOGADRO, M_CH4, M_AIR, DRY_AIR_COLUMN_PER_CM2, DRY_AIR_COLUMN_PER_M2 and PPB_TO_KG.
+# These used to be copy-pasted here from 04_derive_emissions. That duplication is how a
+# cm^2/m^2 unit error -- which made every emission rate low by a factor of 10,000 --
+# came to sit in three notebooks at once; see the unit-error note in 00_config. ──
 
-print(f"PPB_TO_KG (duplicated from 04_derive_emissions): {PPB_TO_KG:.6f} kg CH4 per ppb per pixel")
+print(f"PPB_TO_KG (from 00_config): {PPB_TO_KG:.3f} kg CH4 per ppb per pixel")
 
 # ── Haversine distance, duplicated from 04_derive_emissions.Notebook (Step 4: Plume
 # Clustering). Must stay in sync with that notebook. ──

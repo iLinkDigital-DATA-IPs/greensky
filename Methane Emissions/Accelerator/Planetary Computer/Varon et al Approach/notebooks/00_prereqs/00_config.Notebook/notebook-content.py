@@ -104,3 +104,82 @@ print(f"Date range: {CONFIG['start_date']} to {CONFIG['end_date']}")
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
+
+# MARKDOWN ********************
+
+# ### Physical constants for the IME conversion:
+
+# CELL ********************
+
+# Cell 2 - 00_config
+# Physical constants for the IME (Integrated Methane Enhancement) conversion.
+#
+# These are module-level names rather than CONFIG entries because they are physical
+# constants, not tunable pipeline parameters, and because 04_derive_emissions,
+# 07b_detection_diagnostics and 07c_quantification_diagnostics all consume them as
+# bare names. They used to be copy-pasted into all three notebooks.
+
+# ---------------------------------------------------------------------------------
+# UNIT ERROR, FIXED 2026-09-11
+#
+# 2.12e25 is the dry-air column in molecules per SQUARE CENTIMETRE. It was named
+# DRY_AIR_COLUMN, commented "molecules/m^2", and multiplied by PIXEL_AREA_M2, which is
+# an area in SQUARE METRES. Since 1 m^2 = 1e4 cm^2, every ime_kg and every emission
+# rate this pipeline produced before this fix is low by a factor of exactly 10,000.
+#
+# Verified two ways:
+#   1. From first principles the dry-air column of a standard atmosphere is
+#        (101325 Pa / 9.81 m s^-2) / 0.028964 kg mol^-1 * 6.022e23 mol^-1
+#        = 2.147e29 molecules/m^2
+#      and 2.12e25 / 2.147e29 = 9.87e-5 -- the literal is ~1e-4 of the per-m^2 value,
+#      which is exactly the cm^2-to-m^2 ratio.
+#   2. At the observed mean of 1901 ppb, reading the literal as molecules/cm^2 gives a
+#      CH4 total column of 1901e-9 * 2.12e25 = 4.0e19 molecules/cm^2, against a
+#      published TROPOMI value of ~3.8e19. Reading it as molecules/m^2 instead would
+#      give 4.0e15 molecules/cm^2 -- four orders of magnitude too small.
+#
+# The numeric literal is deliberately left at 2.12e25 and the cm^2 -> m^2 conversion
+# written out as an explicit step, so the mistake stays visible in the code instead of
+# being silently absorbed into a new magic number.
+# ---------------------------------------------------------------------------------
+
+PIXEL_AREA_M2 = 5500.0 * 7000.0   # m^2 per TROPOMI ground pixel (5.5 km x 7.0 km
+                                  # = 38.5 km^2; pre-Aug-2019 value, tracked separately)
+
+AVOGADRO = 6.022e23               # molecules per mol
+M_CH4 = 16.04e-3                  # kg per mol (methane)
+M_AIR = 28.97e-3                  # kg per mol (dry air)
+
+DRY_AIR_COLUMN_PER_CM2 = 2.12e25  # molecules per cm^2 (standard sea-level atmosphere)
+DRY_AIR_COLUMN_PER_M2 = DRY_AIR_COLUMN_PER_CM2 * 1e4   # molecules per m^2; 1 m^2 = 1e4 cm^2
+
+# Remaining approximation: the value above is a SEA-LEVEL standard atmosphere. The
+# Permian Basin sits at roughly 800 m, where surface pressure is about 92 kPa, so the
+# true dry-air column there is around 9% below this and every IME is correspondingly
+# about 9% high. That is second-order next to the factor-of-10,000 error above, so it
+# is left as an approximation for now. If a per-pixel column is wanted later,
+# surface_pressure is already carried through to silver_plume_ready_pixels:
+#     DRY_AIR_COLUMN_PER_M2 = (surface_pressure / 9.81) / M_AIR * AVOGADRO
+# (check its units first -- Open-Meteo reports surface_pressure in hPa, not Pa).
+
+# Conversion factor: 1 ppb enhancement over 1 TROPOMI pixel -> kg CH4
+#   mass = delta_ppb * 1e-9 * (DRY_AIR_COLUMN_PER_M2 / AVOGADRO) * M_CH4 * PIXEL_AREA_M2
+PPB_TO_KG = 1e-9 * (DRY_AIR_COLUMN_PER_M2 / AVOGADRO) * M_CH4 * PIXEL_AREA_M2
+
+# Guard against the cm^2/m^2 confusion returning. For a 38.5 km^2 TROPOMI pixel the
+# correct factor is ~217 kg per ppb; the broken per-cm^2 version was ~0.0217 kg.
+assert 100.0 < PPB_TO_KG < 400.0, (
+    f"PPB_TO_KG = {PPB_TO_KG} kg per ppb per pixel is outside the plausible range "
+    "100-400 kg for a 38.5 km^2 TROPOMI pixel. A value near 0.02 means the cm^2/m^2 "
+    "confusion has returned: DRY_AIR_COLUMN_PER_CM2 (molecules/cm^2) is being "
+    "multiplied by PIXEL_AREA_M2 (m^2) without the 1e4 conversion."
+)
+
+print(f"PPB_TO_KG: {PPB_TO_KG:.3f} kg CH4 per ppb per pixel")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
