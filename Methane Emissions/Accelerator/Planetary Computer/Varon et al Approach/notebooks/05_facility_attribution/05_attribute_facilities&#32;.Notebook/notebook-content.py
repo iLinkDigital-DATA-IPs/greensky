@@ -70,7 +70,7 @@ print(f"Columns: {list(plumes.columns)}")
 #
 # Both paths are retired. `dim_facility` is now the single facility master, so this notebook
 # reads the table rather than writing it. **It must not write `ref_facilities`**: doing so
-# would replace 350 real topology rows with grid points on the next run.
+# would replace the generated topology rows with grid points on the next run.
 
 # CELL ********************
 

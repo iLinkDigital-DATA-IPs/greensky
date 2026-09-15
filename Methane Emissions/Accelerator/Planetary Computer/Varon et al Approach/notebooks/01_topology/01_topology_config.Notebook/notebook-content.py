@@ -205,19 +205,35 @@ print(f"Outside band bounded to {OUTSIDE_MIN_DEG}-{OUTSIDE_MAX_DEG} deg beyond t
 # changing this number; it is the evidence for whether 150 is right.
 
 N_FACILITIES         = 150
-EQUIP_PER_FACILITY   = (10, 50)
 N_OPERATORS          = 12
 SENSORS_PER_FACILITY = 4
 SENSOR_INTERVAL_HOURS = 4
 
 # Commissioning window for facilities: up to 15 years of history.
 HISTORY_YEARS = 15
-TOPOLOGY_AS_OF = date(2026, 9, 15)   # fixed, not date.today(): a moving as-of date makes
-                                     # install_date and every derived age irreproducible
 
-print(f"{N_FACILITIES} facilities, {EQUIP_PER_FACILITY[0]}-{EQUIP_PER_FACILITY[1]} assets each,"
-      f" {SENSORS_PER_FACILITY} sensors per facility")
-print(f"as-of date: {TOPOLOGY_AS_OF}")
+# A FIXED date, never date.today(). The topology is a slowly-changing dimension: it is
+# regenerated deliberately -- when the seed or the scale changes -- not on every run.
+# TOPOLOGY_AS_OF bounds commission_date and install_date, so a moving value would age every
+# facility and asset by a day on each rerun and make "same seed, same estate" false:
+# reproducibility would depend on WHEN the notebook ran, not on TOPOLOGY_SEED alone.
+# This is the defect V1 carried as REAL_PLUME_END = date.today() in config_and_seeds.
+# Bump this by hand, as a deliberate act, when the estate should move forward.
+TOPOLOGY_AS_OF = date(2026, 9, 15)
+
+assert TOPOLOGY_AS_OF <= date.today(), (
+    f"TOPOLOGY_AS_OF ({TOPOLOGY_AS_OF}) is in the future relative to today ({date.today()}). "
+    "Commission and install dates would be stamped ahead of real time, and 01b's "
+    "'no asset postdates the as-of date' check would pass on dates that have not happened."
+)
+
+_age_days = (date.today() - TOPOLOGY_AS_OF).days
+if _age_days > 365:
+    print(f"NOTE  TOPOLOGY_AS_OF is {_age_days} days old. Asset ages are frozen at that date")
+    print("      by design; bump it deliberately if the estate should move forward.")
+
+print(f"{N_FACILITIES} facilities, {SENSORS_PER_FACILITY} sensors per facility")
+print(f"as-of date: {TOPOLOGY_AS_OF}  (fixed constant, not date.today())")
 
 # METADATA ********************
 
@@ -328,8 +344,110 @@ MANUFACTURERS = {
 SENSOR_TYPES = {"Point": 0.50, "OGI": 0.20, "CMS": 0.30}
 assert abs(sum(SENSOR_TYPES.values()) - 1.0) < 1e-9, "SENSOR_TYPES weights must sum to 1"
 
+EQUIPMENT_TYPE_NAMES = list(EQUIPMENT_TYPES)   # fixed order; weight vectors align to it
+
 print(f"{len(EQUIPMENT_TYPES)} equipment types, {len(MANUFACTURERS)} manufacturers,"
       f" {len(SENSOR_TYPES)} sensor types")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+# ---- Asset mix and asset count, by facility type ----------------------------------------
+# Drawing equipment type uniformly gives every facility the same mix -- a tank battery ends
+# up with as many compressors as a gas processing plant. The mix should follow what the site
+# is for, so each facility_type carries its own weight vector over the eight equipment types.
+#
+# No weight is zero. A rare-but-possible combination gets a small weight (0.02) rather than
+# being excluded, so no equipment type disappears from the estate entirely and downstream
+# code never has to special-case an empty category.
+
+TYPE_EQUIPMENT_WEIGHTS = {
+    # Compressor  Valve  Separator  Storage Tank  Flare  Pipeline Seg  Pump  Metering
+    "Gas Processing Plant": {
+        "Compressor": 0.26, "Separator": 0.24, "Valve": 0.13, "Flare": 0.10,
+        "Metering Station": 0.10, "Pump": 0.10, "Storage Tank": 0.04, "Pipeline Segment": 0.03,
+    },
+    "Compression Station": {
+        "Compressor": 0.40, "Pump": 0.16, "Valve": 0.16, "Metering Station": 0.11,
+        "Separator": 0.07, "Pipeline Segment": 0.05, "Flare": 0.03, "Storage Tank": 0.02,
+    },
+    "Gathering System": {
+        "Pipeline Segment": 0.34, "Valve": 0.26, "Metering Station": 0.14, "Separator": 0.12,
+        "Compressor": 0.06, "Pump": 0.04, "Storage Tank": 0.02, "Flare": 0.02,
+    },
+    "Tank Battery": {
+        "Storage Tank": 0.40, "Separator": 0.18, "Valve": 0.15, "Flare": 0.11,
+        "Pump": 0.07, "Metering Station": 0.05, "Pipeline Segment": 0.02, "Compressor": 0.02,
+    },
+    "Central Delivery Point": {
+        "Metering Station": 0.34, "Valve": 0.22, "Pipeline Segment": 0.18, "Compressor": 0.10,
+        "Separator": 0.07, "Pump": 0.05, "Storage Tank": 0.02, "Flare": 0.02,
+    },
+}
+
+# Asset count scales with the facility's purpose too: a processing plant is a bigger site
+# than a tank battery, and a flat 10-50 across all types washed that out.
+EQUIP_COUNT_BY_TYPE = {
+    "Gas Processing Plant":   (25, 50),
+    "Compression Station":    (15, 35),
+    "Gathering System":       (10, 25),
+    "Tank Battery":           (8, 20),
+    "Central Delivery Point": (12, 28),
+}
+
+# Global bound, derived rather than declared, for any validation that wants one number.
+# Generation is driven by EQUIP_COUNT_BY_TYPE, never by this.
+EQUIP_PER_FACILITY = (
+    min(lo for lo, _ in EQUIP_COUNT_BY_TYPE.values()),
+    max(hi for _, hi in EQUIP_COUNT_BY_TYPE.values()),
+)
+
+# --- validation ---------------------------------------------------------------------------
+assert set(TYPE_EQUIPMENT_WEIGHTS) == set(FACILITY_TYPES), (
+    "TYPE_EQUIPMENT_WEIGHTS must cover exactly the facility types in TYPE_DESCRIPTORS; "
+    f"missing {set(FACILITY_TYPES) - set(TYPE_EQUIPMENT_WEIGHTS)}, "
+    f"unexpected {set(TYPE_EQUIPMENT_WEIGHTS) - set(FACILITY_TYPES)}"
+)
+assert set(EQUIP_COUNT_BY_TYPE) == set(FACILITY_TYPES), (
+    "EQUIP_COUNT_BY_TYPE must cover exactly the facility types in TYPE_DESCRIPTORS"
+)
+
+for _ft, _w in TYPE_EQUIPMENT_WEIGHTS.items():
+    assert set(_w) == set(EQUIPMENT_TYPES), (
+        f"{_ft}: weight vector must name every equipment type; "
+        f"missing {set(EQUIPMENT_TYPES) - set(_w)}, unexpected {set(_w) - set(EQUIPMENT_TYPES)}"
+    )
+    assert abs(sum(_w.values()) - 1.0) < 1e-9, \
+        f"{_ft}: equipment weights sum to {sum(_w.values()):.4f}, must be 1"
+    assert all(v > 0 for v in _w.values()), (
+        f"{_ft}: every equipment type needs a non-zero weight -- use a small weight for "
+        "rare-but-possible, so no category vanishes from the estate"
+    )
+
+for _ft, (_lo, _hi) in EQUIP_COUNT_BY_TYPE.items():
+    assert 0 < _lo <= _hi, f"{_ft}: invalid asset range ({_lo}, {_hi})"
+
+
+def equipment_weights(facility_type):
+    """Weight vector over EQUIPMENT_TYPE_NAMES, in that fixed order."""
+    w = TYPE_EQUIPMENT_WEIGHTS[facility_type]
+    return [w[t] for t in EQUIPMENT_TYPE_NAMES]
+
+
+print("asset mix and count by facility type:")
+print(f"  {'facility_type':<24}{'assets':>10}   dominant equipment")
+for _ft in FACILITY_TYPES:
+    _lo, _hi = EQUIP_COUNT_BY_TYPE[_ft]
+    _top = sorted(TYPE_EQUIPMENT_WEIGHTS[_ft].items(), key=lambda kv: -kv[1])[:3]
+    _s = ", ".join(f"{k} {v:.0%}" for k, v in _top)
+    print(f"  {_ft:<24}{f'{_lo}-{_hi}':>10}   {_s}")
+print(f"  global bound EQUIP_PER_FACILITY = {EQUIP_PER_FACILITY} (derived)")
 
 # METADATA ********************
 

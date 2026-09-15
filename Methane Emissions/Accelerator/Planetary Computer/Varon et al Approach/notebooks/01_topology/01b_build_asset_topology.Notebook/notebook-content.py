@@ -98,17 +98,23 @@ print(f"loaded {len(fac_pdf)} facilities from dim_facility (seed {TOPOLOGY_SEED}
 # CELL ********************
 
 erng = get_rng("equipment")
-etype_list = list(EQUIPMENT_TYPES.items())
 mfr_list = list(MANUFACTURERS)
 
 eq_rows = []
 eq_id = 0
 
 for f in fac_pdf.itertuples():
-    n_eq = int(erng.integers(EQUIP_PER_FACILITY[0], EQUIP_PER_FACILITY[1] + 1))
+    # Both the count and the mix follow the facility's purpose. A uniform draw over the
+    # eight types gave every site the same profile -- a tank battery with as many
+    # compressors as a gas processing plant.
+    lo, hi = EQUIP_COUNT_BY_TYPE[f.facility_type]
+    weights = equipment_weights(f.facility_type)
+
+    n_eq = int(erng.integers(lo, hi + 1))
     for _ in range(n_eq):
         eq_id += 1
-        etype, ev = etype_list[erng.integers(0, len(etype_list))]
+        etype = str(erng.choice(EQUIPMENT_TYPE_NAMES, p=weights))
+        ev = EQUIPMENT_TYPES[etype]
         mfr = mfr_list[erng.integers(0, len(mfr_list))]
 
         max_age = max(1, (pd.Timestamp(TOPOLOGY_AS_OF) - f.commission_date).days // 365)
@@ -162,13 +168,139 @@ eq_pdf["is_current"]     = True
 eq_pdf["topology_seed"]  = TOPOLOGY_SEED
 
 print(f"{len(eq_pdf):,} assets across {eq_pdf['facility_id'].nunique()} facilities")
-print(f"assets per facility: min {eq_pdf.groupby('facility_id').size().min()},"
-      f" median {int(eq_pdf.groupby('facility_id').size().median())},"
-      f" max {eq_pdf.groupby('facility_id').size().max()}")
 print()
-print("equipment_type distribution:")
+print("equipment_type distribution, overall:")
 for t, n in eq_pdf["equipment_type"].value_counts().items():
     print(f"  {t:<20}{n:>7,}  ({n/len(eq_pdf):5.1%})")
+print()
+print("The overall mix is a blend of the per-facility-type mixes weighted by how many")
+print("facilities of each type exist -- it is not expected to match any single vector.")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Asset count and mix, broken down by facility type
+#
+# The previous version of this notebook printed one global assets-per-facility distribution
+# and one global equipment-type distribution. That is exactly what hid the flat mix: pooled
+# across 150 facilities the eight types all landed between 11.6 % and 13.5 %, which looks
+# unremarkable until you notice it means every site has the same profile.
+#
+# Both breakdowns are per facility type here, and each facility's asset count is asserted
+# against **its own** range rather than the global bound.
+
+# CELL ********************
+
+sizes = eq_pdf.groupby("facility_id").size().rename("n_assets")
+by_fac = fac_pdf[["facility_id", "facility_type"]].merge(sizes, on="facility_id", how="left")
+
+print("assets per facility, by facility type:")
+print(f"  {'facility_type':<24}{'sites':>7}{'configured':>13}{'min':>6}{'median':>8}{'max':>6}")
+print("  " + "-" * 64)
+for ft in FACILITY_TYPES:
+    sub = by_fac[by_fac["facility_type"] == ft]["n_assets"]
+    lo, hi = EQUIP_COUNT_BY_TYPE[ft]
+    if sub.empty:
+        print(f"  {ft:<24}{0:>7}{f'{lo}-{hi}':>13}{'-':>6}{'-':>8}{'-':>6}")
+        continue
+    print(f"  {ft:<24}{len(sub):>7}{f'{lo}-{hi}':>13}"
+          f"{int(sub.min()):>6}{int(sub.median()):>8}{int(sub.max()):>6}")
+print("  " + "-" * 64)
+print(f"  {'all':<24}{len(by_fac):>7}"
+      f"{f'{EQUIP_PER_FACILITY[0]}-{EQUIP_PER_FACILITY[1]}':>13}"
+      f"{int(by_fac['n_assets'].min()):>6}{int(by_fac['n_assets'].median()):>8}"
+      f"{int(by_fac['n_assets'].max()):>6}")
+
+# Each facility against ITS OWN range, not the global bound -- a gathering system holding
+# 48 assets is inside EQUIP_PER_FACILITY and still wrong.
+violations = []
+for r in by_fac.itertuples():
+    lo, hi = EQUIP_COUNT_BY_TYPE[r.facility_type]
+    if not (lo <= r.n_assets <= hi):
+        violations.append((r.facility_id, r.facility_type, int(r.n_assets), lo, hi))
+assert not violations, (
+    f"{len(violations)} facility/facilities hold an asset count outside their own type's "
+    f"range: {violations[:5]}"
+)
+print()
+print(f"OK  all {len(by_fac)} facilities hold an asset count inside their own type's range")
+
+# --- mix per facility type ----------------------------------------------------------------
+mix = (eq_pdf.merge(fac_pdf[["facility_id", "facility_type"]], on="facility_id")
+             .groupby(["facility_type", "equipment_type"]).size()
+             .unstack(fill_value=0))
+mix_share = mix.div(mix.sum(axis=1), axis=0)
+
+print()
+print("equipment mix by facility type (actual %, configured % in brackets):")
+for ft in FACILITY_TYPES:
+    if ft not in mix_share.index:
+        continue
+    print(f"  {ft}")
+    ordered = sorted(EQUIPMENT_TYPE_NAMES, key=lambda t: -TYPE_EQUIPMENT_WEIGHTS[ft][t])
+    for t in ordered:
+        actual = mix_share.loc[ft, t] if t in mix_share.columns else 0.0
+        want = TYPE_EQUIPMENT_WEIGHTS[ft][t]
+        print(f"      {t:<20}{actual:>7.1%}  [{want:>5.0%}]")
+
+# Every equipment type must appear somewhere -- the point of the small non-zero weights.
+absent = set(EQUIPMENT_TYPE_NAMES) - set(eq_pdf["equipment_type"].unique())
+assert not absent, (
+    f"equipment type(s) absent from the whole estate: {sorted(absent)}. Every type carries a "
+    "non-zero weight in TYPE_EQUIPMENT_WEIGHTS, so this means the draw is not using them."
+)
+
+# Does the realised mix match the configured one? Tolerance scales with sample size:
+# 3 sigma on a binomial share, floored at 5 points so small facility types (Central Delivery
+# Point has 9 sites) do not trip on ordinary noise.
+#
+# Deliberately NOT a rank test. Checking that the configured-dominant type is also the most
+# common one fails on ordinary sampling noise wherever the top two weights are close --
+# Gas Processing Plant has Compressor at 26% and Separator at 24%, two points apart over
+# ~500 assets, so which one comes out on top is a coin flip and says nothing about whether
+# the weights were applied.
+deviations = []
+for ft in FACILITY_TYPES:
+    if ft not in mix_share.index:
+        continue
+    n_ft = int(mix.loc[ft].sum())
+    for t in EQUIPMENT_TYPE_NAMES:
+        want = TYPE_EQUIPMENT_WEIGHTS[ft][t]
+        actual = float(mix_share.loc[ft, t]) if t in mix_share.columns else 0.0
+        tol = max(0.05, 3.0 * np.sqrt(want * (1 - want) / max(n_ft, 1)))
+        if abs(actual - want) > tol:
+            deviations.append((ft, t, round(actual, 4), want, round(tol, 4), n_ft))
+
+assert not deviations, (
+    "realised equipment mix departs from TYPE_EQUIPMENT_WEIGHTS by more than 3 sigma:\n"
+    + "\n".join(f"  {ft} / {t}: actual {a:.1%} vs configured {w:.0%} "
+                f"(tolerance {tol:.1%}, n={n})" for ft, t, a, w, tol, n in deviations)
+)
+
+# Separately: the mix must be distinguishable from the uniform draw this replaced. Under
+# uniform every type sits at 1/8 = 12.5%; each facility type's top-weighted asset should be
+# well clear of that.
+uniform = 1.0 / len(EQUIPMENT_TYPE_NAMES)
+for ft in FACILITY_TYPES:
+    if ft not in mix_share.index:
+        continue
+    want_top = max(TYPE_EQUIPMENT_WEIGHTS[ft], key=TYPE_EQUIPMENT_WEIGHTS[ft].get)
+    got = float(mix_share.loc[ft, want_top])
+    assert got > uniform * 1.4, (
+        f"{ft}: its dominant asset {want_top} holds only {got:.1%}, near the uniform "
+        f"{uniform:.1%} -- the mix looks like the flat draw this replaced"
+    )
+
+print()
+print("OK  every equipment type appears in the estate")
+print("OK  realised mix within 3 sigma of TYPE_EQUIPMENT_WEIGHTS for all 40 type pairs")
+print("OK  each facility type's mix is distinguishable from a uniform draw")
 
 # METADATA ********************
 
