@@ -31,16 +31,32 @@
 # Read-only diagnostic notebook. **Does not write any tables** — every cell only prints or
 # plots.
 #
-# `07b_detection_diagnostics` established that the CH₄ enhancements in `gold_plume_catalog`
-# are real (mean enhancement above the TROPOMI noise floor), that the discarded large
-# clusters are not the missing super-emitters, and that emission rate is nearly insensitive
-# to `mad_sigma` (plume count moves ~44x across sigma 2→5 while median rate moves only
-# ~1.6x). That points at the quantification path, not the detection threshold, as the
-# source of the ~100x gap against Carbon Mapper. This notebook tests two hypotheses about
-# where in that path it lives: (1) plume geometry / background contamination, and (2) the
-# characteristic length scale `L` used in `T_mix = L / U_eff`.
+# **Updated for the corrected pipeline.** Since this notebook was first written,
+# `04_derive_emissions` gained across-track destriping (per `(stac_id, ground_pixel)`
+# detector column) and collinear-cluster rejection, and a units error was fixed:
+# `DRY_AIR_COLUMN` held the dry-air column in molecules/cm² but was multiplied by a pixel
+# area in m², so every `ime_kg` and every emission rate was low by a factor of 10⁴. The
+# physical constants now live in `00_config` and are shared by 04, 07b and this notebook —
+# see the unit-error note there for the derivation.
 #
-# **Inputs:** `gold_plume_catalog`, `silver_plume_ready_pixels`, `validation_carbon_mapper_plumes`
+# The question the notebook originally asked — where the ~100x gap against Carbon Mapper
+# came from — is answered: it was the units error, not plume geometry and not the length
+# scale `L`. The catalogue now holds 75 plumes, median 29.4 t/h (min 3.2, max 131.5),
+# against a pre-correction median of 4.3 kg/h. The job now is to confirm the corrected
+# pipeline is sound and that the new rate scale is defensible.
+#
+# - **Cell 0** — did destriping work? Detector-column and granule composition per plume.
+# - **Cells 1-2** — plume geometry and background contamination (original questions).
+# - **Cells 3-4** — background/`L` sweep and Carbon Mapper matched pairs, kept structurally
+#   unchanged from the pre-correction run so the two are directly comparable. Both sides are
+#   now in sensible units.
+# - **Cell 5** — single-plume visual deep dive.
+# - **Cell 6** — external validation of the corrected rate scale against CAMS (primary
+#   benchmark) and Carbon Mapper, plus a detection-density check.
+# - **Cell 7** — the two remaining tracked biases, quantified against this catalogue.
+#
+# **Inputs:** `gold_plume_catalog`, `silver_plume_ready_pixels`, `validation_cams_plumes`,
+# `validation_carbon_mapper_plumes`
 #
 # **Output:** none.
 
@@ -98,6 +114,13 @@ try:
 except Exception:
     cm_pdf = pd.DataFrame()
     print("validation_carbon_mapper_plumes: table not found")
+
+try:
+    cams_pdf = spark.table("validation_cams_plumes").toPandas()
+    print(f"validation_cams_plumes: {len(cams_pdf)} plumes")
+except Exception:
+    cams_pdf = pd.DataFrame()
+    print("validation_cams_plumes: table not found")
 
 # METADATA ********************
 
@@ -208,6 +231,74 @@ print(f"Both backgrounds estimated for {len(enhanced_diag):,} pixels across "
       f"{enhanced_diag['scene_id'].nunique()} scenes")
 
 
+# ── Step 2b (duplicated from 04_derive_emissions): across-track destriping ──
+# Each across-track detector column carries its own calibration bias, which appears in the
+# enhancement field as an along-track stripe. Absent striping a column's median enhancement
+# should be ~zero, so a systematic offset is the stripe and is subtracted. The median is
+# robust: a few genuine plume pixels in a column cannot move it.
+#
+# Grouped on the (stac_id, ground_pixel) PAIR, never ground_pixel alone — ground_pixel is
+# granule-relative, not orbit-relative, so the same number in two granules is two different
+# physical detector columns. Must stay in sync with 04_derive_emissions Step 2b.
+#
+# Both backgrounds are destriped, not just the kNN one, so that Cell 3's sweep varies only
+# the background definition and not whether destriping was applied. The kNN output keeps
+# 04's exact column name, `ch4_enhancement_destriped`, because that is the path which
+# reproduces gold_plume_catalog.
+destripe_enabled = CONFIG["destripe_enabled"]
+destripe_min_scanlines = CONFIG["destripe_min_scanlines"]
+
+DESTRIPE_PAIRS = [
+    ("ch4_enhancement_knn", "ch4_enhancement_destriped"),
+    ("ch4_enhancement_annulus", "ch4_enhancement_annulus_destriped"),
+]
+DETECT_COL = "ch4_enhancement_destriped"
+
+destriped_rows = []
+destripe_groups_total = 0
+destripe_groups_skipped = 0
+destripe_corrections = []
+
+for scene_id, scene_group in enhanced_diag.groupby("scene_id"):
+    scene_group = scene_group.copy()
+    for src_col, dst_col in DESTRIPE_PAIRS:
+        scene_group[dst_col] = scene_group[src_col]
+    scene_group["stripe_correction_ppb"] = 0.0
+    scene_group["destripe_applied"] = False
+
+    if destripe_enabled:
+        for _pair, column_pixels in scene_group.groupby(["stac_id", "ground_pixel"]):
+            destripe_groups_total += 1
+            if column_pixels["scanline"].nunique() < destripe_min_scanlines:
+                destripe_groups_skipped += 1
+                continue
+            idx = column_pixels.index
+            for src_col, dst_col in DESTRIPE_PAIRS:
+                correction = float(np.median(column_pixels[src_col].values))
+                scene_group.loc[idx, dst_col] = scene_group.loc[idx, src_col] - correction
+                if src_col == "ch4_enhancement_knn":
+                    scene_group.loc[idx, "stripe_correction_ppb"] = correction
+                    destripe_corrections.append(correction)
+            scene_group.loc[idx, "destripe_applied"] = True
+
+    destriped_rows.append(scene_group)
+
+enhanced_diag = pd.concat(destriped_rows, ignore_index=True)
+
+if destripe_enabled and destripe_corrections:
+    corr = np.array(destripe_corrections)
+    print(f"Destriped {destripe_groups_total - destripe_groups_skipped} of "
+          f"{destripe_groups_total} (stac_id, ground_pixel) groups "
+          f"({destripe_groups_skipped} skipped for <{destripe_min_scanlines} scanlines); "
+          f"correction min/median/max = {corr.min():.2f} / {np.median(corr):.2f} / "
+          f"{corr.max():.2f} ppb")
+elif destripe_enabled:
+    print(f"Destriping applied to no groups: all {destripe_groups_total} skipped for "
+          f"<{destripe_min_scanlines} scanlines")
+else:
+    print("Destriping disabled in CONFIG — ch4_enhancement_destriped == ch4_enhancement_knn")
+
+
 # ── Steps 3-4 (duplicated from 04_derive_emissions): MAD candidate detection + Union-Find
 # clustering, run once at CONFIG['mad_sigma'] (the value actually used to produce
 # gold_plume_catalog) to reconstruct plume membership. ──
@@ -238,16 +329,42 @@ cluster_radius = CONFIG["cluster_radius_km"]
 min_pixels = CONFIG["min_cluster_pixels"]
 max_pixels = CONFIG["max_cluster_pixels"]
 shape_threshold = CONFIG["shape_threshold"]
+collinearity_max_r2 = CONFIG["collinearity_max_r2"]
+collinearity_min_pixels = CONFIG["collinearity_min_pixels"]
 
+
+# ── Total-least-squares line fit, duplicated from 04_derive_emissions Step 4. Must stay
+# in sync with that notebook. ──
+def principal_axis(lats, lons):
+    """PCA on the km-projected coordinates.
+
+    Returns (first_component_vector, variance_explained_fraction); the fraction is the
+    collinearity measure, 1.0 meaning the pixels lie exactly on a line.
+    """
+    pts = np.column_stack([
+        (lats - lats.mean()) * 111.0,
+        (lons - lons.mean()) * 94.0,
+    ])
+    eigenvalues, eigenvectors = np.linalg.eigh(np.cov(pts.T))
+    order = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[order]
+    eigenvectors = eigenvectors[:, order]
+    total_var = eigenvalues.sum()
+    frac = float(eigenvalues[0] / total_var) if total_var > 0 else 1.0
+    return eigenvectors[:, 0], frac
+
+# Detection and the MAD run on the destriped enhancement, as in 04_derive_emissions
+# Step 3 — the stripe bias would otherwise inflate both the candidate enhancements and
+# the scene MAD.
 candidate_rows = []
 for scene_id, scene_group in enhanced_diag.groupby("scene_id"):
-    enhancements = scene_group["ch4_enhancement_knn"].values
+    enhancements = scene_group[DETECT_COL].values
     median_enh = np.median(enhancements)
     mad_scaled = np.median(np.abs(enhancements - median_enh)) * 1.4826
     threshold = max(mad_sigma * mad_scaled, enhancement_floor)
 
     scene_group = scene_group.copy()
-    scene_group["is_candidate"] = scene_group["ch4_enhancement_knn"] > threshold
+    scene_group["is_candidate"] = scene_group[DETECT_COL] > threshold
     candidate_rows.append(scene_group)
 
 detected_diag = pd.concat(candidate_rows, ignore_index=True)
@@ -255,6 +372,8 @@ candidates_only = detected_diag[detected_diag["is_candidate"]].copy()
 
 reconstructed_clusters = {}  # (scene_id, source_lat, source_lon) -> member pixel DataFrame
 n_reconstructed = 0
+n_rejected_collinear = 0
+n_rejected_single_column = 0
 
 for scene_id, scene_candidates in candidates_only.groupby("scene_id"):
     if len(scene_candidates) < min_pixels:
@@ -285,16 +404,42 @@ for scene_id, scene_candidates in candidates_only.groupby("scene_id"):
                 max(lat_range, lon_range) / min(lat_range, lon_range)
                 if min(lat_range, lon_range) > 0 else float("inf")
             )
-            if aspect_ratio > shape_threshold:
-                continue
+        else:
+            aspect_ratio = 1.0
 
-        peak_idx = cluster_data["ch4_enhancement_knn"].values.argmax()
+        # ── Collinearity / single-detector-column rejection, duplicated from
+        # 04_derive_emissions Step 4. Applied before the shape filter, as it is there.
+        # Without this the reconstruction would register clusters that 04 rejected;
+        # those would simply fail to match a gold row, but reproducing 04's filter chain
+        # keeps n_reconstructed meaningful. Keyed on the (stac_id, ground_pixel) pair. ──
+        n_unique_locations = len(set(zip(lats, lons)))
+        n_column_pairs = len(set(zip(cluster_data["stac_id"].values,
+                                     cluster_data["ground_pixel"].values)))
+        variance_explained = float("nan")
+        if n_unique_locations >= collinearity_min_pixels:
+            _axis, variance_explained = principal_axis(lats, lons)
+
+        if n_column_pairs == 1:
+            n_rejected_single_column += 1
+            continue
+        if (n_unique_locations >= collinearity_min_pixels
+                and variance_explained > collinearity_max_r2):
+            n_rejected_collinear += 1
+            continue
+
+        if cluster_size >= 2 and aspect_ratio > shape_threshold:
+            continue
+
+        peak_idx = cluster_data[DETECT_COL].values.argmax()
         source_lat = round(float(cluster_data.iloc[peak_idx]["latitude"]), 6)
         source_lon = round(float(cluster_data.iloc[peak_idx]["longitude"]), 6)
         reconstructed_clusters[(scene_id, source_lat, source_lon)] = cluster_data.copy()
         n_reconstructed += 1
 
-print(f"Reconstructed {n_reconstructed} clusters passing size/shape filters at mad_sigma={mad_sigma}")
+print(f"Reconstructed {n_reconstructed} clusters passing size/shape/collinearity filters "
+      f"at mad_sigma={mad_sigma}")
+print(f"  rejected for collinearity: {n_rejected_collinear}, "
+      f"for single-column membership: {n_rejected_single_column}")
 
 # ── Match gold_plume_catalog rows to reconstructed clusters ──
 plume_pixel_map = {}
@@ -310,6 +455,138 @@ print(f"Matched {len(plume_pixel_map)} / {len(plumes_pdf)} gold_plume_catalog pl
       f"reconstructed member pixels")
 if unmatched_plume_ids:
     print(f"WARNING: unmatched plume_ids (excluded from Cells 1, 2, 3, 5): {unmatched_plume_ids}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Cell 0 — Did destriping work? Detector-column and granule composition
+#
+# `04_derive_emissions` now destripes per `(stac_id, ground_pixel)` and rejects clusters
+# whose pixels fit a line too well or come from a single detector column. This cell checks
+# what survived.
+#
+# **Detector columns per plume.** A real plume is a patch of air and should span several
+# across-track detector columns. A stripe is one column by construction. Any accepted plume
+# with exactly one distinct `(stac_id, ground_pixel)` pair is an artifact that got through
+# rejection, and is flagged explicitly below.
+#
+# **Granules per plume.** `03_join_data` deduplicates on `(orbit, latitude, longitude)`, so
+# there are no exact coordinate duplicates. But NRTI and OFFL geolocate the same ground
+# slightly differently, so the same physical pixel can appear twice at coordinates a few
+# metres apart and survive dedup. A plume drawing pixels from two granules would then carry
+# roughly twice the pixels, and therefore roughly twice the IME, for the same ground truth.
+# Cell 7 quantifies what correcting that would do.
+
+# CELL ********************
+
+composition_rows = []
+for plume_id, pix in plume_pixel_map.items():
+    composition_rows.append({
+        "plume_id": plume_id,
+        "n_pixels": len(pix),
+        "n_column_pairs": len(set(zip(pix["stac_id"].values, pix["ground_pixel"].values))),
+        "n_granules": int(pix["stac_id"].nunique()),
+        "n_ground_pixel_values": int(pix["ground_pixel"].nunique()),
+    })
+
+composition_df = (
+    pd.DataFrame(composition_rows)
+    .merge(plumes_pdf[["plume_id", "emission_rate_kg_h", "n_pixels"]]
+           .rename(columns={"n_pixels": "n_pixels_catalog"}),
+           on="plume_id", how="left")
+    .sort_values("plume_id")
+    .reset_index(drop=True)
+)
+
+print(f"Composition reconstructed for {len(composition_df)} of {len(plumes_pdf)} "
+      f"accepted plumes")
+print()
+
+# ── Detector columns per plume ──
+print("=== Distinct (stac_id, ground_pixel) pairs per plume ===")
+print(composition_df["n_column_pairs"].describe().to_string())
+print()
+print("Distribution:")
+col_dist = composition_df["n_column_pairs"].value_counts().sort_index()
+for n_cols, n_plumes in col_dist.items():
+    print(f"  {n_cols:2d} column(s): {n_plumes:3d} plume(s)"
+          f"   {'#' * int(n_plumes)}")
+
+single_column_plumes = composition_df[composition_df["n_column_pairs"] == 1]
+print()
+if len(single_column_plumes) > 0:
+    print(f"*** FLAG: {len(single_column_plumes)} accepted plume(s) occupy a SINGLE "
+          f"detector column. These are striping artifacts that survived rejection: ***")
+    print(single_column_plumes.to_string(index=False))
+else:
+    print("No accepted plume occupies a single detector column — rejection did its job.")
+
+# A plume spanning two granules can show more column pairs than distinct ground_pixel
+# values, because ground_pixel numbering restarts per granule. Where the two differ, the
+# plume is drawing on more than one granule.
+mismatched = composition_df[
+    composition_df["n_column_pairs"] != composition_df["n_ground_pixel_values"]
+]
+print()
+print(f"Plumes where distinct column pairs != distinct ground_pixel values: "
+      f"{len(mismatched)} (these necessarily span >1 granule)")
+
+# ── Granules per plume ──
+print()
+print("=== Distinct stac_id (granules) contributing pixels per plume ===")
+gran_dist = composition_df["n_granules"].value_counts().sort_index()
+for n_gran, n_plumes in gran_dist.items():
+    print(f"  {n_gran} granule(s): {n_plumes:3d} plume(s)")
+
+multi_granule_df = composition_df[composition_df["n_granules"] > 1]
+multi_granule_plume_ids = set(multi_granule_df["plume_id"])
+total_member_pixels = int(composition_df["n_pixels"].sum())
+multi_granule_pixels = int(multi_granule_df["n_pixels"].sum())
+
+print()
+print(f"Plumes drawing on more than one granule: {len(multi_granule_df)} / "
+      f"{len(composition_df)}")
+if total_member_pixels:
+    print(f"Pixels in those plumes: {multi_granule_pixels} / {total_member_pixels} "
+          f"({100.0 * multi_granule_pixels / total_member_pixels:.1f}% of all "
+          f"accepted-plume pixels)")
+if len(multi_granule_df) > 0:
+    print()
+    print("Multi-granule plumes (candidates for NRTI/OFFL double counting):")
+    print(multi_granule_df.to_string(index=False))
+    print()
+    print("Per-granule pixel split for each:")
+    for plume_id in multi_granule_df["plume_id"]:
+        counts = plume_pixel_map[plume_id]["stac_id"].value_counts()
+        parts = ", ".join(f"{sid}={cnt}" for sid, cnt in counts.items())
+        print(f"  plume {plume_id}: {parts}")
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4.5))
+axes[0].hist(composition_df["n_column_pairs"],
+             bins=range(1, int(composition_df["n_column_pairs"].max()) + 2),
+             color="#4c72b0", edgecolor="white", align="left")
+axes[0].axvline(1.5, color="red", linestyle="--",
+                label="single detector column (artifact)")
+axes[0].set_xlabel("Distinct (stac_id, ground_pixel) pairs in plume")
+axes[0].set_ylabel("Number of plumes")
+axes[0].set_title("Detector columns spanned per accepted plume")
+axes[0].legend()
+
+axes[1].hist(composition_df["n_granules"],
+             bins=range(1, int(composition_df["n_granules"].max()) + 2),
+             color="#dd8452", edgecolor="white", align="left")
+axes[1].set_xlabel("Distinct granules (stac_id) contributing pixels")
+axes[1].set_ylabel("Number of plumes")
+axes[1].set_title("Granules contributing per accepted plume")
+
+plt.tight_layout()
+plt.show()
 
 # METADATA ********************
 
@@ -350,7 +627,11 @@ for plume_id, pix in plume_pixel_map.items():
     else:
         mean_nn_km = 0.0
 
-    plume_area_km2 = n_pixels * (5.5 * 7.0)
+    # Pixel area comes from PIXEL_AREA_M2 in 00_config, not a local literal. This
+    # notebook used to define its own copy of the pixel area and the IME constants;
+    # that duplication is what let a cm^2/m^2 unit error sit in 04, 07b and 07c at once,
+    # unnoticed, making every emission rate low by a factor of 10,000.
+    plume_area_km2 = n_pixels * (PIXEL_AREA_M2 / 1e6)
     L_m_current = float(np.sqrt(plume_area_km2 * 1e6))
 
     geometry_rows.append({
@@ -420,14 +701,19 @@ print(f"Mean annulus background (15th pct, 25-100 km ring):      "
 print(f"Mean difference (annulus - kNN):                          "
       f"{(plume_member_pixels['ch4_background_annulus'] - plume_member_pixels['ch4_background_knn']).mean():.2f} ppb")
 print()
-print(f"Mean enhancement under kNN background:     {plume_member_pixels['ch4_enhancement_knn'].mean():.2f} ppb")
-print(f"Mean enhancement under annulus background: {plume_member_pixels['ch4_enhancement_annulus'].mean():.2f} ppb")
+# Enhancements are the destriped ones throughout, matching 04_derive_emissions.
+print(f"Mean enhancement under kNN background (destriped):     "
+      f"{plume_member_pixels['ch4_enhancement_destriped'].mean():.2f} ppb")
+print(f"Mean enhancement under annulus background (destriped): "
+      f"{plume_member_pixels['ch4_enhancement_annulus_destriped'].mean():.2f} ppb")
+print(f"  (pre-destriping, kNN: {plume_member_pixels['ch4_enhancement_knn'].mean():.2f} ppb; "
+      f"annulus: {plume_member_pixels['ch4_enhancement_annulus'].mean():.2f} ppb)")
 
 fig, ax = plt.subplots(figsize=(9, 5))
-ax.hist(plume_member_pixels["ch4_enhancement_knn"], bins=20, alpha=0.5,
-        label="kNN background", color="#4c72b0")
-ax.hist(plume_member_pixels["ch4_enhancement_annulus"], bins=20, alpha=0.5,
-        label="Annulus background (25-100km)", color="#c44e52")
+ax.hist(plume_member_pixels["ch4_enhancement_destriped"], bins=20, alpha=0.5,
+        label="kNN background (destriped)", color="#4c72b0")
+ax.hist(plume_member_pixels["ch4_enhancement_annulus_destriped"], bins=20, alpha=0.5,
+        label="Annulus background 25-100km (destriped)", color="#c44e52")
 ax.set_xlabel("Per-pixel CH4 enhancement (ppb)")
 ax.set_ylabel("Number of pixels")
 ax.set_title("Accepted-plume pixels — enhancement under kNN vs annulus background")
@@ -466,7 +752,9 @@ def compute_rate(pix, enhancement_col, L_mode):
     ime_kg = float(np.sum(pix[enhancement_col].values * PPB_TO_KG))
 
     if L_mode == "sqrt_area":
-        plume_area_km2 = n_pixels * (5.5 * 7.0)
+        # PIXEL_AREA_M2 from 00_config — see the note in Cell 1 on why this must not be
+        # a local literal.
+        plume_area_km2 = n_pixels * (PIXEL_AREA_M2 / 1e6)
         L_m = float(np.sqrt(plume_area_km2 * 1e6))
     else:  # "max_pairwise"
         lats, lons = pix["latitude"].values, pix["longitude"].values
@@ -477,7 +765,8 @@ def compute_rate(pix, enhancement_col, L_mode):
             ]
             L_m = float(max(pair_dists) * 1000.0)  # km -> m
         else:
-            L_m = float(np.sqrt((5.5 * 7.0) * 1e6))
+            # Single-pixel fallback: the length scale of one pixel, from 00_config.
+            L_m = float(np.sqrt(PIXEL_AREA_M2))
 
     mean_u, mean_v = pix["era5_u10"].mean(), pix["era5_v10"].mean()
     U_eff = float(np.sqrt(mean_u ** 2 + mean_v ** 2)) if pd.notna(mean_u) and pd.notna(mean_v) else np.nan
@@ -490,11 +779,14 @@ def compute_rate(pix, enhancement_col, L_mode):
     return ime_kg, L_m, (ime_kg / t_mix) * 3600
 
 
+# Same four combinations as the pre-correction run, so the two are directly comparable.
+# Only the enhancement columns change: both backgrounds are now destriped, matching
+# 04_derive_emissions.
 COMBINATIONS = [
-    ("a_knn_sqrtarea",     "ch4_enhancement_knn",     "sqrt_area"),
-    ("b_annulus_sqrtarea", "ch4_enhancement_annulus", "sqrt_area"),
-    ("c_knn_maxpair",      "ch4_enhancement_knn",     "max_pairwise"),
-    ("d_annulus_maxpair",  "ch4_enhancement_annulus", "max_pairwise"),
+    ("a_knn_sqrtarea",     "ch4_enhancement_destriped",         "sqrt_area"),
+    ("b_annulus_sqrtarea", "ch4_enhancement_annulus_destriped", "sqrt_area"),
+    ("c_knn_maxpair",      "ch4_enhancement_destriped",         "max_pairwise"),
+    ("d_annulus_maxpair",  "ch4_enhancement_annulus_destriped", "max_pairwise"),
 ]
 
 recompute_rows = []
@@ -548,7 +840,14 @@ print(summary_df.to_string(index=False))
 #
 # **Note:** this matching has no date constraint, and Carbon Mapper's aircraft and EMIT
 # instruments have far lower detection limits than TROPOMI, so exact agreement is not the
-# target — closing the gap from ~157x to single digits or low tens would be.
+# target.
+#
+# **The ~157x baseline this cell was written against no longer applies.** That gap was the
+# cm²/m² units error, now fixed, and the ratio has inverted — Green Sky rates now sit
+# above Carbon Mapper's, which is what a coarser instrument with a higher detection limit
+# should show. The cell is left structurally unchanged so the four combinations stay
+# directly comparable to the pre-correction run; read the ratio alongside Cell 6, where
+# CAMS is the like-for-like benchmark.
 
 # CELL ********************
 
@@ -638,8 +937,10 @@ else:
         lambda r: (round(r["latitude"], 6), round(r["longitude"], 6)) in member_keys, axis=1
     )
 
-    enh_vmin = min(scene_pixels["ch4_enhancement_knn"].min(), scene_pixels["ch4_enhancement_annulus"].min())
-    enh_vmax = max(scene_pixels["ch4_enhancement_knn"].max(), scene_pixels["ch4_enhancement_annulus"].max())
+    enh_vmin = min(scene_pixels["ch4_enhancement_destriped"].min(),
+                   scene_pixels["ch4_enhancement_annulus_destriped"].min())
+    enh_vmax = max(scene_pixels["ch4_enhancement_destriped"].max(),
+                   scene_pixels["ch4_enhancement_annulus_destriped"].max())
 
     fig, axes = plt.subplots(1, 3, figsize=(20, 6))
 
@@ -652,19 +953,19 @@ else:
     fig.colorbar(sc0, ax=axes[0])
 
     sc1 = axes[1].scatter(scene_pixels["longitude"], scene_pixels["latitude"],
-                           c=scene_pixels["ch4_enhancement_knn"], cmap="magma", s=25,
+                           c=scene_pixels["ch4_enhancement_destriped"], cmap="magma", s=25,
                            vmin=enh_vmin, vmax=enh_vmax)
     axes[1].scatter(scene_pixels.loc[is_member, "longitude"], scene_pixels.loc[is_member, "latitude"],
                      facecolors="none", edgecolors="cyan", s=90, linewidths=1.5)
-    axes[1].set_title("Enhancement — kNN background")
+    axes[1].set_title("Enhancement — kNN background, destriped")
     fig.colorbar(sc1, ax=axes[1])
 
     sc2 = axes[2].scatter(scene_pixels["longitude"], scene_pixels["latitude"],
-                           c=scene_pixels["ch4_enhancement_annulus"], cmap="magma", s=25,
+                           c=scene_pixels["ch4_enhancement_annulus_destriped"], cmap="magma", s=25,
                            vmin=enh_vmin, vmax=enh_vmax)
     axes[2].scatter(scene_pixels.loc[is_member, "longitude"], scene_pixels.loc[is_member, "latitude"],
                      facecolors="none", edgecolors="cyan", s=90, linewidths=1.5)
-    axes[2].set_title("Enhancement — annulus background (25-100km)")
+    axes[2].set_title("Enhancement — annulus background (25-100km), destriped")
     fig.colorbar(sc2, ax=axes[2])
 
     for ax in axes:
@@ -676,10 +977,12 @@ else:
 
     print()
     print("=== Member pixel coordinates and values ===")
-    display_cols = ["latitude", "longitude", "ch4", "ch4_enhancement_knn", "ch4_enhancement_annulus"]
+    display_cols = ["latitude", "longitude", "stac_id", "ground_pixel", "scanline",
+                    "ch4", "ch4_enhancement_knn", "ch4_enhancement_destriped",
+                    "ch4_enhancement_annulus_destriped"]
     print(
         member_pixels[display_cols]
-        .sort_values("ch4_enhancement_knn", ascending=False)
+        .sort_values("ch4_enhancement_destriped", ascending=False)
         .round(3)
         .to_string(index=False)
     )
@@ -693,29 +996,381 @@ else:
 
 # MARKDOWN ********************
 
-# ### Cell 6 — Findings (fill in)
+# ### Cell 6 — External validation at the corrected scale
 #
-# _To be completed after reviewing Cells 1-5._
+# The rate distribution is now ~10⁴ larger than in the pre-correction run, so the external
+# benchmarks mean something different: the question is no longer "why are we 100x low" but
+# "is this scale right".
 #
-# 1. **Geometry (Cell 1).** Are the 109 plumes spatially contiguous (mean nearest-neighbour
+# **CAMS is the primary benchmark.** `validation_cams_plumes` is the Schuit et al. (2023)
+# TROPOMI plume catalogue. It is derived from the same instrument, so it shares the same
+# detection limit, the same ~5.5 km ground sampling, the same retrieval, and the same
+# underlying physics. Whatever TROPOMI can and cannot see, both catalogues inherit equally.
+# Agreement with CAMS on both magnitude and count is the real test.
+#
+# **Carbon Mapper is a weaker benchmark and should not be read as ground truth.** Its
+# plumes come from targeted aircraft surveys and EMIT, whose detection limits are far
+# lower — tens to low hundreds of kg/h against TROPOMI's several t/h. It therefore
+# legitimately sees a population of sources TROPOMI physically cannot, so its rate
+# distribution is expected to sit lower and a ratio away from 1.0 is not by itself an
+# error. The matched pairs in Cell 4 also carry no date constraint, so a "match" pairs a
+# Green Sky plume with whatever Carbon Mapper saw at that location at any time.
+#
+# **Detection density** is a separate check from magnitude: 75 plumes above ~3 t/h, in a
+# 30-day window, over one basin. Normalising both catalogues per unit area per day tests
+# whether the *count* is believable independently of whether the *rates* are.
+
+# CELL ********************
+
+gs_rates_kgh = plumes_pdf["emission_rate_kg_h"].dropna()
+gs_rates_th = gs_rates_kgh / 1000.0
+
+print("=== Green Sky (gold_plume_catalog), corrected scale ===")
+print(f"n = {len(gs_rates_kgh)}")
+print(gs_rates_kgh.describe().to_string())
+print(f"  median: {gs_rates_kgh.median():,.0f} kg/h  ({gs_rates_th.median():.1f} t/h)")
+
+
+def quartile_row(name, rates_kgh):
+    r = pd.Series(rates_kgh).dropna()
+    if len(r) == 0:
+        return {"source": name, "n": 0, "p25_kg_h": None, "median_kg_h": None,
+                "p75_kg_h": None, "median_t_h": None}
+    return {
+        "source": name,
+        "n": len(r),
+        "p25_kg_h": round(float(r.quantile(0.25)), 1),
+        "median_kg_h": round(float(r.median()), 1),
+        "p75_kg_h": round(float(r.quantile(0.75)), 1),
+        "median_t_h": round(float(r.median()) / 1000.0, 2),
+    }
+
+
+rows = [quartile_row("Green Sky (this pipeline)", gs_rates_kgh)]
+
+cams_rates_kgh = pd.Series(dtype=float)
+if not cams_pdf.empty and "cams_emission_rate_kgh" in cams_pdf.columns:
+    cams_rates_kgh = cams_pdf["cams_emission_rate_kgh"].dropna()
+    rows.append(quartile_row("CAMS / SRON (TROPOMI) — PRIMARY", cams_rates_kgh))
+else:
+    print("\nvalidation_cams_plumes unavailable or missing cams_emission_rate_kgh.")
+
+cm_rates_kgh = pd.Series(dtype=float)
+if not cm_pdf.empty and "cm_emission_rate" in cm_pdf.columns:
+    cm_rates_kgh = cm_pdf["cm_emission_rate"].dropna()
+    rows.append(quartile_row("Carbon Mapper (aircraft/EMIT)", cm_rates_kgh))
+else:
+    print("\nvalidation_carbon_mapper_plumes unavailable or missing cm_emission_rate.")
+
+dist_df = pd.DataFrame(rows)
+print()
+print("=== Rate distributions, all in kg/h ===")
+print(dist_df.to_string(index=False))
+
+gs_median = float(gs_rates_kgh.median()) if len(gs_rates_kgh) else float("nan")
+print()
+print("=== Ratio of benchmark median to Green Sky median ===")
+if len(cams_rates_kgh) and gs_median > 0:
+    r = float(cams_rates_kgh.median()) / gs_median
+    print(f"  CAMS / Green Sky:          {r:6.2f}x   "
+          f"(PRIMARY — same instrument, same detection limit)")
+if len(cm_rates_kgh) and gs_median > 0:
+    r = float(cm_rates_kgh.median()) / gs_median
+    print(f"  Carbon Mapper / Green Sky: {r:6.2f}x   "
+          f"(lower detection limit — expected to sit below TROPOMI)")
+
+if len(cams_rates_kgh) or len(cm_rates_kgh):
+    fig, ax = plt.subplots(figsize=(10, 5))
+    series = [("Green Sky", gs_rates_kgh, "#4c72b0")]
+    if len(cams_rates_kgh):
+        series.append(("CAMS (TROPOMI)", cams_rates_kgh, "#55a868"))
+    if len(cm_rates_kgh):
+        series.append(("Carbon Mapper", cm_rates_kgh, "#c44e52"))
+    positive = [np.log10(s[1][s[1] > 0]) for s in series if (s[1] > 0).any()]
+    if positive:
+        lo = min(float(p.min()) for p in positive)
+        hi = max(float(p.max()) for p in positive)
+        bins = np.linspace(lo, hi, 30)
+        for label, s, colour in series:
+            s = s[s > 0]
+            if len(s):
+                ax.hist(np.log10(s), bins=bins, alpha=0.5, label=f"{label} (n={len(s)})",
+                        color=colour)
+        ax.set_xlabel("log10(emission rate, kg/h)")
+        ax.set_ylabel("Number of plumes")
+        ax.set_title("Emission rate distributions — corrected Green Sky scale vs benchmarks")
+        ax.legend()
+        plt.show()
+
+# ── Detection density ──
+# Plumes per 1e6 km^2 per day. Green Sky uses the CONFIG bbox; CAMS was filtered to the
+# same bbox with a 0.5 deg pad in 07_ingest_validation, so it covers a larger area and
+# must be normalised against that larger area, not the bare bbox.
+print()
+print("=== Detection density ===")
+
+
+def bbox_area_km2(min_lat, max_lat, min_lon, max_lon):
+    mean_lat = (min_lat + max_lat) / 2.0
+    return ((max_lat - min_lat) * 111.0) * ((max_lon - min_lon) * 111.0 *
+                                            np.cos(np.radians(mean_lat)))
+
+
+gs_area = bbox_area_km2(BBOX["min_lat"], BBOX["max_lat"], BBOX["min_lon"], BBOX["max_lon"])
+gs_start = pd.Timestamp(CONFIG["start_date"])
+gs_end = pd.Timestamp(CONFIG["end_date"])
+gs_days = (gs_end - gs_start).days + 1
+gs_density = len(gs_rates_kgh) / gs_area / gs_days * 1e6
+
+print(f"  Green Sky: {len(gs_rates_kgh)} plumes over {gs_area:,.0f} km^2 "
+      f"x {gs_days} days")
+print(f"             = {gs_density:.3f} plumes per 1e6 km^2 per day")
+print(f"             (catalogue min {gs_rates_th.min():.1f} t/h, so this is a "
+      f"density above roughly that threshold)")
+
+CAMS_PAD_DEG = 0.5  # must match the pad used in 07_ingest_validation
+if len(cams_rates_kgh) and "cams_date" in cams_pdf.columns:
+    cams_dates = pd.to_datetime(cams_pdf["cams_date"], errors="coerce").dropna()
+    if len(cams_dates):
+        cams_area = bbox_area_km2(
+            BBOX["min_lat"] - CAMS_PAD_DEG, BBOX["max_lat"] + CAMS_PAD_DEG,
+            BBOX["min_lon"] - CAMS_PAD_DEG, BBOX["max_lon"] + CAMS_PAD_DEG,
+        )
+        cams_days = (cams_dates.max() - cams_dates.min()).days + 1
+        cams_density = len(cams_pdf) / cams_area / cams_days * 1e6
+        print()
+        print(f"  CAMS:      {len(cams_pdf)} plumes over {cams_area:,.0f} km^2 "
+              f"x {cams_days} days")
+        print(f"             ({cams_dates.min().date()} to {cams_dates.max().date()})")
+        print(f"             = {cams_density:.3f} plumes per 1e6 km^2 per day")
+        if cams_density > 0:
+            print()
+            print(f"  Green Sky / CAMS detection density: {gs_density / cams_density:.2f}x")
+        print()
+        print("  Caveats on this comparison, all of which bias it and none of which are")
+        print("  corrected for here:")
+        print("   - CAMS covers 2021; this catalogue covers 2026. Permian emissions and")
+        print("     TROPOMI processing have both changed in between.")
+        print("   - Neither density accounts for observation-day coverage. Cloud, QA")
+        print("     filtering and orbit gaps mean neither catalogue had a usable")
+        print("     observation on every day of its window, so both densities are")
+        print("     understated by an unknown and probably different factor.")
+        print("   - Schuit et al. applied their own detection criteria; agreement in")
+        print("     count does not imply the same plumes would be found.")
+    else:
+        print("  CAMS: cams_date column present but unparseable — density skipped.")
+elif len(cams_rates_kgh):
+    print("  CAMS: no cams_date column — density skipped.")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Cell 7 — Remaining known biases, quantified against this catalogue
+#
+# Two tracked issues still inflate the current rates. This cell estimates each one against
+# the actual 75 plumes rather than in the abstract. **It changes nothing** —
+# `04_derive_emissions` is untouched; this only measures what correcting them would do.
+#
+# **Bias 1 — pixel area.** `PIXEL_AREA_M2` uses the pre-August-2019 TROPOMI along-track
+# size of 7 km. From August 2019 the along-track sampling improved to 5.5 km, so for 2026
+# data the pixel is 5.5 x 5.5 km, not 5.5 x 7.0. The area enters twice and partly cancels:
+# `ime_kg` scales linearly with pixel area, while `L_m = sqrt(n_pixels * area)` scales with
+# its square root, and rate = IME / (L / U). Net, rate scales as sqrt(area ratio).
+#
+# **Bias 2 — multi-granule double counting.** Plumes identified in Cell 0 as drawing pixels
+# from more than one granule may be counting the same ground twice, because NRTI and OFFL
+# geolocate identically-sourced pixels a few metres apart and so survive the
+# `(orbit, latitude, longitude)` dedup in `03_join_data`. Recomputed here keeping only the
+# granule that contributes the most pixels.
+
+# CELL ********************
+
+PIXEL_AREA_ALT_M2 = 5500.0 * 5500.0   # post-Aug-2019 TROPOMI pixel, 5.5 x 5.5 km
+area_ratio = PIXEL_AREA_ALT_M2 / PIXEL_AREA_M2
+
+print(f"Current pixel area:   {PIXEL_AREA_M2 / 1e6:.2f} km^2  (5.5 x 7.0, pre-Aug-2019)")
+print(f"Corrected pixel area: {PIXEL_AREA_ALT_M2 / 1e6:.2f} km^2  (5.5 x 5.5, post-Aug-2019)")
+print(f"Area ratio: {area_ratio:.4f}")
+print()
+
+
+def rate_kg_h(pix, enh_col, pixel_area_m2):
+    """IME -> L -> T_mix -> rate for one plume's pixels at a given pixel area.
+
+    Mirrors 04_derive_emissions Steps 6-7 exactly, with the pixel area parameterised so
+    the alternative can be evaluated. PPB_TO_KG scales linearly with pixel area, so it is
+    rescaled by the same ratio rather than recomputed from the constants.
+    """
+    n_pixels = len(pix)
+    if n_pixels == 0:
+        return float("nan")
+    ppb_to_kg = PPB_TO_KG * (pixel_area_m2 / PIXEL_AREA_M2)
+    ime_kg = float(np.sum(pix[enh_col].values * ppb_to_kg))
+    L_m = float(np.sqrt(n_pixels * pixel_area_m2))
+
+    mean_u, mean_v = pix["era5_u10"].mean(), pix["era5_v10"].mean()
+    U_eff = float(np.sqrt(mean_u ** 2 + mean_v ** 2)) if pd.notna(mean_u) and pd.notna(mean_v) else np.nan
+    if pd.notna(U_eff) and U_eff > min_wind and L_m > 0:
+        t_mix = L_m / U_eff
+    else:
+        t_mix = fallback_tmix
+    return (ime_kg / t_mix) * 3600.0
+
+
+bias_rows = []
+for plume_id, pix in plume_pixel_map.items():
+    baseline = rate_kg_h(pix, DETECT_COL, PIXEL_AREA_M2)
+
+    # Bias 1: corrected pixel area, all pixels retained
+    area_fixed = rate_kg_h(pix, DETECT_COL, PIXEL_AREA_ALT_M2)
+
+    # Bias 2: current pixel area, only the dominant granule's pixels
+    is_multi = plume_id in multi_granule_plume_ids
+    if is_multi:
+        dominant = pix["stac_id"].value_counts().idxmax()
+        pix_dom = pix[pix["stac_id"] == dominant]
+    else:
+        pix_dom = pix
+    granule_fixed = rate_kg_h(pix_dom, DETECT_COL, PIXEL_AREA_M2)
+
+    # Both corrections together
+    both_fixed = rate_kg_h(pix_dom, DETECT_COL, PIXEL_AREA_ALT_M2)
+
+    bias_rows.append({
+        "plume_id": plume_id,
+        "n_pixels": len(pix),
+        "multi_granule": is_multi,
+        "n_pixels_dominant_granule": len(pix_dom),
+        "baseline_kg_h": baseline,
+        "area_fixed_kg_h": area_fixed,
+        "granule_fixed_kg_h": granule_fixed,
+        "both_fixed_kg_h": both_fixed,
+    })
+
+bias_df = pd.DataFrame(bias_rows).sort_values("plume_id").reset_index(drop=True)
+
+print(f"Recomputed for {len(bias_df)} of {len(plumes_pdf)} accepted plumes "
+      f"(those with reconstructed member pixels)")
+print(f"Baseline median from this recomputation: {bias_df['baseline_kg_h'].median():,.0f} kg/h "
+      f"({bias_df['baseline_kg_h'].median() / 1000:.1f} t/h)")
+print(f"Catalogue median for cross-check:        "
+      f"{plumes_pdf['emission_rate_kg_h'].median():,.0f} kg/h "
+      f"({plumes_pdf['emission_rate_kg_h'].median() / 1000:.1f} t/h)")
+print()
+
+
+def shift_line(label, col, subset=None):
+    d = bias_df if subset is None else bias_df[subset]
+    if len(d) == 0:
+        print(f"  {label:<42} n=0 — nothing to report")
+        return
+    base_med = d["baseline_kg_h"].median()
+    new_med = d[col].median()
+    ratio = new_med / base_med if base_med else float("nan")
+    print(f"  {label:<42} n={len(d):3d}  "
+          f"median {base_med / 1000:7.2f} -> {new_med / 1000:7.2f} t/h   "
+          f"({ratio:.3f}x, {100 * (ratio - 1):+.1f}%)")
+
+
+print("=== Effect of each bias on the median emission rate ===")
+shift_line("Bias 1: pixel area 5.5x7.0 -> 5.5x5.5", "area_fixed_kg_h")
+shift_line("Bias 2: dominant granule only (all plumes)", "granule_fixed_kg_h")
+shift_line("Bias 2: dominant granule only (multi only)", "granule_fixed_kg_h",
+           subset=bias_df["multi_granule"])
+print()
+shift_line("Both corrections combined", "both_fixed_kg_h")
+
+print()
+print(f"Analytic check on bias 1: rate scales as sqrt(area ratio) = "
+      f"{np.sqrt(area_ratio):.4f}, because IME scales with area and L with sqrt(area).")
+
+n_multi = int(bias_df["multi_granule"].sum())
+print()
+print(f"Multi-granule plumes affected by bias 2: {n_multi} / {len(bias_df)}")
+if n_multi:
+    pix_dropped = int((bias_df.loc[bias_df["multi_granule"], "n_pixels"]
+                       - bias_df.loc[bias_df["multi_granule"], "n_pixels_dominant_granule"]).sum())
+    print(f"Pixels dropped when keeping only the dominant granule: {pix_dropped}")
+    print()
+    print("Per-plume detail for multi-granule plumes:")
+    print(bias_df[bias_df["multi_granule"]].round(1).to_string(index=False))
+else:
+    print("No plume draws on more than one granule, so bias 2 currently has no effect "
+          "on this catalogue. That is a property of this run, not a guarantee — rerun "
+          "this cell after any change to the ingest date range or processing_mode mix.")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Cell 8 — Findings (fill in)
+#
+# _To be completed after reviewing Cells 0-7._
+#
+# **Note on run-to-run variability.** The Monte Carlo uncertainty estimation in
+# `04_derive_emissions` Step 8 calls `np.random.normal` without seeding the generator, so
+# `emission_rate_p5_kg_h`, `emission_rate_p95_kg_h` and `uncertainty_ratio` differ between
+# runs on an identical plume set — the confidence distribution moved from 63 high / 12
+# medium to 66 high / 9 medium across two such runs. Anything in this notebook that reads
+# p5, p95, `uncertainty_ratio` or `confidence` will therefore vary run to run and should
+# not be quoted to more precision than that wobble. `emission_rate_kg_h` itself is
+# deterministic and is not affected.
+#
+# 1. **Destriping (Cell 0).** How many detector columns does a typical accepted plume
+#    span? Did any plume survive with a single `(stac_id, ground_pixel)` pair — i.e. did a
+#    striping artifact get through rejection? If so, is the collinearity threshold too
+#    loose, or did the cluster pick up one stray pixel from a neighbouring column and so
+#    dodge the single-column test?
+#
+# 2. **Granule composition (Cell 0).** How many plumes draw on more than one granule, and
+#    what share of accepted-plume pixels do they hold? Is NRTI/OFFL double counting a
+#    material effect on this catalogue or a negligible one?
+#
+# 3. **Geometry (Cell 1).** Are the plumes spatially contiguous (mean nearest-neighbour
 #    distance well under the 12 km connection radius, most pixel pairs under 8 km), or are
 #    they scattered pixels stitched together by the connection radius alone?
 #
-# 2. **Background contamination (Cell 2).** Does the annulus background differ meaningfully
-#    from the kNN background for plume pixels? If the kNN background is pulling in plume
-#    pixels themselves, kNN enhancement should be systematically lower than annulus
-#    enhancement — is that what the histogram shows?
+# 4. **Background contamination (Cell 2).** Does the annulus background still differ
+#    meaningfully from the kNN background now that both are destriped? If the kNN
+#    background is pulling in plume pixels themselves, kNN enhancement should be
+#    systematically lower than annulus enhancement — is that what the histogram shows?
 #
-# 3. **Rate sensitivity (Cell 3).** Which single change — background method or `L` — moves
-#    the median/max emission rate the most? Is either hypothesis, alone or combined,
-#    large enough to matter against a ~100x gap?
+# 5. **Rate sensitivity (Cell 3).** Which single change — background method or `L` — moves
+#    the median rate the most? Now that the units error is out of the way, are these
+#    second-order effects or do they still move the answer by a factor that matters?
 #
-# 4. **Matched-pair ratio (Cell 4).** Does any combination bring the median Carbon
-#    Mapper/Green Sky ratio down meaningfully from the ~157x baseline? Into the "single
-#    digits to low tens" range that would count as closing the gap?
+# 6. **Matched-pair ratio (Cell 4).** What is the median Carbon Mapper / Green Sky ratio
+#    now, and in which direction? Remember Carbon Mapper's detection limit is far lower, so
+#    a ratio below 1.0 is expected rather than alarming.
 #
-# 5. **Visual check (Cell 5).** Does the highest-rate plume look like a coherent downwind
-#    plume under either background method, or does it look like noise that happened to
-#    cluster?
+# 7. **Visual check (Cell 5).** Does the highest-rate plume look like a coherent downwind
+#    plume, or like noise that happened to cluster? Do its member pixels spread across
+#    several detector columns and scanlines, or line up along one?
 #
-# 6. **Overall verdict:** _______________
+# 8. **Magnitude against CAMS (Cell 6).** How close is the median to the CAMS median?
+#    CAMS is the like-for-like benchmark — same instrument, same detection limit — so
+#    what does the ratio say about whether the corrected scale is right?
+#
+# 9. **Detection density (Cell 6).** Is 75 plumes in 30 days over the Permian plausible
+#    against CAMS's own density? If the densities disagree by a large factor, is that the
+#    detection threshold, the observation-day coverage neither figure corrects for, or a
+#    genuine difference between 2021 and 2026?
+#
+# 10. **Remaining biases (Cell 7).** How large is the combined effect of the pixel-area and
+#     multi-granule corrections? Is it big enough to change the conclusion drawn in 8 and
+#     9, or does the answer hold either way?
+#
+# 11. **Overall verdict:** _______________
+#
+# 12. **Next actions:** _______________

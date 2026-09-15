@@ -364,3 +364,169 @@
 # - [ ] 07c's quantification hypotheses (background contamination, L definition) not yet
 #       evaluated against a rerun -- detection logic in 04 itself is still unchanged
 
+
+# MARKDOWN ********************
+
+# ### 2026-09-11 -- Day 7 (In Progress)
+#
+# #### Fixed: IME units error (10,000x understatement of every emission rate)
+# DRY_AIR_COLUMN = 2.12e25 is the dry-air column in molecules per SQUARE CENTIMETRE, but
+# it was commented "molecules/m^2" and multiplied by PIXEL_AREA_M2, an area in SQUARE
+# METRES. Since 1 m^2 = 1e4 cm^2, every ime_kg and every emission rate produced before
+# today was low by a factor of exactly 10,000. Verified two ways before changing anything:
+# - From first principles the dry-air column is (101325 / 9.81) / 0.028964 * 6.022e23
+#   = 2.147e29 molecules/m^2, and 2.12e25 / 2.147e29 = 9.87e-5 -- the literal is ~1e-4 of
+#   the per-m^2 value, exactly the cm^2-to-m^2 ratio.
+# - At the observed mean 1901 ppb, reading the literal as molecules/cm^2 gives a CH4 total
+#   column of 4.0e19 molecules/cm^2 against a published TROPOMI value of ~3.8e19; reading
+#   it as molecules/m^2 gives 4.0e15, four orders of magnitude too small.
+# The numeric literal was deliberately left at 2.12e25 and the conversion written out as
+# an explicit step (DRY_AIR_COLUMN_PER_CM2 -> DRY_AIR_COLUMN_PER_M2 = * 1e4) so the
+# mistake stays visible in the code rather than disappearing into a new magic number.
+# PPB_TO_KG moves from 0.021740 to 217.400332 kg per ppb per pixel.
+#
+# #### Changed: 00_config
+# - New "Physical constants for the IME conversion" cell. PIXEL_AREA_M2, AVOGADRO, M_CH4,
+#   M_AIR, DRY_AIR_COLUMN_PER_CM2, DRY_AIR_COLUMN_PER_M2 and PPB_TO_KG now live here as
+#   module-level names (following the BBOX precedent), so %run 00_config supplies them and
+#   no call site changed. Units are in the name or the comment for every one. Carries the
+#   full unit-error derivation above as an inline note.
+# - Assertion immediately after PPB_TO_KG: 100 < PPB_TO_KG < 400 kg per ppb per pixel,
+#   with a message stating that a value near 0.02 means the cm^2/m^2 confusion has
+#   returned. Confirmed offline that it rejects the regressed expression.
+# - Records that the value is a SEA-LEVEL standard atmosphere: the Permian sits at ~800 m
+#   (~92 kPa), so the true column is ~9% lower and every IME is ~9% high. Left as an
+#   approximation, with surface_pressure in silver_plume_ready_pixels noted as the route
+#   to a per-pixel column if wanted (units need checking -- Open-Meteo reports hPa).
+# - The destripe_* and collinearity_* keys were already present and were verified, not
+#   re-added.
+#
+# #### Changed: 04_derive_emissions -- across-track destriping (new Step 2b)
+# Addresses the 07c finding that the highest-rate accepted plume was seven perfectly
+# collinear, evenly spaced pixels stepping 0.049 deg in latitude (the along-track pixel
+# size) -- one detector column, not a plume.
+# - Runs between background estimation and candidate detection, so it operates on the
+#   enhancement field rather than raw XCH4: the kNN background has already removed the
+#   large-scale structure, so what survives in a column median is instrument bias.
+# - Groups on (stac_id, ground_pixel), NEVER ground_pixel alone -- ground_pixel is
+#   granule-relative, not orbit-relative, so the same number in two granules is two
+#   different physical detector columns. Same reason the 03_join_data dedup key had to
+#   move to (orbit, latitude, longitude). Recorded in a comment at the grouping site.
+# - Subtracts each group's median enhancement into a new ch4_enhancement_destriped column;
+#   ch4_enhancement is kept for comparison. Groups with fewer than destripe_min_scanlines
+#   distinct scanlines are skipped and counted. The median-robustness assumption (a few
+#   plume pixels in a column cannot move it) is commented where it is relied on.
+# - ch4_enhancement_destriped is used for candidate detection, the MAD, and IME onward.
+# - Diagnostics per scene: granules, (stac_id, ground_pixel) groups, groups skipped, and
+#   min/median/max correction in ppb; then the overall correction distribution and the
+#   count exceeding destripe_max_correction_ppb.
+#
+# #### Changed: 04_derive_emissions -- collinearity rejection
+# - principal_axis() now returns both the axis vector and the variance-explained fraction
+#   from one PCA; Step 5's inline PCA was replaced by a call to it, so plume orientation
+#   and the collinearity test are the same fit read two ways.
+# - Clusters are rejected when the first principal component explains more than
+#   collinearity_max_r2 of the variance (above collinearity_min_pixels unique locations),
+#   or when every pixel shares a single (stac_id, ground_pixel) pair at any size.
+# - New table gold_rejected_collinear: gold_flagged_large_clusters shape plus
+#   variance_explained, n_column_pairs, the swath indices and would_be_valid. Written
+#   outside the "any valid plumes" branch on purpose, so a run where rejection removes
+#   everything still leaves the evidence.
+# - The test runs before the aspect-ratio filter. The accepted set is identical either
+#   way; going first means striping artefacts land in gold_rejected_collinear instead of
+#   being dropped silently by the shape filter.
+#
+# #### Changed: 04_derive_emissions -- summary and pixel area
+# - Summary cell now reports plume count and median rate before/after destriping and
+#   before/after collinearity rejection, all on the same size + shape basis, plus the
+#   granules-per-scene distribution (per-granule destriping groups get smaller and their
+#   medians noisier when scenes hold several granules).
+# - The two hard-coded (5.5 * 7.0) plume_area_km2 expressions now derive from
+#   PIXEL_AREA_M2 / 1e6, so the pixel area has one definition. Value bit-identical
+#   (38.5 km^2). Commented that plume_area_km2 feeds L_m, L_m feeds t_mix, and t_mix
+#   divides IME -- so an inconsistency there propagates into every emission rate.
+#
+# #### Changed: 07b_detection_diagnostics
+# - Local PPB_TO_KG / PIXEL_AREA_M2 / DRY_AIR_COLUMN / AVOGADRO / M_CH4 definitions
+#   removed; all come from 00_config now. The comment records that this duplication is
+#   what let the cm^2/m^2 error sit in three notebooks at once.
+#
+# #### Changed: 07c_quantification_diagnostics
+# - Constants and the three remaining (5.5 * 7.0) literals replaced by the 00_config
+#   values, each site commented with the duplication history.
+# - The shared reconstruction cell gained Step 2b destriping and the collinearity /
+#   single-column filter, so it reproduces the corrected 04. Detection, the MAD, the
+#   source-pixel argmax and everything downstream now use ch4_enhancement_destriped. Both
+#   backgrounds are destriped, so Cell 3's sweep varies only the background definition.
+# - New Cell 0 -- did destriping work? Distinct (stac_id, ground_pixel) pairs per plume
+#   with distribution and histogram, single-column plumes flagged explicitly as artefacts
+#   that survived rejection, distinct granules per plume, and the count and pixel-share of
+#   multi-granule plumes (NRTI and OFFL geolocate the same ground slightly differently, so
+#   a plume seen in both would carry roughly twice the pixels and twice the IME).
+# - New Cell 6 -- external validation at the corrected scale. Quartiles and medians for
+#   Green Sky, CAMS and Carbon Mapper in kg/h with ratios to each, plus detection density
+#   per unit area per day. Markdown makes CAMS the primary benchmark (TROPOMI-derived, so
+#   it shares the instrument, detection limit and physics) and explains why Carbon Mapper
+#   is weaker (aircraft/EMIT detection limits far lower, matched pairs have no date
+#   constraint). Density uses each source's own area -- CAMS was filtered with a 0.5 deg
+#   pad in 07_ingest_validation, so it covers ~209,000 km^2 against the bbox's ~125,000 --
+#   and prints caveats, chiefly that neither figure corrects for observation-day coverage.
+# - New Cell 7 -- remaining known biases quantified against the actual catalogue rather
+#   than in the abstract: pixel area 5.5 x 7.0 -> 5.5 x 5.5 recomputed through IME, L_m,
+#   t_mix and rate, and multi-granule plumes recomputed keeping only the granule with the
+#   most pixels, then the combined effect. Changes nothing in 04.
+# - Cells 1-5 keep their numbering and Cells 3-4 keep their structure, so the sweep and
+#   the Carbon Mapper matched pairs stay directly comparable to the pre-correction run.
+#   The new cell is numbered Cell 0 to avoid renumbering them.
+# - Findings cell rewritten as a blank template, with a note that the Monte Carlo in 04
+#   Step 8 is unseeded, so p5/p95, uncertainty_ratio and confidence vary run to run
+#   (63 high / 12 medium moved to 66 high / 9 medium across two runs on an identical plume
+#   set); emission_rate_kg_h itself is deterministic.
+#
+# #### Catalogue state after the corrections
+# - 75 plumes, median 29.4 t/h, min 3.2 t/h, max 131.5 t/h (previous median 4.3 kg/h).
+#
+# #### Verification performed
+# All changes were exercised offline against synthetic pixels, not in Fabric. The 04
+# harness built a scene containing a 60-scanline stripe, a stripe too short to destripe,
+# and genuine compact plumes: destriping removed the long stripe (105 -> 20 candidates,
+# 27.1 ppb correction), the short stripe was correctly skipped and then caught by the
+# reject filters, and the real plume survived. A second harness ran the patched 04 to
+# build a catalogue and fed it through the patched 07c: all 11 cells execute and every
+# gold plume matched its reconstruction, confirming 04 and 07c stayed in sync. 07c Cell 7
+# reproduces the catalogue median exactly and its pixel-area result (0.886x, -11.4%)
+# matches the analytic sqrt(0.7857) = 0.8864.
+#
+# #### Flagged, not changed
+# - CLAUDE.md Known Issues still says observed rates are "~100x below the 100 kg/h NSPS
+#   OLRE threshold". With the units fix that inverts -- the catalogue now sits well above
+#   it. The entry is tracked, so it was left for review rather than edited.
+# - 04's plausibility check warns on emission_rate_t_h > 100. That threshold was
+#   calibrated against the broken numbers and will now fire on real plumes.
+# - Two hard-coded (5.5 * 7.0) expressions remain in 07b (lines 145 and 534), still
+#   independent of PIXEL_AREA_M2. 07b already %runs 00_config, so the fix is the same
+#   one-line substitution applied in 04 and 07c today.
+# - 04's collinearity rejection was also added to 07c's reconstruction, which was not
+#   requested. It can only remove clusters 04 also rejected, so it cannot cause a gold
+#   plume to go unmatched; it makes n_reconstructed mean the same thing as 04's accepted
+#   count.
+#
+# #### Backlog
+# - gold_rejected_collinear added to the CLAUDE.md table list.
+# - The Monte Carlo in 04 Step 8 should take a seed from CONFIG so confidence and the
+#   p5/p95 bounds are reproducible.
+# - Per-pixel dry-air column from surface_pressure, replacing the sea-level constant
+#   (~9% high over the Permian).
+#
+# #### Remaining for Day 7
+# - [ ] Run 00_config, 04_derive_emissions and 07c in Fabric and confirm the destriping
+#       diagnostics, the PPB_TO_KG assertion and gold_rejected_collinear behave as the
+#       offline harnesses predict
+# - [ ] Read 07c Cell 0: did any accepted plume survive on a single detector column, and
+#       do any plumes draw on more than one granule?
+# - [ ] Read 07c Cell 6: how does the corrected median compare against CAMS, and is the
+#       detection density believable?
+# - [ ] Fill in the 07c findings cell
+# - [ ] Decide whether to apply the 5.5 x 5.5 pixel-area correction in 04 on the evidence
+#       from 07c Cell 7
+
