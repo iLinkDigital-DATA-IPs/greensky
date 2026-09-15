@@ -7,18 +7,30 @@
 # META     "name": "synapse_pyspark"
 # META   },
 # META   "dependencies": {
-# META     "lakehouse": {
-# META       "default_lakehouse": "427f0431-b084-4858-82dd-1bfa55380658",
-# META       "default_lakehouse_name": "GreenSky_Lakehouse",
-# META       "default_lakehouse_workspace_id": "060ba34b-f1a3-4509-a6e2-36d1e736a8eb",
-# META       "known_lakehouses": [
-# META         {
-# META           "id": "427f0431-b084-4858-82dd-1bfa55380658"
-# META         }
-# META       ]
-# META     }
+# META     "lakehouse": {}
 # META   }
 # META }
+
+# MARKDOWN ********************
+
+# # ⚠ Attach `GreenSky_Lakehouse` before running
+#
+# **This notebook has no lakehouse bound.** It profiles `GreenSky_Lakehouse`, which lives in
+# workspace `060ba34b-f1a3-4509-a6e2-36d1e736a8eb` — **a different workspace from
+# Green Sky - Dev (`640876ea-6158-4ffd-8598-5eb210e088a0`)**, where this notebook syncs. That
+# is why the binding is left empty: a cross-workspace lakehouse GUID in source would not
+# survive Git sync cleanly.
+#
+# Before running, attach `GreenSky_Lakehouse` manually in the Fabric UI
+# (**Explorer → Lakehouses → Add**). Without it every `spark.table(...)` call fails, though
+# the notebook degrades gracefully — each table is reported as `MISSING` rather than raising.
+#
+# The notebook resolves tables through the `LAKEHOUSE = "GreenSky_Lakehouse"` constant in
+# Cell 1, not through the default-lakehouse binding, so the name in that constant is what
+# must match whatever you attach.
+#
+# **It writes nothing.** No `saveAsTable`, no `write`, no DDL, no temp views — every cell
+# only reads and prints. It is safe to run against the live lakehouse.
 
 # MARKDOWN ********************
 

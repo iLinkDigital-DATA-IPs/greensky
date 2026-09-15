@@ -842,5 +842,11 @@ serves. Conceptual equivalents: Model A's `gold.fact_emission_episode` and
 3. Are `facility_master` names real operators (Occidental, XTO) or synthetic templates?
 4. How many rows has `gold.gold_emission_events` accumulated through repeated appends?
 
-Part 2 of this survey — `Methane Emissions/Accelerator/Notebooks/survey_greensky_lakehouse.Notebook`
+Part 2 of this survey —
+`Methane Emissions/Accelerator/Planetary Computer/Varon et al Approach/notebooks/07_validation/survey_greensky_lakehouse.Notebook`
 — answers all four by profiling the live lakehouse. It writes nothing.
+
+That notebook syncs with the **Green Sky - Dev** workspace (`640876ea-…`) but profiles a
+lakehouse in workspace `060ba34b-…`, so it ships with no lakehouse bound
+(`"dependencies": {"lakehouse": {}}`). Attach `GreenSky_Lakehouse` manually in Fabric before
+running it.
