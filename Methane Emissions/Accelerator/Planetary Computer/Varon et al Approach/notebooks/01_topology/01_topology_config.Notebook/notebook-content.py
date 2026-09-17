@@ -777,6 +777,7 @@ def mandatory_equipment_cover(facility_type):
 
 
 print("process areas by facility type:")
+# (area summary printed below; SCADA tag config follows in the next cell)
 print(f"  {'facility_type':<24}{'areas':>8}{'types':>7}{'mandatory':>11}"
       f"{'mand. equip cover':>19}")
 for _ft in FACILITY_TYPES:
@@ -793,6 +794,220 @@ print()
 print(f"  area offset {AREA_OFFSET_MIN_M:.0f}-{AREA_OFFSET_MAX_M:.0f} m from facility centre"
       f" (asserted under {AREA_OFFSET_MAX_ASSERT_M:.0f} m)")
 print(f"  {len(AREA_TYPE_NAMES)} distinct area types: {', '.join(AREA_TYPE_NAMES)}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+# ---- SCADA instrumentation ---------------------------------------------------------------
+# dim_scada_tag is a SEPARATE registry from dim_sensor. dim_sensor holds the 600 CH4
+# detectors and keeps its contract untouched, because gold.sensor_telemetry depends on its
+# schema; this registry holds process measurements (pressure, flow, temperature, level,
+# vibration, valve position, rpm) and is consumed by the telemetry notebook that follows.
+#
+# INSTRUMENTATION POLICY. Not every asset is instrumented, for two reasons that point the
+# same way. Real fields meter compressors, separators, tanks and metering runs heavily and
+# barely instrument valves or pipe runs at all -- and tag count is the primary control on
+# telemetry volume. At 15-minute cadence each 1,000 tags costs roughly 2.9M rows per 30 days
+# (1000 * 96 * 30), so the cap below is a volume decision as much as a realism one.
+
+# An asset is instrumented if its type is instrumentable AND it clears the criticality
+# bar, capped per facility. The cap is what bounds telemetry volume.
+MAX_INSTRUMENTED_ASSETS_PER_FACILITY = 6
+INSTRUMENTABLE_CRITICALITY = {"Critical", "High"}
+
+# Rank order for selecting which eligible assets get instrumented, once the criticality bar
+# and the per-facility cap bind. Lower sorts first. Compressors are the most consequential
+# rotating equipment on a gathering system and the likeliest source of both fugitive and
+# combustion emissions, so they are instrumented before anything else competing for a slot.
+INSTRUMENT_PRIORITY = {
+    "Compressor":       0,
+    "Separator":        1,
+    "Storage Tank":     2,
+    "Metering Station": 3,
+    "Flare":            4,
+    "Pump":             5,
+}
+CRITICALITY_RANK = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+
+# Tiering. Hot tags are chosen by ASSET CRITICALITY, not at random: the most critical assets
+# get the high-frequency treatment, which is how a real historian is configured.
+HOT_TAG_SHARE = 0.25          # share of tags sampled at high frequency
+HOT_INTERVAL_SECONDS = 300
+STANDARD_INTERVAL_SECONDS = 900
+
+# Storage estimate input. An ASSUMPTION, not a measurement -- see the volume table in 01d.
+# A narrow telemetry row is tag_sk (bigint 8) + ts (timestamp 8) + value (double 8) + a
+# quality byte plus Parquet overhead; Delta's columnar encoding and run-length compression
+# on the tag_sk and quality columns take the effective figure well below the raw 25 bytes.
+ASSUMED_BYTES_PER_TELEMETRY_ROW = 48
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+# ---- Tag taxonomy -------------------------------------------------------------------------
+# Per instrumentable equipment type, the tags it carries. Engineering values are for Permian
+# gathering and field compression.
+#
+# Each template carries:
+#   measurement_type  one of the nine types dim_scada_tag allows
+#   uom               psig, mscfd, bpd, degF, percent, in/s, rpm, inH2O, ratio, state
+#   isa               ISA-5.1 instrument code used to build the tag_id
+#   normal_min/max    the band the process sits in when healthy
+#   alarm_lo/lolo     warning and trip below normal; None where the measurement has no
+#   alarm_hi/hihi     meaningful low or high trip (vibration has no low alarm, a flare
+#                     header has no low-flow trip)
+#   resolution        smallest reportable increment of the instrument
+#   noise_sigma       per-reading measurement noise, in uom
+#   drift_per_year    calibration drift, in uom per year
+#
+# COMBUSTION TAGS -- pilot_flame, stack_temperature, air_fuel_ratio -- exist for a specific
+# downstream reason and should not be trimmed as decoration. 04b_Multi_Gas_Cross_Correlation
+# separates Fugitive Leak from Incomplete Combustion using the NO2 signature: combustion
+# produces NO2 alongside CH4, a cold fugitive leak does not. For that distinction to be
+# legible in the operational data rather than only in the satellite product, the SCADA layer
+# needs tags that can show the combustion case happening -- a flare pilot dropping out, stack
+# temperature falling as the flame dies, air-fuel ratio going rich on a compressor. Without
+# them the enterprise layer cannot corroborate 04b's classification at all.
+
+TAG_TEMPLATES = {
+    "Compressor": [
+        # name,                measurement_type, uom,    isa,  n_min,  n_max,  lo,    lolo,  hi,     hihi,   res,   noise, drift
+        ("suction_pressure",   "pressure",       "psig", "PT",   40.0,  120.0,  30.0,  20.0,  150.0,  175.0,  0.1,   0.8,   1.5),
+        ("discharge_pressure", "pressure",       "psig", "PT",  800.0, 1200.0, 700.0, 600.0, 1300.0, 1450.0,  1.0,   5.0,  12.0),
+        ("suction_temp",       "temperature",    "degF", "TT",   60.0,  110.0,  40.0,  20.0,  130.0,  150.0,  0.1,   0.5,   1.0),
+        ("discharge_temp",     "temperature",    "degF", "TT",  180.0,  280.0, 140.0, 120.0,  310.0,  350.0,  0.1,   1.5,   2.0),
+        ("rpm",                "rpm",            "rpm",  "ST",  900.0, 1200.0, 800.0, 700.0, 1260.0, 1320.0,  1.0,   4.0,   3.0),
+        ("vibration",          "vibration",      "in/s", "VT",    0.05,   0.25, None,  None,     0.40,   0.60, 0.001, 0.010, 0.020),
+        ("flow",               "flow",           "mscfd", "FT", 1500.0, 4500.0, 800.0, 400.0, 5200.0, 6000.0,  1.0,  35.0,  60.0),
+        ("seal_gas_pressure",  "pressure",       "psig", "PT",   45.0,   90.0,  35.0,  25.0,  110.0,  130.0,  0.1,   0.6,   1.2),
+        # combustion -- see the note above
+        ("air_fuel_ratio",     "air_fuel_ratio", "ratio", "AT",  14.0,   17.5,  13.0,  12.0,   19.0,   21.0,  0.01,  0.08,  0.15),
+    ],
+    "Separator": [
+        ("inlet_pressure",     "pressure",       "psig", "PT",   60.0,  260.0,  45.0,  30.0,  300.0,  350.0,  0.1,   1.2,   2.5),
+        ("level",              "level",          "percent", "LT", 30.0,  70.0,  20.0,  10.0,   80.0,   90.0,  0.1,   0.6,   1.0),
+        ("temperature",        "temperature",    "degF", "TT",   70.0,  130.0,  45.0,  32.0,  150.0,  170.0,  0.1,   0.5,   1.0),
+        ("gas_flow",           "flow",           "mscfd", "FT",  300.0, 2500.0, 150.0,  50.0, 3000.0, 3500.0,  1.0,  20.0,  45.0),
+        ("liquid_flow",        "flow",           "bpd",  "FT",   50.0,  600.0,  20.0,   5.0,  750.0,  900.0,  1.0,   6.0,  12.0),
+    ],
+    "Storage Tank": [
+        ("level",              "level",          "percent", "LT", 20.0,  80.0,  12.0,   5.0,   88.0,   95.0,  0.1,   0.4,   0.8),
+        ("vapour_pressure",    "pressure",       "psig", "PT",    0.5,    6.0,   0.2,   0.0,    8.0,   12.0,  0.01,  0.10,  0.20),
+        ("temperature",        "temperature",    "degF", "TT",   55.0,  115.0,  35.0,  20.0,  135.0,  150.0,  0.1,   0.5,   1.0),
+        # A thief hatch stuck open is a classic fugitive source -- normally shut, so the
+        # band is tight and only the high alarms are meaningful.
+        ("thief_hatch_position", "valve_position", "percent", "ZT", 0.0,  2.0,  None,  None,    5.0,   20.0,  0.1,   0.05,  0.10),
+    ],
+    "Metering Station": [
+        ("flow",               "flow",           "mscfd", "FT",  500.0, 4000.0, 250.0, 100.0, 4800.0, 5500.0,  1.0,  25.0,  50.0),
+        ("pressure",           "pressure",       "psig", "PT",  250.0,  900.0, 180.0, 120.0, 1000.0, 1150.0,  0.5,   3.0,   8.0),
+        ("temperature",        "temperature",    "degF", "TT",   50.0,  110.0,  30.0,  15.0,  130.0,  145.0,  0.1,   0.5,   1.0),
+        # Orifice differential -- measurement_type is pressure, but the ISA code and the
+        # unit are the differential ones.
+        ("differential_pressure", "pressure",    "inH2O", "PDT", 20.0,  180.0,  10.0,   4.0,  200.0,  240.0,  0.1,   1.2,   2.5),
+    ],
+    "Flare": [
+        # 1 = pilot lit, 0 = flame out. Only a lolo alarm is meaningful.
+        ("pilot_flame",        "pilot_flame",    "state", "BT",   1.0,    1.0,  None,   0.0,   None,   None,  1.0,   0.0,   0.0),
+        # Normally near zero; a flare only flows on upset, so there is no low alarm.
+        ("flow",               "flow",           "mscfd", "FT",    0.0,  150.0, None,  None,  400.0,  900.0,  0.1,   3.0,   5.0),
+        ("stack_temperature",  "temperature",    "degF", "TT",  900.0, 1800.0, 600.0, 400.0, 2000.0, 2200.0,  1.0,  12.0,  20.0),
+        ("air_fuel_ratio",     "air_fuel_ratio", "ratio", "AT",  15.0,   19.0,  13.5,  12.0,   22.0,   25.0,  0.01,  0.10,  0.20),
+    ],
+    "Pump": [
+        ("discharge_pressure", "pressure",       "psig", "PT",  120.0,  600.0,  90.0,  60.0,  700.0,  820.0,  0.5,   2.5,   6.0),
+        ("flow",               "flow",           "bpd",  "FT",  100.0,  900.0,  50.0,  20.0, 1100.0, 1300.0,  1.0,   8.0,  15.0),
+        ("vibration",          "vibration",      "in/s", "VT",    0.04,   0.22, None,  None,    0.35,   0.55, 0.001, 0.008, 0.015),
+    ],
+}
+
+TAG_TEMPLATE_FIELDS = ("tag_name", "measurement_type", "uom", "isa", "normal_min",
+                       "normal_max", "alarm_lo", "alarm_lolo", "alarm_hi", "alarm_hihi",
+                       "resolution", "noise_sigma", "drift_per_year")
+
+MEASUREMENT_TYPES = {"pressure", "flow", "temperature", "level", "vibration",
+                     "valve_position", "rpm", "pilot_flame", "air_fuel_ratio"}
+
+INSTRUMENTABLE_EQUIPMENT = set(TAG_TEMPLATES)
+UNINSTRUMENTED_EQUIPMENT = set(EQUIPMENT_TYPES) - INSTRUMENTABLE_EQUIPMENT
+
+
+def tag_template_dicts(equipment_type):
+    """Templates for one equipment type, as dicts keyed by TAG_TEMPLATE_FIELDS."""
+    return [dict(zip(TAG_TEMPLATE_FIELDS, t)) for t in TAG_TEMPLATES[equipment_type]]
+
+
+# --- validation -----------------------------------------------------------------------------
+assert INSTRUMENTABLE_CRITICALITY <= {"Low", "Medium", "High", "Critical"}, \
+    "INSTRUMENTABLE_CRITICALITY names a criticality that does not exist"
+assert MAX_INSTRUMENTED_ASSETS_PER_FACILITY > 0, "cap must be positive"
+assert 0.0 < HOT_TAG_SHARE < 1.0, "HOT_TAG_SHARE must be a share strictly between 0 and 1"
+assert HOT_INTERVAL_SECONDS < STANDARD_INTERVAL_SECONDS, \
+    "hot tags must sample faster than standard ones"
+assert set(INSTRUMENT_PRIORITY) == INSTRUMENTABLE_EQUIPMENT, (
+    "INSTRUMENT_PRIORITY must rank exactly the instrumentable equipment types; "
+    f"missing {sorted(INSTRUMENTABLE_EQUIPMENT - set(INSTRUMENT_PRIORITY))}, "
+    f"unexpected {sorted(set(INSTRUMENT_PRIORITY) - INSTRUMENTABLE_EQUIPMENT)}"
+)
+assert INSTRUMENTABLE_EQUIPMENT <= set(EQUIPMENT_TYPES), (
+    f"TAG_TEMPLATES names unknown equipment type(s): "
+    f"{sorted(INSTRUMENTABLE_EQUIPMENT - set(EQUIPMENT_TYPES))}"
+)
+
+for _et, _tmpls in TAG_TEMPLATES.items():
+    _names = [t[0] for t in _tmpls]
+    assert len(_names) == len(set(_names)), f"{_et}: duplicate tag name(s) in TAG_TEMPLATES"
+    for _t in _tmpls:
+        assert len(_t) == len(TAG_TEMPLATE_FIELDS), (
+            f"{_et}/{_t[0]}: template has {len(_t)} fields, expected "
+            f"{len(TAG_TEMPLATE_FIELDS)} ({', '.join(TAG_TEMPLATE_FIELDS)})"
+        )
+        _d = dict(zip(TAG_TEMPLATE_FIELDS, _t))
+        assert _d["measurement_type"] in MEASUREMENT_TYPES, \
+            f"{_et}/{_d['tag_name']}: unknown measurement_type {_d['measurement_type']!r}"
+        assert _d["normal_min"] <= _d["normal_max"], \
+            f"{_et}/{_d['tag_name']}: normal_min above normal_max"
+        assert _d["resolution"] > 0, f"{_et}/{_d['tag_name']}: resolution must be positive"
+        assert _d["noise_sigma"] >= 0 and _d["drift_per_year"] >= 0, \
+            f"{_et}/{_d['tag_name']}: noise and drift must be non-negative"
+        # Alarm limits must be ordered wherever present. Nulls are legitimate -- vibration
+        # has no low trip, a flare header has no low-flow trip -- so the chain is checked
+        # over the values that ARE set, in order.
+        _chain = [("alarm_lolo", _d["alarm_lolo"]), ("alarm_lo", _d["alarm_lo"]),
+                  ("normal_min", _d["normal_min"]), ("normal_max", _d["normal_max"]),
+                  ("alarm_hi", _d["alarm_hi"]), ("alarm_hihi", _d["alarm_hihi"])]
+        _present = [(n, v) for n, v in _chain if v is not None]
+        for (_n1, _v1), (_n2, _v2) in zip(_present, _present[1:]):
+            assert _v1 <= _v2, (
+                f"{_et}/{_d['tag_name']}: alarm limits out of order -- "
+                f"{_n1}={_v1} must not exceed {_n2}={_v2}"
+            )
+
+print("SCADA instrumentation policy:")
+print(f"  instrumentable types     {', '.join(sorted(INSTRUMENTABLE_EQUIPMENT))}")
+print(f"  never instrumented       {', '.join(sorted(UNINSTRUMENTED_EQUIPMENT))}")
+print(f"  criticality bar          {', '.join(sorted(INSTRUMENTABLE_CRITICALITY))}")
+print(f"  cap per facility         {MAX_INSTRUMENTED_ASSETS_PER_FACILITY}"
+      f"  -> at most {MAX_INSTRUMENTED_ASSETS_PER_FACILITY * N_FACILITIES:,} instrumented assets")
+print(f"  tiering                  {HOT_TAG_SHARE:.0%} hot at {HOT_INTERVAL_SECONDS}s,"
+      f" rest at {STANDARD_INTERVAL_SECONDS}s")
+print()
+print(f"  {'equipment_type':<20}{'tags':>6}   tag names")
+for _et in sorted(TAG_TEMPLATES, key=lambda e: INSTRUMENT_PRIORITY[e]):
+    _n = [t[0] for t in TAG_TEMPLATES[_et]]
+    print(f"  {_et:<20}{len(_n):>6}   {', '.join(_n)}")
 
 
 print("asset mix and count by facility type:")

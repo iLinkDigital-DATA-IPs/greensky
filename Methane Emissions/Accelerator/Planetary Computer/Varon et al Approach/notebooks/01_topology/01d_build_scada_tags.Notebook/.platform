@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "01d_build_scada_tags"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "9c7d9891-d04e-4edc-9ab6-c0814bfb01d0"
+  }
+}
