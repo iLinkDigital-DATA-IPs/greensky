@@ -123,6 +123,27 @@ def get_rng(*parts) -> np.random.Generator:
     return np.random.default_rng(_seed(*parts))
 
 
+def stable_key(*parts) -> int:
+    """Deterministic surrogate key derived from a business key, e.g.
+    stable_key("area", "GS-0001-A1").
+
+    Unlike facility_sk / equipment_sk / sensor_sk, which are 1..N sequences assigned in
+    iteration order, this is a hash of the business key. The difference matters for any
+    entity whose count per parent varies: areas are drawn per facility, so a sequential
+    counter would renumber every area downstream of any facility whose area count changed,
+    orphaning anything keyed to the old numbers. A hash depends only on the business key,
+    so an area keeps its key as long as its area_id is regenerated identically.
+
+    TOPOLOGY_SEED is folded in deliberately. A new seed is a new synthetic universe, and
+    GS-0001-A1 under one seed is not the same physical area as GS-0001-A1 under another --
+    they should not share a surrogate key and silently alias in a downstream join.
+
+    Returns a non-negative 63-bit int, so it fits Spark's bigint without wrapping negative.
+    """
+    h = hashlib.sha256("|".join(map(str, (TOPOLOGY_SEED, *parts))).encode()).hexdigest()
+    return int(h[:16], 16) & 0x7FFF_FFFF_FFFF_FFFF
+
+
 def haversine_km(lat1, lon1, lat2, lon2):
     """Great-circle distance in km. Vectorised — scalars or arrays."""
     R = 6371.0
@@ -537,6 +558,241 @@ def equipment_weights(facility_type):
     """Weight vector over EQUIPMENT_TYPE_NAMES, in that fixed order."""
     w = TYPE_EQUIPMENT_WEIGHTS[facility_type]
     return [w[t] for t in EQUIPMENT_TYPE_NAMES]
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+# ---- Process areas ----------------------------------------------------------------------
+# The hierarchy is facility -> area -> asset. Real sites are organised into process areas,
+# SCADA tags are named and grouped by area, and operations teams triage by area, so this
+# level has to exist before any tag or telemetry layer sits on top of it.
+#
+# Per facility type: which areas it may contain, how likely each is, and which equipment
+# types belong there. Consumed by 01c_build_area_topology.
+#
+#   weight      relative likelihood of an optional area being drawn
+#   mandatory   always present -- the areas without which the site does not function
+#   repeatable  may appear more than once at one facility (Compression Train A, B, ...);
+#               only used to pad out to the target count after distinct types are exhausted
+#   equipment   equipment types this area accepts
+#
+# TWO CONSTRAINTS SHAPED THIS MAPPING, and both are worth knowing before editing it:
+#
+# 1. TYPE_EQUIPMENT_WEIGHTS gives EVERY equipment type a non-zero weight at EVERY facility
+#    type -- deliberately, so no category vanishes from the estate. So any facility can hold
+#    any equipment type, and an asset whose type no area accepts has to go somewhere. That
+#    is what the fallback in 01c is for. Keeping the fallback rate low means the mandatory
+#    areas alone should accept most of the equipment weight for their facility type.
+#
+# 2. An equipment type accepted by only one area type is fragile: if that area is optional
+#    and is not drawn, every asset of that type at that facility falls back. High-weight
+#    equipment is therefore accepted by two or three areas wherever that is physically
+#    honest -- a flare knockout drum really is a separator, tank vapour really does go to a
+#    flare, and valves and pipe runs really are everywhere.
+#
+# Divergences from the shape this was scoped around, with reasons:
+#   - Gathering System gains "Field Compression" and moves from 2-4 areas to 3-5 with
+#     Metering mandatory. Without it, Compressor (6%), Flare (2%) and Metering Station (14%)
+#     had no home at a gathering site -- 22% of its assets falling back, well over the
+#     threshold.
+#   - Central Delivery Point gains "Utilities". Metering and Custody Transfer between them
+#     accept nothing that is not metering, valve, pipe or separator, leaving Compressor
+#     (10%), Pump (5%), Storage Tank (2%) and Flare (2%) homeless.
+#   - Tank Farm accepts Flare as well as Tank Battery's Vapour Recovery area. Flare carries
+#     11% weight at a tank battery and Vapour Recovery is optional, so on its own it left a
+#     large fallback whenever that area was not drawn.
+
+AREA_TYPES = {
+    "Gas Processing Plant": {
+        "Inlet Separation":  {"weight": 0.20, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Separator", "Valve", "Pipeline Segment", "Pump"]},
+        "Compression Train": {"weight": 0.20, "mandatory": True,  "repeatable": True,
+                              "equipment": ["Compressor", "Valve", "Pump", "Separator",
+                                            "Metering Station"]},
+        "Treating":          {"weight": 0.22, "mandatory": False, "repeatable": False,
+                              "equipment": ["Separator", "Valve", "Pump", "Storage Tank",
+                                            "Flare"]},
+        "Storage":           {"weight": 0.18, "mandatory": False, "repeatable": False,
+                              "equipment": ["Storage Tank", "Pump", "Valve", "Flare"]},
+        "Metering":          {"weight": 0.20, "mandatory": False, "repeatable": False,
+                              "equipment": ["Metering Station", "Valve", "Pipeline Segment"]},
+        "Flare":             {"weight": 0.20, "mandatory": False, "repeatable": False,
+                              "equipment": ["Flare", "Valve", "Pipeline Segment", "Separator"]},
+    },
+    "Compression Station": {
+        "Compression Train": {"weight": 0.25, "mandatory": True,  "repeatable": True,
+                              "equipment": ["Compressor", "Valve", "Pump", "Separator"]},
+        "Suction Scrubbing": {"weight": 0.20, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Separator", "Valve", "Pump", "Storage Tank"]},
+        "Metering":          {"weight": 0.28, "mandatory": False, "repeatable": False,
+                              "equipment": ["Metering Station", "Valve", "Pipeline Segment"]},
+        "Utilities":         {"weight": 0.27, "mandatory": False, "repeatable": False,
+                              "equipment": ["Pump", "Valve", "Storage Tank", "Flare",
+                                            "Metering Station", "Pipeline Segment"]},
+    },
+    "Gathering System": {
+        "Gathering Lines":   {"weight": 0.20, "mandatory": True,  "repeatable": True,
+                              "equipment": ["Pipeline Segment", "Valve"]},
+        "Separation":        {"weight": 0.20, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Separator", "Valve", "Storage Tank", "Pump"]},
+        "Metering":          {"weight": 0.20, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Metering Station", "Valve", "Pipeline Segment"]},
+        "Field Compression": {"weight": 0.55, "mandatory": False, "repeatable": False,
+                              "equipment": ["Compressor", "Valve", "Flare", "Separator",
+                                            "Pump"]},
+        "Pigging":           {"weight": 0.45, "mandatory": False, "repeatable": False,
+                              "equipment": ["Pipeline Segment", "Valve", "Separator"]},
+    },
+    "Tank Battery": {
+        "Separation":        {"weight": 0.25, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Separator", "Valve", "Pump"]},
+        "Tank Farm":         {"weight": 0.25, "mandatory": True,  "repeatable": True,
+                              "equipment": ["Storage Tank", "Valve", "Pump",
+                                            "Pipeline Segment", "Flare"]},
+        "Vapour Recovery":   {"weight": 0.30, "mandatory": False, "repeatable": False,
+                              "equipment": ["Compressor", "Valve", "Flare", "Separator"]},
+        "Loadout":           {"weight": 0.20, "mandatory": False, "repeatable": False,
+                              "equipment": ["Pump", "Valve", "Metering Station",
+                                            "Pipeline Segment"]},
+    },
+    "Central Delivery Point": {
+        "Metering":          {"weight": 0.25, "mandatory": True,  "repeatable": True,
+                              "equipment": ["Metering Station", "Valve", "Pipeline Segment"]},
+        "Custody Transfer":  {"weight": 0.25, "mandatory": True,  "repeatable": False,
+                              "equipment": ["Metering Station", "Valve", "Pipeline Segment",
+                                            "Separator", "Pump"]},
+        "Utilities":         {"weight": 0.60, "mandatory": False, "repeatable": False,
+                              "equipment": ["Pump", "Valve", "Storage Tank", "Flare",
+                                            "Compressor"]},
+        "Pigging":           {"weight": 0.40, "mandatory": False, "repeatable": False,
+                              "equipment": ["Pipeline Segment", "Valve", "Separator"]},
+    },
+}
+
+# Areas per facility, by facility type. Sized so assets divide sensibly: a Tank Battery
+# holding 8 assets must not be split across 6 areas. Against EQUIP_COUNT_BY_TYPE these give
+# roughly 4-8 assets per area at the small end of each range, which is a plausible area.
+#
+# Gathering System moved from the 2-4 this was scoped around to 3-5, because Metering had to
+# become mandatory (see above) and three mandatory areas cannot fit in a 2-area minimum.
+AREAS_PER_FACILITY = {
+    "Gas Processing Plant":   (4, 6),
+    "Compression Station":    (3, 5),
+    "Gathering System":       (3, 5),
+    "Tank Battery":           (2, 4),
+    "Central Delivery Point": (2, 3),
+}
+
+# Criticality by area type. Areas holding rotating equipment or vapour handling rank higher;
+# metering and pigging are consequential but not immediately hazardous.
+AREA_CRITICALITY_WEIGHTS = {
+    "Compression Train": {"Critical": 0.35, "High": 0.40, "Medium": 0.20, "Low": 0.05},
+    "Field Compression": {"Critical": 0.30, "High": 0.40, "Medium": 0.25, "Low": 0.05},
+    "Vapour Recovery":   {"Critical": 0.30, "High": 0.40, "Medium": 0.25, "Low": 0.05},
+    "Treating":          {"Critical": 0.25, "High": 0.40, "Medium": 0.30, "Low": 0.05},
+    "Flare":             {"Critical": 0.25, "High": 0.35, "Medium": 0.30, "Low": 0.10},
+    "Inlet Separation":  {"Critical": 0.20, "High": 0.40, "Medium": 0.30, "Low": 0.10},
+    "Separation":        {"Critical": 0.15, "High": 0.35, "Medium": 0.35, "Low": 0.15},
+    "Suction Scrubbing": {"Critical": 0.15, "High": 0.35, "Medium": 0.35, "Low": 0.15},
+    "Tank Farm":         {"Critical": 0.15, "High": 0.30, "Medium": 0.40, "Low": 0.15},
+    "Storage":           {"Critical": 0.10, "High": 0.30, "Medium": 0.40, "Low": 0.20},
+    "Custody Transfer":  {"Critical": 0.10, "High": 0.35, "Medium": 0.40, "Low": 0.15},
+    "Loadout":           {"Critical": 0.05, "High": 0.25, "Medium": 0.45, "Low": 0.25},
+    "Metering":          {"Critical": 0.05, "High": 0.25, "Medium": 0.45, "Low": 0.25},
+    "Gathering Lines":   {"Critical": 0.05, "High": 0.25, "Medium": 0.45, "Low": 0.25},
+    "Pigging":           {"Critical": 0.05, "High": 0.20, "Medium": 0.45, "Low": 0.30},
+    "Utilities":         {"Critical": 0.05, "High": 0.20, "Medium": 0.45, "Low": 0.30},
+}
+
+# Area offset from the facility centre, in metres.
+#
+# These coordinates exist for PLAUSIBILITY and for future asset-level attribution. They are
+# NOT something the detection layer can resolve and must never be presented as such: a
+# TROPOMI pixel is ~5.5 x 7.0 km, so an entire facility -- every area in it -- sits inside a
+# fraction of one pixel. Area-level geography is three orders of magnitude below the
+# instrument's resolving power. Any dashboard that appears to attribute a plume to an area
+# rather than a site is showing an artefact of this offset, not a measurement.
+AREA_OFFSET_MIN_M = 100.0
+AREA_OFFSET_MAX_M = 300.0
+AREA_OFFSET_MAX_ASSERT_M = 500.0   # asserted in 01c; headroom over the draw above
+
+# --- validation ---------------------------------------------------------------------------
+assert set(AREA_TYPES) == set(FACILITY_TYPES), (
+    "AREA_TYPES must cover exactly the facility types in TYPE_DESCRIPTORS; "
+    f"missing {set(FACILITY_TYPES) - set(AREA_TYPES)}, "
+    f"unexpected {set(AREA_TYPES) - set(FACILITY_TYPES)}"
+)
+assert set(AREAS_PER_FACILITY) == set(FACILITY_TYPES), \
+    "AREAS_PER_FACILITY must cover exactly the facility types in TYPE_DESCRIPTORS"
+
+AREA_TYPE_NAMES = sorted({a for spec in AREA_TYPES.values() for a in spec})
+assert set(AREA_CRITICALITY_WEIGHTS) >= set(AREA_TYPE_NAMES), (
+    "AREA_CRITICALITY_WEIGHTS is missing area type(s): "
+    f"{sorted(set(AREA_TYPE_NAMES) - set(AREA_CRITICALITY_WEIGHTS))}"
+)
+for _at, _w in AREA_CRITICALITY_WEIGHTS.items():
+    assert abs(sum(_w.values()) - 1.0) < 1e-9, \
+        f"{_at}: criticality weights sum to {sum(_w.values()):.4f}, must be 1"
+
+for _ft, _spec in AREA_TYPES.items():
+    _lo, _hi = AREAS_PER_FACILITY[_ft]
+    _mand = [a for a, s in _spec.items() if s["mandatory"]]
+    _repeatable = [a for a, s in _spec.items() if s["repeatable"]]
+
+    assert 0 < _lo <= _hi, f"{_ft}: invalid area range ({_lo}, {_hi})"
+    # The mandatory set has to fit inside the minimum, or a facility cannot be built.
+    assert len(_mand) <= _lo, (
+        f"{_ft}: {len(_mand)} mandatory areas ({', '.join(_mand)}) but AREAS_PER_FACILITY "
+        f"minimum is {_lo}. Raise the minimum or make an area optional."
+    )
+    # The maximum has to be reachable, else the target count can never be met.
+    assert len(_spec) >= _hi or _repeatable, (
+        f"{_ft}: only {len(_spec)} area types defined but the range reaches {_hi}, and no "
+        "area is repeatable, so a facility could not be filled to its target count."
+    )
+    for _a, _s in _spec.items():
+        assert _s["equipment"], f"{_ft}/{_a}: no equipment types accepted"
+        _unknown = set(_s["equipment"]) - set(EQUIPMENT_TYPES)
+        assert not _unknown, f"{_ft}/{_a}: unknown equipment type(s) {sorted(_unknown)}"
+        assert _s["weight"] > 0, f"{_ft}/{_a}: weight must be positive"
+
+
+def mandatory_equipment_cover(facility_type):
+    """Share of a facility type's equipment weight its MANDATORY areas alone accept.
+
+    Anything outside this is at risk of falling back to the primary area whenever the
+    optional area that would have accepted it is not drawn. A diagnostic, not a guarantee:
+    the realised rate depends on which optional areas each facility draws, and 01c measures
+    that directly and fails above 10%.
+    """
+    spec = AREA_TYPES[facility_type]
+    covered = {e for a, s in spec.items() if s["mandatory"] for e in s["equipment"]}
+    return sum(w for t, w in TYPE_EQUIPMENT_WEIGHTS[facility_type].items() if t in covered)
+
+
+print("process areas by facility type:")
+print(f"  {'facility_type':<24}{'areas':>8}{'types':>7}{'mandatory':>11}"
+      f"{'mand. equip cover':>19}")
+for _ft in FACILITY_TYPES:
+    _lo, _hi = AREAS_PER_FACILITY[_ft]
+    _spec = AREA_TYPES[_ft]
+    _mand = [a for a, s in _spec.items() if s["mandatory"]]
+    print(f"  {_ft:<24}{f'{_lo}-{_hi}':>8}{len(_spec):>7}{len(_mand):>11}"
+          f"{mandatory_equipment_cover(_ft):>18.0%}")
+print()
+print("  'mand. equip cover' is the share of that facility type's equipment weight the")
+print("  mandatory areas alone accept. The rest depends on which optional areas are drawn;")
+print("  01c measures the realised fallback rate and fails above 10%.")
+print()
+print(f"  area offset {AREA_OFFSET_MIN_M:.0f}-{AREA_OFFSET_MAX_M:.0f} m from facility centre"
+      f" (asserted under {AREA_OFFSET_MAX_ASSERT_M:.0f} m)")
+print(f"  {len(AREA_TYPE_NAMES)} distinct area types: {', '.join(AREA_TYPE_NAMES)}")
 
 
 print("asset mix and count by facility type:")
