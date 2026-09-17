@@ -142,18 +142,46 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # CELL ********************
 
 # ---- Geography -------------------------------------------------------------------------
-# Three real Permian sub-basin anchors, all comfortably inside CONFIG["bbox"]
+# Four real Permian sub-basin anchors, all comfortably inside CONFIG["bbox"]
 # (lat 30.5..33.5, lon -105.0..-101.0). Compare V1, whose second anchor "Texas Site A" sat at
 # lat 30.2 -- below the BBOX floor -- and carried 40% of the estate.
 #
 # Every anchor plus PERIMETER_RADIUS_DEG stays inside the BBOX, so the inside and perimeter
 # bands cannot leak past an edge; the clamp in sample_facility_location is a guard, not a
-# load-bearing step.
+# load-bearing step. This is asserted below -- it constrains how far north an anchor can sit.
+#
+# NORTHWEST SHELF EXISTS TO COVER THE NORTHERN BBOX. Do not remove it as geologically
+# arbitrary. Evidence, from running 01a/01b/05 against the three-anchor estate:
+#
+#   - 32 of 75 plumes attributed to no facility, every one with facilities_in_range = 0.
+#     The search found no candidate at all, so this was not scoring or the upwind cone
+#     rejecting candidates -- there were none to reject.
+#   - Nearest facility to an unattributed plume: min 55.2 km, median 72.1 km, max 128.2 km.
+#     Every one beyond attribution_search_radius_km (50 km).
+#   - Attributed plumes: nearest facility median 15.3 km, max 49.9 km. The two groups do
+#     not overlap at all.
+#   - Unattributed plumes sat at median latitude 32.96, attributed at 31.88. The other
+#     three anchors are at 31.75, 31.95 and 32.05, so facilities thinned out above ~32.5
+#     while the BBOX runs to 33.5.
+#   - wind_alignment_deg overlapped almost entirely between the groups (unattributed
+#     4.8-82.1 deg, attributed 0.5-88.4 deg, near-identical standard deviations), ruling
+#     out wind geometry as the cause.
+#
+# The attribution logic was behaving correctly; the estate simply did not cover the
+# northern third of the footprint. The coverage cell in 01a measures this directly -- run
+# it before changing any anchor.
+#
+# Placed at 32.90 N rather than the 33.0 N this was scoped around: an anchor plus
+# PERIMETER_RADIUS_DEG (0.55) must stay under the clamp at max_lat - EDGE_INSET_DEG =
+# 33.48, which caps anchor latitude at 32.93. At 33.0 the perimeter band would reach 33.55
+# and the clamp would start binding, which would flatten facilities against the BBOX edge
+# and make the clamp load-bearing rather than a guard.
 
 ANCHORS = {
-    "Midland Basin":          {"lat": 32.05, "lon": -102.10, "weight": 0.45},
-    "Delaware Basin":         {"lat": 31.75, "lon": -103.70, "weight": 0.40},
-    "Central Basin Platform": {"lat": 31.95, "lon": -102.90, "weight": 0.15},
+    "Midland Basin":          {"lat": 32.05, "lon": -102.10, "weight": 0.37},
+    "Delaware Basin":         {"lat": 31.75, "lon": -103.70, "weight": 0.33},
+    "Northwest Shelf":        {"lat": 32.90, "lon": -102.20, "weight": 0.18},
+    "Central Basin Platform": {"lat": 31.95, "lon": -102.90, "weight": 0.12},
 }
 
 REGION_RADIUS_DEG    = 0.30   # ~33 km core
@@ -182,6 +210,24 @@ for _name, _a in ANCHORS.items():
            and BBOX["min_lon"] <= _a["lon"] <= BBOX["max_lon"])
     print(f"  {_name:<24} {_a['lat']:.2f}N {abs(_a['lon']):.2f}W  w={_a['weight']:.2f}  in_bbox={_in}")
     assert _in, f"anchor {_name} is outside CONFIG['bbox'] -- this is the V1 defect"
+
+    # The perimeter band must fit between the anchor and the clamp, or facilities pile up
+    # flat against the BBOX edge and the clamp stops being a guard. Longitude is checked at
+    # the anchor's latitude, since the lon offset is divided by cos(lat).
+    _lat_room = min(_a["lat"] - (BBOX["min_lat"] + EDGE_INSET_DEG),
+                    (BBOX["max_lat"] - EDGE_INSET_DEG) - _a["lat"])
+    _lon_half = PERIMETER_RADIUS_DEG / np.cos(np.radians(_a["lat"]))
+    _lon_room = min(_a["lon"] - (BBOX["min_lon"] + EDGE_INSET_DEG),
+                    (BBOX["max_lon"] - EDGE_INSET_DEG) - _a["lon"])
+    assert _lat_room >= PERIMETER_RADIUS_DEG, (
+        f"anchor {_name} at lat {_a['lat']} leaves only {_lat_room:.3f} deg to the clamp, "
+        f"less than PERIMETER_RADIUS_DEG ({PERIMETER_RADIUS_DEG}). Its perimeter band would "
+        "be clipped flat against the BBOX edge. Move the anchor inward or shrink the radius."
+    )
+    assert _lon_room >= _lon_half, (
+        f"anchor {_name} at lon {_a['lon']} leaves only {_lon_room:.3f} deg to the clamp, "
+        f"less than the {_lon_half:.3f} deg the perimeter band spans at that latitude."
+    )
 print(f"Band split: {FACILITY_SPLIT}")
 print(f"Outside band bounded to {OUTSIDE_MIN_DEG}-{OUTSIDE_MAX_DEG} deg beyond the BBOX edge")
 

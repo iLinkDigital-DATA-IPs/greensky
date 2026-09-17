@@ -370,6 +370,143 @@ print("columns:", ", ".join(fac_pdf.columns))
 
 # MARKDOWN ********************
 
+# ### Attribution coverage — can every plume reach a facility?
+#
+# Runs **before the write**, so a coverage gap is visible in the same run that would
+# introduce it rather than after `05` has already failed to attribute anything.
+#
+# For every plume in `gold_plume_catalog`, the distance to the **nearest** facility. A plume
+# whose nearest facility is beyond `CONFIG["attribution_search_radius_km"]` cannot be
+# attributed by `05` at all: the candidate search returns nothing, so it exits with
+# `facilities_in_range = 0` before scoring or the upwind cone ever run. No amount of wind
+# geometry rescues it.
+#
+# The latitude comparison at the end is the part that matters. A bare count says coverage is
+# short; comparing the median latitude of uncovered plumes against covered ones says *where*,
+# which is what identifies a missing anchor. This is exactly how the northern gap was found —
+# uncovered plumes sat at median latitude 32.96 against 31.88 for covered ones, and the
+# `Northwest Shelf` anchor was added to close it.
+#
+# Read-only, and skipped cleanly when `gold_plume_catalog` is absent or empty so `01a` still
+# runs on a fresh workspace before any detection has happened.
+
+# CELL ********************
+
+cov_plumes = None
+try:
+    if spark.catalog.tableExists("gold_plume_catalog"):
+        cov_plumes = spark.table("gold_plume_catalog").toPandas()
+    else:
+        print("gold_plume_catalog does not exist yet -- skipping the attribution coverage check.")
+        print("Run 04_derive_emissions, then rerun this cell before trusting the estate's coverage.")
+except Exception as exc:
+    print(f"could not read gold_plume_catalog ({type(exc).__name__}: {exc}) -- skipping")
+
+if cov_plumes is not None and len(cov_plumes) == 0:
+    print("gold_plume_catalog is empty -- skipping the attribution coverage check.")
+    cov_plumes = None
+
+if cov_plumes is not None:
+    _missing = [c for c in ("source_lat", "source_lon") if c not in cov_plumes.columns]
+    if _missing:
+        print(f"gold_plume_catalog lacks {_missing} -- cannot measure coverage")
+        cov_plumes = None
+
+if cov_plumes is not None:
+    search_km = CONFIG["attribution_search_radius_km"]
+
+    p_lat = cov_plumes["source_lat"].to_numpy(dtype=float)
+    p_lon = cov_plumes["source_lon"].to_numpy(dtype=float)
+    f_lat = fac_pdf["facility_lat"].to_numpy(dtype=float)
+    f_lon = fac_pdf["facility_lon"].to_numpy(dtype=float)
+
+    # plumes x facilities, then the nearest facility for each plume
+    d_km = haversine_km(p_lat[:, None], p_lon[:, None], f_lat[None, :], f_lon[None, :])
+    nearest_km = d_km.min(axis=1)
+
+    print(f"{len(cov_plumes)} plumes, {len(fac_pdf)} facilities, "
+          f"attribution radius {search_km:.0f} km")
+    print()
+    print("distance from each plume to its NEAREST facility (km):")
+    for label, val in [
+        ("min", nearest_km.min()),
+        ("p25", np.percentile(nearest_km, 25)),
+        ("median", np.median(nearest_km)),
+        ("p75", np.percentile(nearest_km, 75)),
+        ("p90", np.percentile(nearest_km, 90)),
+        ("max", nearest_km.max()),
+        ("mean", nearest_km.mean()),
+    ]:
+        print(f"  {label:<8}{val:>9.1f}")
+
+    print()
+    print("  histogram:")
+    edges = [0, 10, 20, 30, 40, 50, 75, 100, np.inf]
+    for lo_e, hi_e in zip(edges[:-1], edges[1:]):
+        n_b = int(((nearest_km >= lo_e) & (nearest_km < hi_e)).sum())
+        band_lbl = f"{lo_e:.0f}-{hi_e:.0f}" if np.isfinite(hi_e) else f"{lo_e:.0f}+"
+        beyond = "  <- beyond attribution radius" if lo_e >= search_km else ""
+        bar = "#" * int(round(40 * n_b / max(len(cov_plumes), 1)))
+        print(f"  {band_lbl:>8} km {n_b:>5}  {bar}{beyond}")
+
+    uncovered = nearest_km > search_km
+    n_unc = int(uncovered.sum())
+    share_unc = n_unc / len(cov_plumes)
+
+    print()
+    print(f"beyond {search_km:.0f} km (unattributable by 05): "
+          f"{n_unc} / {len(cov_plumes)}  ({share_unc:.1%})")
+    print(f"within  {search_km:.0f} km: {len(cov_plumes) - n_unc} / {len(cov_plumes)}  "
+          f"({1 - share_unc:.1%})")
+
+    # Direction of the gap. A count alone says coverage is short; the latitude split says
+    # which part of the footprint is short, which is what points at a missing anchor.
+    print()
+    if n_unc and n_unc < len(cov_plumes):
+        lat_unc = float(np.median(p_lat[uncovered]))
+        lat_cov = float(np.median(p_lat[~uncovered]))
+        lon_unc = float(np.median(p_lon[uncovered]))
+        lon_cov = float(np.median(p_lon[~uncovered]))
+        print("median position, uncovered vs covered plumes:")
+        print(f"  {'':<12}{'latitude':>10}{'longitude':>12}{'nearest km':>13}")
+        print(f"  {'uncovered':<12}{lat_unc:>10.2f}{lon_unc:>12.2f}"
+              f"{np.median(nearest_km[uncovered]):>13.1f}")
+        print(f"  {'covered':<12}{lat_cov:>10.2f}{lon_cov:>12.2f}"
+              f"{np.median(nearest_km[~uncovered]):>13.1f}")
+        print(f"  {'difference':<12}{lat_unc - lat_cov:>+10.2f}{lon_unc - lon_cov:>+12.2f}")
+    elif n_unc:
+        print(f"every plume is beyond {search_km:.0f} km -- no covered group to compare against")
+    else:
+        print(f"no uncovered plumes: median latitude of covered plumes is "
+              f"{np.median(p_lat):.2f}")
+
+    print()
+    if share_unc > 0.20:
+        lat_unc = float(np.median(p_lat[uncovered]))
+        lon_unc = float(np.median(p_lon[uncovered]))
+        print(f"NOTE  {share_unc:.1%} of plumes ({n_unc} of {len(cov_plumes)}) have no facility")
+        print(f"      within the {search_km:.0f} km attribution radius. 05 will return")
+        print(f"      facilities_in_range = 0 for all of them.")
+        print(f"      Uncovered plumes centre on {lat_unc:.2f} N, {abs(lon_unc):.2f} W "
+              f"(median nearest facility {np.median(nearest_km[uncovered]):.1f} km).")
+        print(f"      Anchors currently at: "
+              + ", ".join(f"{n} {a['lat']:.2f}N/{abs(a['lon']):.2f}W"
+                          for n, a in ANCHORS.items()))
+        print(f"      Consider an anchor near the uncovered centroid, or raising")
+        print(f"      CONFIG['attribution_search_radius_km'] above {search_km:.0f}.")
+    else:
+        print(f"OK    {1 - share_unc:.1%} of plumes have a facility inside the "
+              f"{search_km:.0f} km attribution radius.")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
 # ### Write `dim_facility` and `ref_facilities`
 
 # CELL ********************
