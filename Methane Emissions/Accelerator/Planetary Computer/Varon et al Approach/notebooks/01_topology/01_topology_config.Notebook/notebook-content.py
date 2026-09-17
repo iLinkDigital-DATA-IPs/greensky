@@ -146,9 +146,11 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # (lat 30.5..33.5, lon -105.0..-101.0). Compare V1, whose second anchor "Texas Site A" sat at
 # lat 30.2 -- below the BBOX floor -- and carried 40% of the estate.
 #
-# Every anchor plus PERIMETER_RADIUS_DEG stays inside the BBOX, so the inside and perimeter
+# Every anchor plus its perimeter radius stays inside the BBOX, so the inside and perimeter
 # bands cannot leak past an edge; the clamp in sample_facility_location is a guard, not a
-# load-bearing step. This is asserted below -- it constrains how far north an anchor can sit.
+# load-bearing step. This is asserted below, per anchor. Where an anchor has no room for the
+# default radii it carries its own tighter pair rather than being moved -- see Northwest
+# Shelf, and read radii through anchor_radii(), never as globals.
 #
 # NORTHWEST SHELF EXISTS TO COVER THE NORTHERN BBOX. Do not remove it as geologically
 # arbitrary. Evidence, from running 01a/01b/05 against the three-anchor estate:
@@ -171,21 +173,53 @@ def haversine_km(lat1, lon1, lat2, lon2):
 # northern third of the footprint. The coverage cell in 01a measures this directly -- run
 # it before changing any anchor.
 #
-# Placed at 32.90 N rather than the 33.0 N this was scoped around: an anchor plus
-# PERIMETER_RADIUS_DEG (0.55) must stay under the clamp at max_lat - EDGE_INSET_DEG =
-# 33.48, which caps anchor latitude at 32.93. At 33.0 the perimeter band would reach 33.55
-# and the clamp would start binding, which would flatten facilities against the BBOX edge
-# and make the clamp load-bearing rather than a guard.
+# Placed at 32.90 N rather than the 33.0 N this was scoped around: an anchor plus its
+# perimeter radius must stay under the clamp at max_lat - EDGE_INSET_DEG = 33.48. At the
+# 0.55 perimeter in force when the anchor was added, that capped anchor latitude at 32.93;
+# at 33.0 the band would have reached 33.55 and the clamp would have started binding,
+# flattening facilities against the BBOX edge and making the clamp load-bearing rather than
+# a guard. The radii have since widened and this anchor now carries an override instead.
 
 ANCHORS = {
     "Midland Basin":          {"lat": 32.05, "lon": -102.10, "weight": 0.37},
     "Delaware Basin":         {"lat": 31.75, "lon": -103.70, "weight": 0.33},
-    "Northwest Shelf":        {"lat": 32.90, "lon": -102.20, "weight": 0.18},
+    # Northwest Shelf carries its own, tighter radii. At 32.90 N it has only 0.580 deg to
+    # the clamp, so the global 0.85 perimeter would be clipped flat against the BBOX ceiling
+    # (~17% of its perimeter draws, ~0.9 facilities a run pinned at exactly 33.48). Rather
+    # than move the anchor -- it sits where the northern coverage gap is -- or shrink the
+    # radii everywhere, this cluster is simply more compressed. That is also the more
+    # faithful reading: a shelf edge has less room to spread than a basin interior.
+    #
+    # Both radii are overridden, not just the perimeter. Setting perimeter to 0.55 alone
+    # would equal REGION_RADIUS_DEG and collapse the perimeter band to zero width, pinning
+    # every perimeter facility onto an exact ring. The pair preserves the global
+    # region:perimeter ratio (0.55/0.85 = 0.647), so the cluster keeps its shape and only
+    # its scale changes. 0.57 leaves 0.01 deg of margin to the clamp.
+    "Northwest Shelf":        {"lat": 32.90, "lon": -102.20, "weight": 0.18,
+                               "region_radius": 0.37, "perimeter_radius": 0.57},
     "Central Basin Platform": {"lat": 31.95, "lon": -102.90, "weight": 0.12},
 }
 
-REGION_RADIUS_DEG    = 0.30   # ~33 km core
-PERIMETER_RADIUS_DEG = 0.55   # outer band
+# Widened from 0.30 / 0.55. Four clusters of radius 0.30 left large interstitial voids: at
+# 150 facilities over a 3 x 4 degree BBOX -- roughly one per 300 km2 -- concentrating them
+# into four islands meant plumes landing between clusters had no facility inside the 50 km
+# attribution radius, even after the northern gap was closed. Unattributed plumes stopped
+# being directional (median latitude 31.76 against 31.97 for attributed) but their nearest
+# facility still ran 51.1 km minimum, 67.4 km median, 95.0 km maximum. Real Permian
+# infrastructure is more continuous than four islands, so spreading the estate is the more
+# faithful model as well as the one that closes the voids.
+# Defaults. An anchor may override either with "region_radius" / "perimeter_radius" when the
+# BBOX edge leaves it no room -- see Northwest Shelf above. Read them through
+# anchor_radii(name), never as globals, or per-anchor overrides are silently ignored.
+REGION_RADIUS_DEG    = 0.55   # ~61 km core
+PERIMETER_RADIUS_DEG = 0.85   # outer band
+
+
+def anchor_radii(anchor_name):
+    """(region_radius, perimeter_radius) for one anchor, honouring per-anchor overrides."""
+    a = ANCHORS[anchor_name]
+    return (a.get("region_radius", REGION_RADIUS_DEG),
+            a.get("perimeter_radius", PERIMETER_RADIUS_DEG))
 
 # Band mix. The outside band exists to exercise attribution confidence tiers and the
 # NO_FACILITY_IN_RANGE path in 05 -- it is a perimeter case, not a generation bug, so it is
@@ -204,29 +238,48 @@ EDGE_INSET_DEG  = 0.02   # inside/perimeter draws are clamped this far inside ea
 assert abs(sum(FACILITY_SPLIT.values()) - 1.0) < 1e-9, "FACILITY_SPLIT must sum to 1"
 assert abs(sum(a["weight"] for a in ANCHORS.values()) - 1.0) < 1e-9, "ANCHOR weights must sum to 1"
 
+MIN_BAND_WIDTH_DEG = 0.05   # perimeter band must be wider than this, or it is a ring
+
 print("Anchors (all inside CONFIG['bbox']):")
+print(f"  {'anchor':<24}{'position':>18}{'w':>6}{'region':>8}{'perim':>7}{'lat room':>10}")
 for _name, _a in ANCHORS.items():
+    _reg, _per = anchor_radii(_name)
     _in = (BBOX["min_lat"] <= _a["lat"] <= BBOX["max_lat"]
            and BBOX["min_lon"] <= _a["lon"] <= BBOX["max_lon"])
-    print(f"  {_name:<24} {_a['lat']:.2f}N {abs(_a['lon']):.2f}W  w={_a['weight']:.2f}  in_bbox={_in}")
-    assert _in, f"anchor {_name} is outside CONFIG['bbox'] -- this is the V1 defect"
 
     # The perimeter band must fit between the anchor and the clamp, or facilities pile up
     # flat against the BBOX edge and the clamp stops being a guard. Longitude is checked at
     # the anchor's latitude, since the lon offset is divided by cos(lat).
     _lat_room = min(_a["lat"] - (BBOX["min_lat"] + EDGE_INSET_DEG),
                     (BBOX["max_lat"] - EDGE_INSET_DEG) - _a["lat"])
-    _lon_half = PERIMETER_RADIUS_DEG / np.cos(np.radians(_a["lat"]))
+    _lon_half = _per / np.cos(np.radians(_a["lat"]))
     _lon_room = min(_a["lon"] - (BBOX["min_lon"] + EDGE_INSET_DEG),
                     (BBOX["max_lon"] - EDGE_INSET_DEG) - _a["lon"])
-    assert _lat_room >= PERIMETER_RADIUS_DEG, (
+
+    _override = " (override)" if ("region_radius" in _a or "perimeter_radius" in _a) else ""
+    _pos = "{:.2f}N {:.2f}W".format(_a["lat"], abs(_a["lon"]))
+    print(f"  {_name:<24}{_pos:>18}{_a['weight']:>6.2f}"
+          f"{_reg:>8.2f}{_per:>7.2f}{_lat_room:>10.3f}{_override}")
+
+    assert _in, f"anchor {_name} is outside CONFIG['bbox'] -- this is the V1 defect"
+    assert _lat_room >= _per, (
         f"anchor {_name} at lat {_a['lat']} leaves only {_lat_room:.3f} deg to the clamp, "
-        f"less than PERIMETER_RADIUS_DEG ({PERIMETER_RADIUS_DEG}). Its perimeter band would "
-        "be clipped flat against the BBOX edge. Move the anchor inward or shrink the radius."
+        f"less than its perimeter radius ({_per}). Its perimeter band would be clipped flat "
+        f"against the BBOX edge. Either move the anchor inward, or give it a per-anchor "
+        f'"region_radius"/"perimeter_radius" pair sized to the room it has.'
     )
     assert _lon_room >= _lon_half, (
         f"anchor {_name} at lon {_a['lon']} leaves only {_lon_room:.3f} deg to the clamp, "
-        f"less than the {_lon_half:.3f} deg the perimeter band spans at that latitude."
+        f"less than the {_lon_half:.3f} deg its perimeter band spans at that latitude."
+    )
+    # A perimeter radius equal to the region radius collapses the band to a ring, pinning
+    # every perimeter facility at exactly that distance. Overriding only one of the pair is
+    # the easy way to cause this.
+    assert _per - _reg >= MIN_BAND_WIDTH_DEG, (
+        f"anchor {_name} has a perimeter band {_per - _reg:.3f} deg wide "
+        f"(region {_reg}, perimeter {_per}), under MIN_BAND_WIDTH_DEG "
+        f"({MIN_BAND_WIDTH_DEG}). Perimeter facilities would sit on a ring rather than in a "
+        "band. Override both radii together, keeping their ratio."
     )
 print(f"Band split: {FACILITY_SPLIT}")
 print(f"Outside band bounded to {OUTSIDE_MIN_DEG}-{OUTSIDE_MAX_DEG} deg beyond the BBOX edge")
@@ -553,8 +606,8 @@ def allocate_bands(n, rng):
 def sample_facility_location(rng, band):
     """Place one facility in the given band. Returns (lat, lon, anchor_name).
 
-    inside    - within REGION_RADIUS_DEG of a sub-basin anchor
-    perimeter - REGION_RADIUS_DEG..PERIMETER_RADIUS_DEG of an anchor
+    inside    - within the anchor's region radius
+    perimeter - between the anchor's region and perimeter radii
     outside   - just beyond a BBOX edge, offset OUTSIDE_MIN_DEG..OUTSIDE_MAX_DEG
 
     The band is supplied by allocate_bands rather than drawn here, so the realised split is
@@ -586,8 +639,12 @@ def sample_facility_location(rng, band):
 
     anchor_name = str(rng.choice(list(ANCHORS), p=[a["weight"] for a in ANCHORS.values()]))
     a = ANCHORS[anchor_name]
-    r = (rng.uniform(0.0, REGION_RADIUS_DEG) if band == "inside"
-         else rng.uniform(REGION_RADIUS_DEG, PERIMETER_RADIUS_DEG))
+    # Per-anchor radii, not the globals: an anchor hard against a BBOX edge carries a
+    # tighter pair (see Northwest Shelf). Reading the globals here would ignore that and
+    # reintroduce the clipping the override exists to avoid.
+    region_r, perimeter_r = anchor_radii(anchor_name)
+    r = (rng.uniform(0.0, region_r) if band == "inside"
+         else rng.uniform(region_r, perimeter_r))
     theta = rng.uniform(0, 2 * np.pi)
     lat = a["lat"] + r * np.cos(theta)
     lon = a["lon"] + r * np.sin(theta) / np.cos(np.radians(a["lat"]))

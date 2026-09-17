@@ -459,6 +459,40 @@ if cov_plumes is not None:
     print(f"within  {search_km:.0f} km: {len(cov_plumes) - n_unc} / {len(cov_plumes)}  "
           f"({1 - share_unc:.1%})")
 
+    # How far beyond, not just how many. A plume 3 km past the radius is a tuning question;
+    # one 60 km past it means there is no infrastructure anywhere near, which is a different
+    # problem with a different fix.
+    if n_unc:
+        print()
+        print(f"  how far beyond {search_km:.0f} km:")
+        for lo_b, hi_b, lbl in [(search_km, 75.0, f"{search_km:.0f}-75 km"),
+                                (75.0, 100.0, "75-100 km"),
+                                (100.0, np.inf, "100 km+")]:
+            n_b = int(((nearest_km > lo_b) & (nearest_km <= hi_b)).sum())
+            of_unc = n_b / n_unc if n_unc else 0.0
+            print(f"    {lbl:<12}{n_b:>5}   {n_b/len(cov_plumes):>6.1%} of all plumes,"
+                  f" {of_unc:>6.1%} of uncovered")
+
+    # How dense is the estate? This is the distance the attribution radius has to bridge.
+    # Nearest-neighbour spacing well above the search radius means the radius cannot cover
+    # the gaps between facilities no matter where the anchors sit.
+    if len(fac_pdf) > 1:
+        ff = haversine_km(f_lat[:, None], f_lon[:, None], f_lat[None, :], f_lon[None, :])
+        np.fill_diagonal(ff, np.inf)          # a facility is not its own neighbour
+        nn_km = ff.min(axis=1)
+        bbox_km2 = (haversine_km(BBOX["min_lat"], BBOX["min_lon"],
+                                 BBOX["max_lat"], BBOX["min_lon"])
+                    * haversine_km(BBOX["min_lat"], BBOX["min_lon"],
+                                   BBOX["min_lat"], BBOX["max_lon"]))
+        print()
+        print("facility density:")
+        print(f"  mean nearest-neighbour distance   {nn_km.mean():>8.1f} km")
+        print(f"  median                            {np.median(nn_km):>8.1f} km")
+        print(f"  max (most isolated facility)      {nn_km.max():>8.1f} km")
+        print(f"  BBOX area                         {bbox_km2:>8,.0f} km2")
+        print(f"  area per facility                 {bbox_km2/len(fac_pdf):>8,.0f} km2")
+        print(f"  attribution radius to bridge      {search_km:>8.1f} km")
+
     # Direction of the gap. A count alone says coverage is short; the latitude split says
     # which part of the footprint is short, which is what points at a missing anchor.
     print()
