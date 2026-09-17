@@ -1,5 +1,5 @@
 {
-  "schema_version": 81,
+  "schema_version": 82,
   "autoRefresh": {
     "enabled": true,
     "minInterval": "2h"
@@ -1537,10 +1537,10 @@
         "seriesColumns": null,
         "xAxisScale": "linear",
         "verticalLine": "",
-        "crossFilter": [],
         "crossFilterDisabled": false,
         "drillthroughDisabled": false,
         "forceAxisTicks": false,
+        "crossFilter": [],
         "drillthrough": []
       }
     }
@@ -1615,7 +1615,7 @@
         "kind": "inline",
         "dataSourceId": "45111dc0-5b37-4916-bed1-928c6df43884"
       },
-      "text": "// -- Tile 1.2: Methane Intensity % (KPI) ------------------------------\r\nlet _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet emissions =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize emissions_kg = sum(total_emissions_kg);\r\nlet production =\r\n    fact_production_daily\r\n    | where prod_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize prod_mcf = sum(gross_gas_mcf);\r\nemissions\r\n| extend prod_mcf = toscalar(production)\r\n| extend intensity_pct = iff(prod_mcf > 0, round((emissions_kg / 19.26) / prod_mcf * 100.0, 3), real(0))\r\n| project intensity_pct",
+      "text": "// -- Tile 1.2: Methane Intensity % (KPI) test------------------------------\r\nlet _start = datetime(2025-05-10T00:00:00Z);\r\nlet _end = now();\r\nlet _facility_sk = dynamic([]);\r\nlet emissions =\r\n    fact_facility_daily_snapshot\r\n    | where snapshot_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize emissions_kg = sum(total_emissions_kg);\r\nlet production =\r\n    fact_production_daily\r\n    | where prod_date between (_start .. _end)\r\n    | where array_length(_facility_sk) == 0 or facility_sk in (_facility_sk)\r\n    | summarize prod_mcf = sum(gross_gas_mcf);\r\nemissions\r\n| extend prod_mcf = toscalar(production)\r\n| extend intensity_pct = iff(prod_mcf > 0, round((emissions_kg / 19.26) / prod_mcf * 100.0, 3), real(0))\r\n| project intensity_pct",
       "id": "72675de1-eef7-4e21-9677-f10b2b20dec9",
       "usedVariables": []
     },
