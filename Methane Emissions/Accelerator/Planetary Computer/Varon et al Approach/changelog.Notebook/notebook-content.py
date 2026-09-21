@@ -530,3 +530,262 @@
 # - [ ] Decide whether to apply the 5.5 x 5.5 pixel-area correction in 04 on the evidence
 #       from 07c Cell 7
 
+
+# MARKDOWN ********************
+
+# ### 2026-09-15 -- Day 8 (Completed)
+#
+# Two pieces of groundwork, both read-only or additive: a survey of the accelerator's
+# enterprise model, and the design note that governs every fact generator built after it.
+#
+# #### Added: GREENSKY_LAKEHOUSE_SURVEY.md
+# Static analysis of GreenSky_Lakehouse -- the accelerator model behind the Data Agent and
+# the RTI dashboard -- ahead of designing a replacement SCADA layer. It is a DIFFERENT
+# WORKSPACE (060ba34b-...) from Green Sky - Dev (640876ea-...), so it shares no tables with
+# V2; both had to be understood before a third model was built beside them.
+# - Access matrix for all 16 tables across bronze / silver / gold / dbo, with which of
+#   Incremental_Load, Nb_Bronze_to_Silver and Nb_Gold reads or writes each.
+# - Full column lists with types, and the transformation logic behind every silver and gold
+#   table.
+# - Findings that matter for anything built on top of it: the four CREATE TABLE statements
+#   in Nb_Gold declare NARROWER tables than exist physically (dim_facility DDL says 8
+#   columns, the table has 18), and IF NOT EXISTS makes the DDL a permanent no-op, so anyone
+#   reading it designs against the wrong schema. Every delta write for the three gold
+#   dimensions is commented out -- only Kusto appends run -- yet Nb_Gold reads those same
+#   tables back to build its fact. The Data Agent's instructions and its single few-shot
+#   query both target gold.fact_emission_events and four vw_* views, none of which exist.
+#   Nb_Gold randomises every event_date to today or yesterday, and Incremental_Load appends
+#   date-shifted rows back into the same table with no dedup.
+# - Recorded three incompatible facility business keys for the same basin -- FAC-0001 (V1
+#   Operations_LH), WP-001 (accelerator), PB_001 (V2 ref_facilities) -- with nothing mapping
+#   between them. That is what forced the key decision in Day 9's rebuild.
+#
+# #### Added: survey_greensky_lakehouse notebook
+# Read-only profiling to answer what static analysis cannot: row counts, null rates,
+# distinct counts, timestamp ranges and modal sampling intervals, plus a deep dive on
+# scada_realtime (is it a real 15-minute series or a stub?) and facility_master (are the
+# names real or templated). Discovers tables via SHOW TABLES rather than a hard-coded list
+# and skips absent schemas cleanly. Verified to contain no write of any kind.
+# Moved into notebooks/07_validation/ so it syncs with Green Sky - Dev, and its lakehouse
+# binding dropped to an empty object -- a cross-workspace GUID does not survive Git sync, so
+# GreenSky_Lakehouse is attached by hand before a run. A markdown cell at the top states the
+# workspace split, the manual attach step and that the notebook writes nothing.
+#
+# #### Added: DESIGN_NOTE_incremental_facts.md
+# The agreed model for how enterprise fact generators behave on daily runs. Status: proposed.
+# Three requirements: topology is a setup-only pipeline the daily run reads and never writes;
+# fact writes are window-scoped and idempotent via replaceWhere on a date_sk partition; and
+# every backlog drains through explicit state transitions in a two-pass generator rather than
+# having its outcome fixed at creation. Calls out two blocking prerequisites -- unstable
+# plume_id (already tracked in CLAUDE.md) and no fact table partitioning by date_sk.
+# CLAUDE.md gained a "Design notes" section pointing at it. That file sits above the repo
+# root and is not tracked, so it is in no commit.
+
+
+# MARKDOWN ********************
+
+# ### 2026-09-16 -- Day 9 (Completed)
+#
+# Rebuilt the enterprise facility and asset topology from scratch in notebooks/01_topology.
+# The V1 model in Operations_LH is replaced, not extended, and remains reference-only.
+#
+# #### Why the V1 model could not be repaired
+# Three defects, one of them mis-diagnosed until the V1 code was read properly:
+# - dim_facility carried TWO coordinate pairs -- latitude/longitude from dim_build and
+#   facility_lat/facility_lon written later by build_attribution, which overwrote the
+#   dimension -- with nothing recording which was authoritative.
+# - CORRECTION TO THE BRIEF: the out-of-BBOX facilities were NOT caused by
+#   build_attribution's np.random.default_rng(42) reseed. That reseed draws from
+#   lat 31.5-33.5 / lon -105.0 to -101.3, which is INSIDE the V2 BBOX and cannot produce
+#   FAC-0157 at latitude 29.48. The real cause is structural and lives in dim_build: the
+#   "Texas Site A" anchor sits at lat 30.2, below the BBOX floor of 30.5, carries 40% of the
+#   estate, and its outside band reaches 0.95 deg -- so facilities land near 29.25 by design,
+#   seed or no seed. The reseed is a separate defect that made facility_lat/lon in-BBOX but
+#   uniform-random and unclustered. Neither pair was salvageable, which is the strongest
+#   argument for a rebuild rather than a repair.
+# - facility_name and facility_type were drawn independently, producing "Odessa Processing
+#   Plant" typed Gathering System.
+#
+# #### Added: 01_topology_config
+# Seeds, geography, taxonomy and helpers. TOPOLOGY_SEED = 20260915, deliberately distinct
+# from V1's MASTER_SEED. get_rng(*parts) is the only route randomness takes; a bare
+# default_rng anywhere in 01_topology is a bug.
+# - Facility keys are GS-nnnn, NOT V1's FAC-nnnn. 350 FAC- keys still exist in Operations_LH
+#   at different coordinates from a different seed, and reusing the prefix would make the two
+#   estates indistinguishable in a query result.
+# - Anchors are real Permian sub-basins, all inside CONFIG["bbox"].
+# - Type is drawn FIRST and the name built from it via TYPE_DESCRIPTORS, so name and type
+#   agree by construction. assert_descriptor_map_unique() guards the map against a later edit
+#   putting one descriptor under two types.
+# - TOPOLOGY_AS_OF is a fixed date(2026, 9, 15), never date.today(), with an assertion that
+#   it is not in the future. NOTE: this was already a fixed literal when it was flagged as a
+#   moving-date defect -- the value simply happened to equal that day's date. The assertion
+#   and the comment were added; no bug was fixed.
+#
+# #### Added: 01a_build_facility_topology
+# Writes dim_facility and ref_facilities. One coordinate pair, facility_lat/facility_lon,
+# written once. 150 facilities -- not V1's 350 -- sized against the detection rate so the
+# Facility Operations dashboard page is not empty for most sites.
+# - Band allocation is an exact QUOTA via largest-remainder, not a per-facility draw, so the
+#   realised 75/20/5 split matches the configured one instead of drifting with sampling
+#   noise.
+# - A coverage cell measures, against gold_plume_catalog, the distance from every plume to
+#   its nearest facility, the share beyond attribution_search_radius_km, and the median
+#   latitude of uncovered versus covered plumes. The latitude comparison is what makes a
+#   directional gap visible rather than just a count.
+#
+# #### Added: 01b_build_asset_topology
+# Writes dim_equipment and dim_sensor. Assets carry NO geography and reach it by joining
+# facility_id -- V1's silver.equipment_geo copied facility coordinates onto equipment and the
+# copy then diverged. Asserted: no lat/lon-shaped column on either table.
+# - Equipment mix is weighted by facility type via TYPE_EQUIPMENT_WEIGHTS. The first version
+#   drew uniformly and gave every site the same profile -- all eight types between 11.6% and
+#   13.5%, so a tank battery held as many compressors as a gas processing plant.
+# - Asset count follows EQUIP_COUNT_BY_TYPE per facility type; EQUIP_PER_FACILITY is now
+#   DERIVED as the global min/max rather than declared, so the two cannot drift.
+# - A mix assertion written as a rank test (dominant type must equal highest-weighted type)
+#   was WRONG and was replaced: Gas Processing Plant has Compressor at 26% and Separator at
+#   24%, two points apart over ~500 assets, so which lands on top is noise. It now checks each
+#   share against 3 sigma on a binomial, plus that the dominant share clears 1.4x the uniform
+#   12.5% -- the test a uniform draw actually fails.
+#
+# #### Changed: 05_attribute_facilities
+# The EPA Envirofacts scrape, the BBOX filter, the PB_nnn grid fallback and the
+# ref_facilities write were removed (-171 lines) and replaced by a read plus a guard that
+# fails if PB_nnn keys are ever found in the table. Necessary, not opportunistic: with 01a
+# writing ref_facilities and 05 also writing it, running 05 afterwards would have replaced
+# the real topology with grid points. 05 now has no network dependency.
+#
+# #### Anchor and radius work, in two passes
+# - A fourth anchor, Northwest Shelf, closes a northern coverage gap: 32 of 75 plumes had
+#   facilities_in_range = 0, all with a nearest facility beyond 50 km, sitting at median
+#   latitude 32.96 against 31.88 for attributed plumes. Weights rebalanced to
+#   0.37 / 0.33 / 0.18 / 0.12, taking 0.18 proportionally from the existing three.
+# - Placed at 32.90 N, not the 33.0 N scoped, because an anchor plus its perimeter radius
+#   must stay under the clamp at max_lat - EDGE_INSET_DEG = 33.48. A per-anchor clearance
+#   assertion was added for both axes.
+# - Radii then widened 0.30/0.55 -> 0.55/0.85 to close interstitial voids between four tight
+#   clusters. That assertion FAILED for Northwest Shelf, which has 0.580 deg of room and
+#   needed 0.85 -- reported rather than worked around. Resolved with per-anchor radii:
+#   Northwest Shelf carries 0.37/0.57, preserving the global region:perimeter ratio. BOTH
+#   radii are overridden, not just the perimeter -- setting perimeter alone to 0.55 would
+#   equal REGION_RADIUS_DEG and collapse the band to a ring. MIN_BAND_WIDTH_DEG guards that.
+# - Measured under UNIFORM plumes: uncovered share 32.0% -> 17.3%, worst-case nearest
+#   facility 159.6 km -> 79.3 km, nothing now beyond 100 km. Mean nearest-neighbour spacing
+#   9.8 -> 13.1 km against a 50 km attribution radius, which confirms density was never the
+#   constraint -- the problem was four islands with voids between them.
+#
+# #### Flagged, not changed
+# - Realised band split is 113/30/7 at N=150. The +/-1 is integer rounding on 150 * 0.75,
+#   not sampling noise.
+# - An earlier harness shaped its synthetic plume catalogue to match a reported northern skew
+#   and predicted 9 uncovered plumes where the real run gave 31. Shaping the harness to the
+#   last diagnosis made it agree with that diagnosis and nothing else; it now draws
+#   uniformly, which is the neutral and harder test.
+
+
+# MARKDOWN ********************
+
+# ### 2026-09-17 -- Day 10 (Completed)
+#
+# Added the process-area level, the SCADA tag registry, and the first fact generator governed
+# by DESIGN_NOTE_incremental_facts.md.
+#
+# #### Added: 01c_build_area_topology
+# Writes dim_area (558 areas, 16 types) and adds area_sk / area_id to dim_equipment. The
+# hierarchy becomes facility -> area -> asset, which SCADA tag naming and operations triage
+# both need.
+# - stable_key() added to 01_topology_config. NOTE: the brief described it as "hash-derived,
+#   as elsewhere", but no such helper existed -- every other V2 surrogate key is a sequential
+#   1..N counter. It is new, and hash-derived on purpose: area counts vary per facility, so a
+#   sequential counter would renumber every area downstream of any facility whose count
+#   changed. TOPOLOGY_SEED is folded in, so GS-0001-A1 under two seeds cannot alias.
+#   ent_rng() likewise does not exist; get_rng() is the same function and was used.
+# - Assets keep no area geography. dim_area carries area_lat/area_lon offset 100-300 m from
+#   the facility centre, asserted under 500 m. Commented at the definition that this exists
+#   for plausibility and future asset-level attribution ONLY: a TROPOMI pixel is ~5.5 x 7.0
+#   km, so an entire facility sits inside a fraction of one and nothing in the detection
+#   layer can distinguish one area from another.
+# - Assets are assigned to an area of their OWN facility respecting equipment type, with a
+#   fallback to the primary area where no area accepts the type. Measured fallback 2.07%
+#   against a 10% threshold.
+# - AREA_TYPES diverges from the shape scoped in three places, all forced by
+#   TYPE_EQUIPMENT_WEIGHTS giving every equipment type a non-zero weight everywhere:
+#   Gathering System gains Field Compression and moves 2-4 -> 3-5 areas with Metering
+#   mandatory (the scoped four areas left 22% of its assets homeless); Central Delivery Point
+#   gains Utilities; Tank Farm accepts Flare.
+#
+# #### Added: 01d_build_scada_tags
+# Writes dim_scada_tag -- 3,965 process-measurement tags on 662 instrumented assets. A
+# SECOND registry: dim_sensor keeps its 600 CH4 detectors and its contract untouched, because
+# gold.sensor_telemetry depends on its schema.
+# - Instrumentation policy is the volume control. 662 of 3,135 assets (21.1%), inside the
+#   600-900 target, from INSTRUMENTABLE_CRITICALITY {Critical, High} and a cap of 6 per
+#   facility. Valves and pipeline segments are never instrumented. Selection is a stable
+#   mergesort on (criticality_rank, equipment_type_priority, equipment_id).
+# - Combustion tags -- pilot_flame, stack_temperature, air_fuel_ratio -- exist so the
+#   enterprise layer can corroborate 04b's Fugitive Leak versus Incomplete Combustion split,
+#   which rests on the NO2 signature. Recorded at the definition so they are not trimmed as
+#   decoration.
+# - Three units beyond those scoped, because the scoped list would have been wrong: bpd for
+#   liquid flow, inH2O for orifice differential pressure, state for pilot flame.
+# - Volume table printed before the write: 17.1M rows for a 30-day raw window against a 30M
+#   assertion. The two tiers contribute almost exactly equal row counts, so HOT_TAG_SHARE and
+#   the cadences are the effective levers, not tag count. Storage figures are explicitly
+#   labelled an assumption, not a measurement.
+#
+# #### Added: 02a_build_asset_state
+# Writes fact_asset_state, a sparse interval table -- one row per state change, never one row
+# per timestamp. 20,264 intervals over 90 days, ~6,755 per 30 days against a 200k cap. First
+# notebook to implement the design note's two-pass structure.
+# - Six states, five causes. A trip goes straight to Down with no Shutdown, which is what
+#   distinguishes it from a planned stop; every chain returns through Startup, so the
+#   Startup/Shutdown invariants hold by construction rather than by assertion.
+# - Each interval's duration is drawn ONCE at creation from get_rng("state", equipment_id,
+#   start_ts). Closure is a pure function of elapsed time against that fixed duration, which
+#   is what makes a backfill and 30 successive incremental runs byte-identical. Verified in
+#   the harness.
+# - STATE_DUTY_FACTOR added rather than overloading leak_propensity. leak_propensity
+#   describes how likely something is to LEAK, not to STOP, and Storage Tank sits at 0.85 --
+#   using it alone would make a static vessel trip almost as often as a compressor.
+# - date_sk is the interval's START day. An interval that starts before the window and closes
+#   inside it therefore lives in a partition outside the window. Chosen: widen the
+#   replaceWhere predicate to cover every partition the run touches, rather than adding
+#   close_date_sk -- replaceWhere can only scope on partition columns, so close_date_sk would
+#   only help if the table were partitioned by it too, and then no row sits in a partition
+#   containing its own start. Existing rows in the widened range are read, superseded rows
+#   dropped by state_sk, and the union written back; skipping that would silently delete them.
+# - The incremental window comes from the table's own watermark, max(date_sk) + 1, NOT from
+#   utcnow() as the V1 notebooks use. The wall clock makes a rerun land on a different window.
+#
+# #### Two guards caught their own bugs
+# - Churn was measured on rows WRITTEN, which on a one-day incremental includes the rows the
+#   widened replaceWhere range sweeps in. Scaling those to 30 days reported 446k against a
+#   200k cap. Now measured on intervals opened within the window.
+# - The availability upper bound of 0.9999 failed a CORRECT run: over one day, Pipeline
+#   Segment sat at exactly 100% because no static asset changed state. Bound raised to 1.0;
+#   the meaningful guard was always the lower one.
+#
+# #### Tuned once, on evidence
+# Maintenance dwell was first set at 3-14h (PM) and 6-40h (corrective) and produced 98.8%
+# availability with NO equipment type inside the 92-97% target -- the event rate was right,
+# each event was too short. Raised to 6-24h and 12-72h, reflecting the time to mobilise a
+# crew and parts to a remote pad. Compressor now 95.2%, Pump 96.8%.
+#
+# #### Flagged, not changed
+# - Static equipment sits above the 92-97% band -- Pipeline Segment 99.4%, Storage Tank
+#   99.0%. Left there: a storage tank with a 365-day inspection interval genuinely does not
+#   stop often, and forcing it into band would mean inventing downtime.
+# - 14 areas hold zero assets. Mandatory areas are created whether or not the equipment draw
+#   produced anything for them.
+# - All 991 hot tags sit on Critical assets; the 25% share is consumed before reaching High,
+#   so tier correlates perfectly with criticality rather than partially.
+# - 3 facilities carry no SCADA tags at all -- they hold no instrumentable asset at Critical
+#   or High.
+#
+# #### Remaining
+# - [ ] Nothing in 01_topology or 02_scada has been run in Fabric. Every figure above is from
+#       the offline harness with Spark stubbed.
+# - [ ] 01a's coverage cell needs a real gold_plume_catalog to size N_FACILITIES properly;
+#       the 17.3% uncovered figure is against a uniform synthetic catalogue.
+# - [ ] Telemetry generation, then alarms and maintenance records.

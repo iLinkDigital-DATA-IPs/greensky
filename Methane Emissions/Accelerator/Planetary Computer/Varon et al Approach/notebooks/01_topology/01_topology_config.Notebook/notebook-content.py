@@ -1009,6 +1009,167 @@ for _et in sorted(TAG_TEMPLATES, key=lambda e: INSTRUMENT_PRIORITY[e]):
     _n = [t[0] for t in TAG_TEMPLATES[_et]]
     print(f"  {_et:<20}{len(_n):>6}   {', '.join(_n)}")
 
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+# ---- Asset operating state ----------------------------------------------------------------
+# Consumed by 02a_build_asset_state, which writes fact_asset_state as a SPARSE INTERVAL
+# table: one row per state change per asset, never one row per timestamp.
+#
+# State is generated from ASSET CHARACTERISTICS ONLY -- type, age against expected life,
+# leak propensity, inspection interval. It deliberately does NOT read fact_emission_episode
+# or any other hidden ground-truth table. The telemetry generator overlays episode effects
+# separately; keeping the two independent is what stops the demo becoming circular, where
+# the operational data "discovers" an episode that was written into it in the first place.
+
+STATE_HISTORY_DAYS = 90
+
+STATES = ["Running", "Standby", "Down", "Maintenance", "Startup", "Shutdown"]
+STATE_CAUSES = ["Scheduled PM", "Corrective", "Trip", "Market", "Unknown"]
+
+# States that count as available. Standby is available -- the asset is healthy and could run;
+# it is idle for commercial reasons.
+AVAILABLE_STATES = {"Running", "Standby"}
+
+# The state machine. Four chains leave Running, and every one of them returns through
+# Startup, so Startup only ever precedes Running and Shutdown only ever follows it:
+#
+#   Running --PM due-----> Shutdown(Scheduled PM) -> Maintenance(Scheduled PM) -> Startup -> Running
+#   Running --corrective-> Shutdown(Corrective)   -> Maintenance(Corrective)   -> Startup -> Running
+#   Running --market-----> Shutdown(Market)       -> Standby(Market)           -> Startup -> Running
+#   Running --trip-------> Down(Trip)             -> Maintenance(Corrective)   -> Startup -> Running
+#                                                 \-> Startup -> Running          (spurious trip)
+#
+# A trip goes straight to Down with no Shutdown: that is exactly what distinguishes a trip
+# from a planned stop. A spurious trip resets without a repair.
+SPURIOUS_TRIP_SHARE = 0.30     # share of trips that clear without maintenance
+
+# Dwell time per state, in hours (lo, hi). Drawn uniformly at interval creation and fixed
+# there -- never re-drawn on a later run, which is what makes closure a pure function of
+# elapsed time.
+STATE_DWELL_HOURS = {
+    "Startup":  (0.25, 1.0),    # 15-60 min, transitional
+    "Shutdown": (0.25, 1.0),    # 15-60 min, transitional
+    "Down":     (2.0, 14.0),    # tripped, waiting for a technician to reach a remote pad
+    "Standby":  (12.0, 96.0),   # idle for commercial reasons -- counts as AVAILABLE
+}
+# Maintenance dwell depends on why the asset is down, not on the asset.
+#
+# These were first set at (3-14) and (6-40) and produced 98.8% availability estate-wide,
+# with no equipment type inside the 92-97% target -- the event RATE was right but each
+# event was too short. Corrective work on a remote pad means mobilising a crew and often
+# parts, so 12-72 hours is the realistic figure, and it puts rotating equipment in band.
+# A compressor at MTBF 26 days now loses roughly 30 hours per cycle, giving ~95%.
+MAINTENANCE_DWELL_HOURS = {
+    "Scheduled PM": (6.0, 24.0),
+    "Corrective":   (12.0, 72.0),
+}
+
+# Running dwell. Mean time between stops, in days, for a notional asset with duty 1.0,
+# leak_propensity 1.0 and age at half its expected life.
+BASE_MTBF_DAYS = 26.0
+
+# Mechanical duty. leak_propensity alone does not separate trip-prone from trip-free
+# equipment -- it describes how likely something is to LEAK, not how likely it is to STOP,
+# and Storage Tank sits at 0.85 which would make a static vessel trip almost as often as a
+# compressor. This factor carries the rotating-vs-static distinction explicitly rather than
+# overloading leak_propensity with a meaning it does not have.
+STATE_DUTY_FACTOR = {
+    "Compressor":       1.00,   # rotating, continuous duty, the classic tripper
+    "Pump":             0.85,   # rotating, often intermittent
+    "Flare":            0.55,   # pilot and igniter faults
+    "Separator":        0.40,   # static vessel, level control can still upset
+    "Metering Station": 0.30,   # instrumentation faults rather than mechanical
+    "Valve":            0.25,
+    "Storage Tank":     0.20,   # static; stops are nearly always planned
+    "Pipeline Segment": 0.15,
+}
+
+# Why an unplanned stop happened, given that one did.
+UNPLANNED_CAUSE_WEIGHTS = {"Trip": 0.55, "Corrective": 0.30, "Market": 0.10, "Unknown": 0.05}
+
+# Availability guard. The meaningful bound is the LOWER one: availability collapsing means
+# the state model has become churny or a chain is not returning to Running. The upper bound
+# is 1.0 inclusive and only guards against an arithmetic error producing more than 100%.
+#
+# Exactly 100% is legitimate and common on a short window -- over one day, a type with duty
+# 0.15 and an MTBF near 250 days will often have no asset change state at all, and an
+# earlier upper bound of 0.9999 failed the run on precisely that. Static equipment also sits
+# near 100% over long windows: a storage tank with a 365-day inspection interval and duty
+# 0.20 barely stops.
+#
+# The expected band is what the estate should mostly sit in; 02a prints anything outside it
+# without failing.
+AVAILABILITY_HARD_BAND = (0.85, 1.0)
+AVAILABILITY_EXPECTED_BAND = (0.92, 0.97)
+
+# Volume guard. This is an interval table; if it ever approaches this the state model has
+# become churny and the dwell times or MTBF are wrong.
+MAX_STATE_ROWS_PER_30D = 200_000
+
+# --- validation -------------------------------------------------------------------------------
+assert STATE_HISTORY_DAYS > 0, "STATE_HISTORY_DAYS must be positive"
+assert set(STATE_DUTY_FACTOR) == set(EQUIPMENT_TYPES), (
+    "STATE_DUTY_FACTOR must cover exactly the equipment types in EQUIPMENT_TYPES; "
+    f"missing {sorted(set(EQUIPMENT_TYPES) - set(STATE_DUTY_FACTOR))}"
+)
+assert AVAILABLE_STATES <= set(STATES), "AVAILABLE_STATES names a state that does not exist"
+assert set(MAINTENANCE_DWELL_HOURS) <= set(STATE_CAUSES), "unknown maintenance cause"
+assert abs(sum(UNPLANNED_CAUSE_WEIGHTS.values()) - 1.0) < 1e-9, \
+    "UNPLANNED_CAUSE_WEIGHTS must sum to 1"
+assert set(UNPLANNED_CAUSE_WEIGHTS) <= set(STATE_CAUSES), "unknown unplanned cause"
+assert 0.0 <= SPURIOUS_TRIP_SHARE < 1.0, "SPURIOUS_TRIP_SHARE must be a share below 1"
+for _s, (_lo, _hi) in STATE_DWELL_HOURS.items():
+    assert _s in STATES, f"STATE_DWELL_HOURS names unknown state {_s!r}"
+    assert 0 < _lo <= _hi, f"{_s}: invalid dwell range ({_lo}, {_hi})"
+for _c, (_lo, _hi) in MAINTENANCE_DWELL_HOURS.items():
+    assert 0 < _lo <= _hi, f"maintenance/{_c}: invalid dwell range ({_lo}, {_hi})"
+assert 0 < AVAILABILITY_HARD_BAND[0] < AVAILABILITY_HARD_BAND[1] <= 1.0, \
+    "AVAILABILITY_HARD_BAND is not an ordered pair inside (0, 1]"
+assert all(_f > 0 for _f in STATE_DUTY_FACTOR.values()), "duty factors must be positive"
+
+
+def mtbf_days(equipment_type, age_years):
+    """Mean days between unplanned stops for one asset.
+
+    Falls with mechanical duty, with leak propensity, and with age against expected life.
+    A pure function of asset characteristics -- no randomness, no episode data.
+    """
+    ev = EQUIPMENT_TYPES[equipment_type]
+    life = max(ev["life"], 1)
+    age_ratio = min(max(age_years, 0.0) / life, 1.5)
+    # 0.65 when new, 1.0 at half life, 1.7 at end of life and beyond
+    age_factor = 0.65 + 0.70 * age_ratio
+    scale = STATE_DUTY_FACTOR[equipment_type] * ev["leak_propensity"] * age_factor
+    return BASE_MTBF_DAYS / max(scale, 1e-6)
+
+
+print("asset state model:")
+print(f"  history window     {STATE_HISTORY_DAYS} days")
+print(f"  states             {', '.join(STATES)}")
+print(f"  causes             {', '.join(STATE_CAUSES)}")
+print(f"  available states   {', '.join(sorted(AVAILABLE_STATES))}")
+print(f"  base MTBF          {BASE_MTBF_DAYS:.0f} days at duty 1.0, propensity 1.0, half life")
+print()
+print(f"  {'equipment_type':<20}{'duty':>6}{'propensity':>12}{'MTBF new':>11}{'MTBF mid':>10}"
+      f"{'MTBF old':>10}{'PM days':>9}")
+for _et in sorted(EQUIPMENT_TYPES, key=lambda e: -STATE_DUTY_FACTOR[e]):
+    _life = EQUIPMENT_TYPES[_et]["life"]
+    print(f"  {_et:<20}{STATE_DUTY_FACTOR[_et]:>6.2f}"
+          f"{EQUIPMENT_TYPES[_et]['leak_propensity']:>12.2f}"
+          f"{mtbf_days(_et, 0.0):>11.0f}{mtbf_days(_et, _life * 0.5):>10.0f}"
+          f"{mtbf_days(_et, _life):>10.0f}{EQUIPMENT_TYPES[_et]['insp_days']:>9}")
+print()
+print("  MTBF is days between UNPLANNED stops. Scheduled PM is a separate, calendar-driven")
+print("  event following each asset's inspection_frequency_days, so state and maintenance")
+print("  stay consistent with one another.")
+
 
 print("asset mix and count by facility type:")
 print(f"  {'facility_type':<24}{'assets':>10}   dominant equipment")
