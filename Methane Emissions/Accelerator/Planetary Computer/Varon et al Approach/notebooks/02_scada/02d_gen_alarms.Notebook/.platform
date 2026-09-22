@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "02d_gen_alarms"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "262f727c-3fcf-4985-bd66-e1dcc52517ff"
+  }
+}

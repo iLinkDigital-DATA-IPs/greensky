@@ -847,6 +847,18 @@ STANDARD_INTERVAL_SECONDS = 900
 # on the tag_sk and quality columns take the effective figure well below the raw 25 bytes.
 ASSUMED_BYTES_PER_TELEMETRY_ROW = 48
 
+# Width of the process 02b generates, as a fraction of each tag's normal half-band. It lives
+# here rather than in 02b because it is the estate's process model, and because the alarm
+# limits below are expressed against it -- the assertion that keeps them in reach needs both
+# numbers in the same file. 02b and 02d both read it from here.
+#
+# At 0.33 the normal band edge sits at 3.03 sigma, so a healthy tag leaves its normal band a
+# fraction of a percent of the time. That is what "normal band" should mean, and it is what
+# makes annunciation alarms possible at all: the previous 0.25 put the band edge at 4.0 sigma,
+# where the process never crossed it and 02d's alarm table came out effectively empty.
+TELEMETRY_PROCESS_SD_FRACTION = 0.33
+assert 0.0 < TELEMETRY_PROCESS_SD_FRACTION < 1.0
+
 # Raw telemetry retention window, consumed by 02b_gen_scada_telemetry. A backfill generates
 # the trailing TELEMETRY_RAW_DAYS days from TOPOLOGY_AS_OF; an incremental run takes its
 # window from the table's own watermark instead. It lives here rather than in 02b because it
@@ -902,58 +914,100 @@ assert MAX_TELEMETRY_ROWS_PER_RUN > 0, "MAX_TELEMETRY_ROWS_PER_RUN must be posit
 # temperature falling as the flame dies, air-fuel ratio going rich on a compressor. Without
 # them the enterprise layer cannot corroborate 04b's classification at all.
 
+# ---- Alarm annunciation limits -------------------------------------------------------------
+# THESE ARE ANNUNCIATION LIMITS, NOT EQUIPMENT PROTECTION TRIPS. The distinction is the whole
+# reason this table changed.
+#
+# The original values were protection trips: the pressure at which a relief valve lifts, the
+# vibration at which a machine is shut down to save it. Those are set from the equipment's
+# damage threshold and are meant to be reached almost never -- against the process 02b
+# generates they sat 4.4 to 76 sigma from centre, a median of 7, and nothing ever came close.
+# 02d derives alarms by scanning telemetry against these limits, so the alarm table was
+# effectively empty: 0.3 alarms per facility-month against a 10-60 design band.
+#
+# An annunciation limit is a different instrument. It is the point at which an operator wants
+# to be told something is drifting, and it is MEANT to be crossed by ordinary process
+# excursions several times a month. So the limits below are derived from the process width
+# rather than from the equipment:
+#
+#     alarm_hi   = centre + ALARM_WARN_HALF_BANDS * half_band   (= normal_max exactly)
+#     alarm_hihi = centre + ALARM_TRIP_HALF_BANDS * half_band
+#     alarm_lo   = centre - ALARM_WARN_HALF_BANDS * half_band   (= normal_min exactly)
+#     alarm_lolo = max(centre - ALARM_TRIP_HALF_BANDS * half_band,
+#                      ALARM_TRIP_LOW_FLOOR_FRACTION * normal_min)
+#
+# Setting the warning limits at exactly the normal band edge is deliberate and is the cleanest
+# statement of what the band means: [normal_min, normal_max] is the band inside which nothing
+# is annunciated, so a reading outside it is by definition abnormal. In units of the process
+# sd that 02b generates, TELEMETRY_PROCESS_SD_FRACTION * half_band, that puts every warning
+# limit at 3.03 sigma and every trip limit at 3.3 to 4.2 sigma.
+#
+# The low trip is floored at half the normal minimum. Without that floor the arithmetic sends
+# several flows and the tank vapour pressure to a NEGATIVE limit, which then clamps to zero and
+# can never be reached -- a dead limit is worse than a shallow one.
+#
+# The numbers are written out rather than computed so an engineer reads real psig and degF
+# values, but the relationship is enforced by ALARM_WARN_SIGMA_BAND below: an edit that pushes
+# a limit back out to a protection trip fails the build instead of silently emptying 02d.
+#
+# Where a physical trip genuinely differs, that is now visible rather than conflated.
+# thief_hatch_position is the clearest case: the annunciation limit is 2% open, because the
+# hatch is normally shut and 2% is already abnormal, while the physical "hatch is standing
+# open" condition is nearer 20%. The first belongs here; the second belongs to whatever
+# safety system actually acts on it.
+ALARM_WARN_HALF_BANDS = 1.00       # alarm_hi/alarm_lo, in half-bands from centre
+ALARM_TRIP_HALF_BANDS = 1.35       # alarm_hihi/alarm_lolo
+ALARM_TRIP_LOW_FLOOR_FRACTION = 0.50
+
+# Where those limits must land, in units of the generated process sd. The guard that keeps a
+# future edit from putting protection trips back.
+ALARM_WARN_SIGMA_BAND = (2.5, 4.0)
+ALARM_TRIP_SIGMA_BAND = (3.0, 5.0)
+
 TAG_TEMPLATES = {
     "Compressor": [
-        # name,                measurement_type, uom,    isa,  n_min,  n_max,  lo,    lolo,  hi,     hihi,   res,   noise, drift
-        ("suction_pressure",   "pressure",       "psig", "PT",   40.0,  120.0,  30.0,  20.0,  150.0,  175.0,  0.1,   0.8,   1.5),
-        ("discharge_pressure", "pressure",       "psig", "PT",  800.0, 1200.0, 700.0, 600.0, 1300.0, 1450.0,  1.0,   5.0,  12.0),
-        ("suction_temp",       "temperature",    "degF", "TT",   60.0,  110.0,  40.0,  20.0,  130.0,  150.0,  0.1,   0.5,   1.0),
-        ("discharge_temp",     "temperature",    "degF", "TT",  180.0,  280.0, 140.0, 120.0,  310.0,  350.0,  0.1,   1.5,   2.0),
-        ("rpm",                "rpm",            "rpm",  "ST",  900.0, 1200.0, 800.0, 700.0, 1260.0, 1320.0,  1.0,   4.0,   3.0),
-        ("vibration",          "vibration",      "in/s", "VT",    0.05,   0.25, None,  None,     0.40,   0.60, 0.001, 0.010, 0.020),
-        ("flow",               "flow",           "mscfd", "FT", 1500.0, 4500.0, 800.0, 400.0, 5200.0, 6000.0,  1.0,  35.0,  60.0),
-        ("seal_gas_pressure",  "pressure",       "psig", "PT",   45.0,   90.0,  35.0,  25.0,  110.0,  130.0,  0.1,   0.6,   1.2),
-        # combustion -- see the note above
-        ("air_fuel_ratio",     "air_fuel_ratio", "ratio", "AT",  14.0,   17.5,  13.0,  12.0,   19.0,   21.0,  0.01,  0.08,  0.15),
+        # name,                measurement_type, uom,    isa,  n_min,  n_max,  lo,     lolo,   hi,     hihi,   res,   noise, drift
+        ("suction_pressure",     "pressure",       "psig",  "PT",     40.0,  120.0,   40.0,   26.0,  120.0,  134.0,   0.1,   0.8,1.5),
+        ("discharge_pressure",   "pressure",       "psig",  "PT",    800.0, 1200.0,  800.0,  730.0, 1200.0, 1270.0,   1.0,   5.0,12.0),
+        ("suction_temp",         "temperature",    "degF",  "TT",     60.0,  110.0,   60.0,   51.2,  110.0,  118.8,   0.1,   0.5,1.0),
+        ("discharge_temp",       "temperature",    "degF",  "TT",    180.0,  280.0,  180.0,  162.5,  280.0,  297.5,   0.1,   1.5,2.0),
+        ("rpm",                  "rpm",            "rpm",   "ST",    900.0, 1200.0,  900.0,  848.0, 1200.0, 1252.0,   1.0,   4.0,3.0),
+        ("vibration",            "vibration",      "in/s",  "VT",     0.05,   0.25,   None,   None,   0.25,  0.285, 0.001,  0.01,0.02),
+        ("flow",                 "flow",           "mscfd", "FT",   1500.0, 4500.0, 1500.0,  975.0, 4500.0, 5025.0,   1.0,  35.0,60.0),
+        ("seal_gas_pressure",    "pressure",       "psig",  "PT",     45.0,   90.0,   45.0,   37.1,   90.0,   97.9,   0.1,   0.6,1.2),
+        ("air_fuel_ratio",       "air_fuel_ratio", "ratio", "AT",     14.0,   17.5,   14.0,  13.39,   17.5,  18.11,  0.01,  0.08,0.15),
     ],
     "Separator": [
-        ("inlet_pressure",     "pressure",       "psig", "PT",   60.0,  260.0,  45.0,  30.0,  300.0,  350.0,  0.1,   1.2,   2.5),
-        ("level",              "level",          "percent", "LT", 30.0,  70.0,  20.0,  10.0,   80.0,   90.0,  0.1,   0.6,   1.0),
-        ("temperature",        "temperature",    "degF", "TT",   70.0,  130.0,  45.0,  32.0,  150.0,  170.0,  0.1,   0.5,   1.0),
-        ("gas_flow",           "flow",           "mscfd", "FT",  300.0, 2500.0, 150.0,  50.0, 3000.0, 3500.0,  1.0,  20.0,  45.0),
-        ("liquid_flow",        "flow",           "bpd",  "FT",   50.0,  600.0,  20.0,   5.0,  750.0,  900.0,  1.0,   6.0,  12.0),
+        ("inlet_pressure",       "pressure",       "psig",  "PT",     60.0,  260.0,   60.0,   30.0,  260.0,  295.0,   0.1,   1.2,2.5),
+        ("level",                "level",          "percent","LT",     30.0,   70.0,   30.0,   23.0,   70.0,   77.0,   0.1,   0.6,1.0),
+        ("temperature",          "temperature",    "degF",  "TT",     70.0,  130.0,   70.0,   59.5,  130.0,  140.5,   0.1,   0.5,1.0),
+        ("gas_flow",             "flow",           "mscfd", "FT",    300.0, 2500.0,  300.0,  150.0, 2500.0, 2885.0,   1.0,  20.0,45.0),
+        ("liquid_flow",          "flow",           "bpd",   "FT",     50.0,  600.0,   50.0,   25.0,  600.0,  696.0,   1.0,   6.0,12.0),
     ],
     "Storage Tank": [
-        ("level",              "level",          "percent", "LT", 20.0,  80.0,  12.0,   5.0,   88.0,   95.0,  0.1,   0.4,   0.8),
-        ("vapour_pressure",    "pressure",       "psig", "PT",    0.5,    6.0,   0.2,   0.0,    8.0,   12.0,  0.01,  0.10,  0.20),
-        ("temperature",        "temperature",    "degF", "TT",   55.0,  115.0,  35.0,  20.0,  135.0,  150.0,  0.1,   0.5,   1.0),
-        # A thief hatch stuck open is a classic fugitive source -- normally shut, so the
-        # band is tight and only the high alarms are meaningful.
-        ("thief_hatch_position", "valve_position", "percent", "ZT", 0.0,  2.0,  None,  None,    5.0,   20.0,  0.1,   0.05,  0.10),
-    ],
-    "Metering Station": [
-        ("flow",               "flow",           "mscfd", "FT",  500.0, 4000.0, 250.0, 100.0, 4800.0, 5500.0,  1.0,  25.0,  50.0),
-        ("pressure",           "pressure",       "psig", "PT",  250.0,  900.0, 180.0, 120.0, 1000.0, 1150.0,  0.5,   3.0,   8.0),
-        ("temperature",        "temperature",    "degF", "TT",   50.0,  110.0,  30.0,  15.0,  130.0,  145.0,  0.1,   0.5,   1.0),
-        # Orifice differential -- measurement_type is pressure, but the ISA code and the
-        # unit are the differential ones.
-        ("differential_pressure", "pressure",    "inH2O", "PDT", 20.0,  180.0,  10.0,   4.0,  200.0,  240.0,  0.1,   1.2,   2.5),
+        ("level",                "level",          "percent","LT",     20.0,   80.0,   20.0,   10.0,   80.0,   90.5,   0.1,   0.4,0.8),
+        ("vapour_pressure",      "pressure",       "psig",  "PT",      0.5,    6.0,    0.5,   0.25,    6.0,   6.96,  0.01,   0.1,0.2),
+        ("temperature",          "temperature",    "degF",  "TT",     55.0,  115.0,   55.0,   44.5,  115.0,  125.5,   0.1,   0.5,1.0),
+        ("thief_hatch_position", "valve_position", "percent","ZT",      0.0,    2.0,   None,   None,    2.0,    2.4,   0.1,  0.05,0.1),
     ],
     "Flare": [
-        # 1 = pilot lit, 0 = flame out. Only a lolo alarm is meaningful.
-        ("pilot_flame",        "pilot_flame",    "state", "BT",   1.0,    1.0,  None,   0.0,   None,   None,  1.0,   0.0,   0.0),
-        # Normally near zero; a flare only flows on upset, so there is no low alarm.
-        ("flow",               "flow",           "mscfd", "FT",    0.0,  150.0, None,  None,  400.0,  900.0,  0.1,   3.0,   5.0),
-        ("stack_temperature",  "temperature",    "degF", "TT",  900.0, 1800.0, 600.0, 400.0, 2000.0, 2200.0,  1.0,  12.0,  20.0),
-        ("air_fuel_ratio",     "air_fuel_ratio", "ratio", "AT",  15.0,   19.0,  13.5,  12.0,   22.0,   25.0,  0.01,  0.10,  0.20),
+        ("pilot_flame",          "pilot_flame",    "state", "BT",      1.0,    1.0,   None,    0.0,   None,   None,   1.0,   0.0,0.0),
+        ("flow",                 "flow",           "mscfd", "FT",      0.0,  150.0,   None,   None,  150.0,  176.2,   0.1,   3.0,5.0),
+        ("stack_temperature",    "temperature",    "degF",  "TT",    900.0, 1800.0,  900.0,  742.0, 1800.0, 1958.0,   1.0,  12.0,20.0),
+        ("air_fuel_ratio",       "air_fuel_ratio", "ratio", "AT",     15.0,   19.0,   15.0,   14.3,   19.0,   19.7,  0.01,   0.1,0.2),
     ],
     "Pump": [
-        ("discharge_pressure", "pressure",       "psig", "PT",  120.0,  600.0,  90.0,  60.0,  700.0,  820.0,  0.5,   2.5,   6.0),
-        ("flow",               "flow",           "bpd",  "FT",  100.0,  900.0,  50.0,  20.0, 1100.0, 1300.0,  1.0,   8.0,  15.0),
-        ("vibration",          "vibration",      "in/s", "VT",    0.04,   0.22, None,  None,    0.35,   0.55, 0.001, 0.008, 0.015),
+        ("discharge_pressure",   "pressure",       "psig",  "PT",    120.0,  600.0,  120.0,   60.0,  600.0,  684.0,   0.5,   2.5,6.0),
+        ("flow",                 "flow",           "bpd",   "FT",    100.0,  900.0,  100.0,   50.0,  900.0, 1040.0,   1.0,   8.0,15.0),
+        ("vibration",            "vibration",      "in/s",  "VT",     0.04,   0.22,   None,   None,   0.22,  0.252, 0.001, 0.008,0.015),
+    ],
+    "Metering Station": [
+        ("flow",                 "flow",           "mscfd", "FT",    500.0, 4000.0,  500.0,  250.0, 4000.0, 4612.0,   1.0,  25.0,50.0),
+        ("pressure",             "pressure",       "psig",  "PT",    250.0,  900.0,  250.0,  136.0,  900.0, 1014.0,   0.5,   3.0,8.0),
+        ("temperature",          "temperature",    "degF",  "TT",     50.0,  110.0,   50.0,   39.5,  110.0,  120.5,   0.1,   0.5,1.0),
+        ("differential_pressure","pressure",       "inH2O", "PDT",    20.0,  180.0,   20.0,   10.0,  180.0,  208.0,   0.1,   1.2,2.5),
     ],
 }
-
 TAG_TEMPLATE_FIELDS = ("tag_name", "measurement_type", "uom", "isa", "normal_min",
                        "normal_max", "alarm_lo", "alarm_lolo", "alarm_hi", "alarm_hihi",
                        "resolution", "noise_sigma", "drift_per_year")
@@ -963,6 +1017,17 @@ MEASUREMENT_TYPES = {"pressure", "flow", "temperature", "level", "vibration",
 
 INSTRUMENTABLE_EQUIPMENT = set(TAG_TEMPLATES)
 UNINSTRUMENTED_EQUIPMENT = set(EQUIPMENT_TYPES) - INSTRUMENTABLE_EQUIPMENT
+
+
+def _alarm_sigmas(d):
+    """(warning sigmas, trip sigmas) for one template, for reporting."""
+    C = 0.5 * (d["normal_min"] + d["normal_max"])
+    sig = TELEMETRY_PROCESS_SD_FRACTION * 0.5 * (d["normal_max"] - d["normal_min"])
+    if sig <= 0:
+        return [], []
+    warn = [abs(d[k] - C) / sig for k in ("alarm_hi", "alarm_lo") if d[k] is not None]
+    trip = [abs(d[k] - C) / sig for k in ("alarm_hihi", "alarm_lolo") if d[k] is not None]
+    return warn, trip
 
 
 def tag_template_dicts(equipment_type):
@@ -1015,6 +1080,26 @@ for _et, _tmpls in TAG_TEMPLATES.items():
                 f"{_et}/{_d['tag_name']}: alarm limits out of order -- "
                 f"{_n1}={_v1} must not exceed {_n2}={_v2}"
             )
+        # Limits must stay within REACH of the process, or 02d derives nothing from them.
+        # This is the guard against a future edit quietly restoring protection trips.
+        _C = 0.5 * (_d["normal_min"] + _d["normal_max"])
+        _sigma = TELEMETRY_PROCESS_SD_FRACTION * 0.5 * (_d["normal_max"] - _d["normal_min"])
+        if _sigma > 0:
+            for _n, _v, _sgn, _band in (
+                    ("alarm_hi", _d["alarm_hi"], 1.0, ALARM_WARN_SIGMA_BAND),
+                    ("alarm_lo", _d["alarm_lo"], -1.0, ALARM_WARN_SIGMA_BAND),
+                    ("alarm_hihi", _d["alarm_hihi"], 1.0, ALARM_TRIP_SIGMA_BAND),
+                    ("alarm_lolo", _d["alarm_lolo"], -1.0, ALARM_TRIP_SIGMA_BAND)):
+                if _v is None:
+                    continue
+                _z = _sgn * (_v - _C) / _sigma
+                assert _band[0] <= _z <= _band[1], (
+                    f"{_et}/{_d['tag_name']}: {_n} = {_v} sits {_z:.1f} sigma from centre, "
+                    f"outside the {_band[0]}-{_band[1]} band. These are ANNUNCIATION limits, "
+                    "meant to be crossed by ordinary excursions several times a month -- a "
+                    "limit further out is an equipment protection trip and will leave 02d's "
+                    "alarm table empty. See the note above TAG_TEMPLATES."
+                )
 
 print("SCADA instrumentation policy:")
 print(f"  instrumentable types     {', '.join(sorted(INSTRUMENTABLE_EQUIPMENT))}")
@@ -1026,6 +1111,20 @@ print(f"  tiering                  {HOT_TAG_SHARE:.0%} hot at {HOT_INTERVAL_SECO
       f" rest at {STANDARD_INTERVAL_SECONDS}s")
 print(f"  raw telemetry window     {TELEMETRY_RAW_DAYS} days, capped at "
       f"{MAX_TELEMETRY_ROWS_PER_RUN:,} rows per run")
+print()
+_warn_z, _trip_z = [], []
+for _et2, _tm2 in TAG_TEMPLATES.items():
+    for _t2 in _tm2:
+        _w2, _r2 = _alarm_sigmas(dict(zip(TAG_TEMPLATE_FIELDS, _t2)))
+        _warn_z += _w2
+        _trip_z += _r2
+print(f"  alarm limits             warning {ALARM_WARN_HALF_BANDS:.2f} half-bands "
+      f"(= the normal band edge), trip {ALARM_TRIP_HALF_BANDS:.2f}")
+print(f"                           = {min(_warn_z):.2f}-{max(_warn_z):.2f} sigma warning, "
+      f"{min(_trip_z):.2f}-{max(_trip_z):.2f} sigma trip, at process sd "
+      f"{TELEMETRY_PROCESS_SD_FRACTION:.2f} x half-band")
+print(f"                           annunciation, not equipment protection -- see the note "
+      f"above TAG_TEMPLATES")
 print()
 print(f"  {'equipment_type':<20}{'tags':>6}   tag names")
 for _et in sorted(TAG_TEMPLATES, key=lambda e: INSTRUMENT_PRIORITY[e]):

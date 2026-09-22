@@ -261,7 +261,11 @@ TELEMETRY_HARMONICS = [
 ]
 TELEMETRY_AMP_JITTER = 0.40      # amplitude = weight * (1 - j + 2j*u), so +/-40%
 
-PROCESS_SD_FRACTION = 0.25       # process sd as a fraction of the normal half-band
+# Read from 01_topology_config, not redeclared: 02d needs the same number to reason about
+# alarm limits, and the sigma-band assertion there needs it in the same file as TAG_TEMPLATES.
+# At 0.33 the normal band edge is 3.03 sigma, so a healthy tag leaves its band a fraction of a
+# percent of the time -- which is what makes 02d's annunciation alarms reachable.
+PROCESS_SD_FRACTION = TELEMETRY_PROCESS_SD_FRACTION
 LATENT_W_IDIO, LATENT_W_LOAD, LATENT_W_FAC = 0.70, 1.00, 0.55
 FACILITY_LOAD_COUPLING = 0.45    # gamma_t = this * beta_t, so the site factor pushes a tag
                                  # the same way its own load factor does, but weaker
@@ -310,7 +314,7 @@ print("value model configured")
 print(f"  harmonics          {len(TELEMETRY_HARMONICS)} at "
       f"{', '.join(f'{p:g}h' for p, _ in TELEMETRY_HARMONICS)}")
 print(f"  process sd         {PROCESS_SD_FRACTION:.2f} x half-band "
-      f"({1/PROCESS_SD_FRACTION:.1f} sigma to the band edge)")
+      f"({1/PROCESS_SD_FRACTION:.2f} sigma to the band edge, from 01_topology_config)")
 print(f"  latent mix         idio {LATENT_W_IDIO}  load {LATENT_W_LOAD}  "
       f"facility {LATENT_W_FAC} (x beta x {FACILITY_LOAD_COUPLING})")
 
@@ -1910,11 +1914,23 @@ assert len(ac) >= AUTOCORR_TAGS * 0.8, (
     f"only {len(ac)} of {AUTOCORR_TAGS} sampled tags had enough consecutive Good pairs with "
     f"a defined correlation (needed {MIN_PAIRS} pairs each) to measure autocorrelation"
 )
-worst = ac.sort_values("r1").head(5)
+worst = (ac.sort_values("r1").head(5)
+         .merge(live[["tag_sk", "tag_name", "measurement_type", "sigma_proc", "noise_sigma"]],
+                on="tag_sk", how="left"))
+worst["noise_share"] = (worst["noise_sigma"] ** 2
+                        / (worst["sigma_proc"] ** 2 + worst["noise_sigma"] ** 2))
 assert (ac["r1"] > AUTOCORR_MIN).all(), (
     f"{int((ac['r1'] <= AUTOCORR_MIN).sum())} of {len(ac)} sampled tags have lag-1 "
     f"autocorrelation at or below {AUTOCORR_MIN}. This is the white-noise check -- the "
-    f"value model has lost its temporal continuity. Worst:\n{worst.to_string(index=False)}"
+    f"value model has lost its temporal continuity.\n{worst.to_string(index=False)}\n"
+    "  Read noise_share first. The spectral process has lag-1 ~0.97, so the observed figure "
+    "is roughly that times (1 - noise_share): a tag only fails when white noise is a large "
+    "part of its variance. The tightest tags in the estate are vibration "
+    "(noise_sigma 0.010 on a 0.20 band) and Pump vibration, and a 30-day window can realise "
+    "a below-average process sd for a given series, which pushes the share up further. "
+    "If this fires on a vibration tag with a small realised sd, the generator is working and "
+    "the knobs are that tag's noise_sigma in TAG_TEMPLATES or "
+    "TELEMETRY_PROCESS_SD_FRACTION, both in 01_topology_config."
 )
 print(f"OK  lag-1 autocorrelation on {len(ac)} tags: min {ac['r1'].min():.3f}  "
       f"median {ac['r1'].median():.3f}  max {ac['r1'].max():.3f}  (threshold {AUTOCORR_MIN})")
