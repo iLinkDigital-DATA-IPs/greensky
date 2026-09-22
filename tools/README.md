@@ -67,6 +67,7 @@ Run any script directly; each asserts its own claims and exits non-zero on failu
 | `harness_outage_slots.py` | outage slot counting against explicit enumeration, on the same phase grid the generator uses |
 | `harness_sessionise.py` | 02d's three-window-pass sessioniser is equivalent to an explicit debounce/deadband state machine |
 | `harness_alarm_incr.py` | 02d's full-retention scan reproduces the backfill, **and** that the rejected lookback design does not |
+| `harness_alarm_keys.py` | `alarm_sk` and `event_sk` are unique at the grain their tables actually have, including when two alarm types raise on the same reading |
 | `harness_alarms.py` | how far the alarm limits sit from centre in units of the generated process sd |
 | `harness_alarm_rate.py` | alarm rate per facility-month using 02a's real state machine |
 | `harness_final_rate.py` | the realised rate and type mix against the actual `TAG_TEMPLATES` in the repo, plus 02b's envelope and autocorrelation checks |

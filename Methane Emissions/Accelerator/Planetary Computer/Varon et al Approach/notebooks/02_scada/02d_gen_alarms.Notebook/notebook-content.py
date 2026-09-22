@@ -695,21 +695,34 @@ def sk_from_sha(*parts):
     return (F.conv(h, 16, 10).cast("decimal(20,0)") % SK_MODULUS).cast("long")
 
 
-def alarm_key(tag_id_col, ts_col):
-    """stable_key("alarm", tag_id, raised_ts), in Spark. Low 63 bits, so it fits bigint."""
-    return sk_from_sha(F.lit("alarm"), tag_id_col,
+def alarm_key(tag_id_col, alarm_type_col, ts_col):
+    """stable_key("alarm", tag_id, alarm_type, raised_ts), in Spark.
+
+    alarm_type is IN the key because the table's grain includes it. Hi and HiHi are
+    independent debounce machines on the same tag -- validation section 4 asserts one open
+    alarm per (tag, alarm_type), not per tag -- so a value that crosses both limits between
+    one reading and the next raises two alarms at the SAME raised_ts. Without alarm_type the
+    two collide and one is lost.
+
+    That is not a corner case here. The dominant alarm source is a Standby interval, where
+    02b relaxes a compressor's discharge pressure from ~1000 psig to 0.45 x centre in a
+    single sample, straight past alarm_lo and alarm_lolo together.
+    """
+    return sk_from_sha(F.lit("alarm"), tag_id_col, alarm_type_col,
                        F.date_format(ts_col, "yyyy-MM-dd HH:mm:ss"))
 
 
-_g = [("GS-0001.A1.PT-101", "2026-08-20 13:45:00"), ("GS-0042.A3.FT-104", "2026-09-01 00:00:00")]
+_g = [("GS-0001.A1.PT-101", "Hi", "2026-08-20 13:45:00"),
+      ("GS-0001.A1.PT-101", "HiHi", "2026-08-20 13:45:00"),   # same tag, same instant,
+      ("GS-0042.A3.FT-104", "LoLo", "2026-09-01 00:00:00")]   # different type -> different key
 
 # The vectors must EXERCISE the modulus, not just pass around it. A 16-hex-character digest
 # is below 2**63 about half the time, and a set of vectors that all happened to land there
 # would verify nothing about the reduction -- the broken F.lit(2**63) form would still have
 # failed at construction, but a silently wrong modulus would not. So at least one vector is
 # required to have a raw digest at or above 2**63, asserted here rather than hoped for.
-_raw = [int(hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{s}".encode()).hexdigest()[:16], 16)
-        for t, s in _g]
+_raw = [int(hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{k}|{s}".encode()).hexdigest()[:16], 16)
+        for t, k, s in _g]
 assert max(_raw) >= 2 ** 63, (
     "no golden vector has a digest at or above 2**63, so the 63-bit reduction in sk_from_sha "
     "is never exercised. Add a (tag_id, timestamp) pair whose first 16 hex digits start with "
@@ -727,11 +740,11 @@ assert max(_raw) >= 2 ** 63, (
 # This layer is also the more robust of the two by construction: comparing hex does no
 # arithmetic, so it cannot itself break the way the numeric check did when its modulus was
 # expressed as a long literal Spark could not build.
-_dig = [(t, s, hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{s}".encode()).hexdigest()[:16])
-        for t, s in _g]
-_bad_d = (spark.createDataFrame(_dig, "tag_id string, ts string, expected string")
+_dig = [(t, k, s, hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{k}|{s}".encode()).hexdigest()[:16])
+        for t, k, s in _g]
+_bad_d = (spark.createDataFrame(_dig, "tag_id string, k string, ts string, expected string")
           .withColumn("actual", F.substring(F.sha2(F.concat_ws(
-              "|", F.lit(str(TOPOLOGY_SEED)), F.lit("alarm"), F.col("tag_id"),
+              "|", F.lit(str(TOPOLOGY_SEED)), F.lit("alarm"), F.col("tag_id"), F.col("k"),
               F.date_format(F.to_timestamp("ts"), "yyyy-MM-dd HH:mm:ss")), 256), 1, 16))
           .filter("actual <> expected").collect())
 assert not _bad_d, (
@@ -744,10 +757,15 @@ assert not _bad_d, (
 print("OK  sha2 digests agree -- Spark and Python hash the same string")
 
 # --- layer 2: the 63-bit reduction --------------------------------------------------------------
-_golden = [(t, s, stable_key("alarm", t, s)) for t, s in _g]
-_chk = (spark.createDataFrame(_golden, "tag_id string, ts string, expected long")
-        .withColumn("actual", alarm_key(F.col("tag_id"), F.to_timestamp("ts"))))
+_golden = [(t, k, s, stable_key("alarm", t, k, s)) for t, k, s in _g]
+_chk = (spark.createDataFrame(_golden, "tag_id string, k string, ts string, expected long")
+        .withColumn("actual", alarm_key(F.col("tag_id"), F.col("k"), F.to_timestamp("ts"))))
 _bad = _chk.filter("actual <> expected").collect()
+# the first two vectors differ only by alarm_type: if they collide, the key ignores it
+assert _chk.select("actual").distinct().count() == len(_g), (
+    "two golden vectors that differ only in alarm_type produced the same alarm_sk -- "
+    "alarm_type is not reaching the key"
+)
 assert not _bad, (
     f"63-bit REDUCTION mismatch: {_bad[0]}\n"
     "  The digests already agreed, so the string being hashed is correct and only the "
@@ -803,7 +821,8 @@ alarms = (alarms
                       F.when(F.col("is_upper"), F.col("v_max")).otherwise(F.col("v_min")))
           .withColumn("peak_value", F.coalesce(F.col("peak_value"), F.col("v_max")))
           .withColumn("threshold_value", F.col("limit_value"))
-          .withColumn("alarm_sk", alarm_key(F.col("tag_id"), F.col("raised_ts")))
+          .withColumn("alarm_sk", alarm_key(F.col("tag_id"), F.col("alarm_type"),
+                                            F.col("raised_ts")))
           .withColumn("is_open", F.col("cleared_ts").isNull())
           .withColumn("duration_minutes",
                       F.when(F.col("cleared_ts").isNotNull(),
@@ -1017,6 +1036,45 @@ def write_fact(df, table, n_rows):
        .partitionBy("date_sk").saveAsTable(table))
     print(f"{table}: {n_rows:,} rows written (replaceWhere {PREDICATE})")
 
+
+# --- surrogate keys must be unique AT THE SOURCE ------------------------------------------
+# Checked here, before the write, rather than three sections into validation. A duplicate key
+# is a defect in the key's definition, not in the data, and the diagnosis is far easier while
+# the columns that should have been in the key are still to hand.
+#
+# The grain of each key has to match the grain of its table:
+#   alarm_sk        (tag_id, alarm_type, raised_ts)  -- Hi and HiHi are independent machines
+#                   on one tag and can raise on the same reading
+#   event_sk        (tag_id, event_ts, to_status)    -- a tag leaves Online at one instant and
+#                   returns at another; the two carry different to_status
+def assert_key_unique(df, key, grain, table):
+    n, d = df.count(), df.select(key).distinct().count()
+    if n == d:
+        return
+    dupes = (df.groupBy(key).count().filter("count > 1")
+             .join(df, key).orderBy(key).limit(6).collect())
+    raise AssertionError(
+        f"{table}: {n - d} duplicate {key} across {n:,} rows.\n"
+        f"  The key's grain must match the table's, which is {grain}.\n"
+        f"  First colliding rows:\n"
+        + "\n".join(f"    {r.asDict()}" for r in dupes)
+    )
+
+
+assert_key_unique(alarm_out, "alarm_sk", "(tag_id, alarm_type, raised_ts)", ALARM_TABLE)
+assert_key_unique(status_out, "event_sk", "(tag_id, event_ts, to_status)", STATUS_TABLE)
+
+# ...and the natural keys behind them, so a collision is attributable to the hash rather than
+# to two rows genuinely sharing a grain they should not.
+for _df, _cols, _tbl in ((alarm_out, ["tag_id", "alarm_type", "raised_ts"], ALARM_TABLE),
+                         (status_out, ["tag_id", "event_ts", "to_status"], STATUS_TABLE)):
+    _n = _df.count()
+    _d = _df.select(*_cols).distinct().count()
+    assert _n == _d, (
+        f"{_tbl}: {_n - _d} rows share a natural key {tuple(_cols)}. The generator is "
+        "emitting two rows at one grain point -- this is upstream of the surrogate key."
+    )
+print(f"OK  alarm_sk and event_sk unique, and so are the natural keys behind them")
 
 # Nothing outside the scan may be written, or replaceWhere rejects the batch.
 _oos = alarm_out.filter(f"NOT ({PREDICATE})").count()
