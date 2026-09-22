@@ -647,8 +647,49 @@ assert set(tag_pdf["equipment_sk"]) <= set(eq_pdf["equipment_sk"]), (
 )
 
 tag_pdf["install_date"] = pd.to_datetime(tag_pdf["install_date"])
+
+_EPOCH_TS = pd.Timestamp("1970-01-01")
+
+
+def window_slots(install_date, cadence_s, lo=None, hi=None):
+    """Grid slots in [max(lo, install_date), hi) for one tag.
+
+    This is the denominator of every rate in this notebook, and it is clipped to the tag's
+    install date rather than starting at WINDOW_START for everybody.
+
+    The estate is YOUNG. Asset ages come from a triangular draw in 01b whose mode sits at
+    30% of the facility's own age, so the median asset is about 18 months old, not 7 years;
+    tag install dates then sit up to a year after that. Roughly 12% of tags are therefore
+    installed part-way through a 30-day window and legitimately emit only a fraction of it.
+    Counting those absent slots as offline made the realised offline share ~9.4% against a
+    2% target -- not a transmitter that is dark, but a tag that did not exist yet.
+
+    A tag installed at or after WINDOW_END scores zero and drops out of both sides of every
+    ratio. A DECOMMISSIONED tag keeps its slots: it existed, it is in the registry, and
+    anything computing staleness from MAX(reading_ts) will rightly call it offline.
+    """
+    lo = WINDOW_START if lo is None else lo
+    hi = WINDOW_END if hi is None else hi
+    start = max(pd.Timestamp(install_date), pd.Timestamp(lo))
+    hi = pd.Timestamp(hi)
+    if start >= hi:
+        return 0
+    cad = int(cadence_s)
+    first = int(np.ceil((start - _EPOCH_TS).total_seconds() / cad))
+    last = int((hi - _EPOCH_TS).total_seconds() // cad)
+    return max(0, last - first)
+
+
+tag_pdf["potential_slots"] = [
+    window_slots(d, c)
+    for d, c in zip(tag_pdf["install_date"], tag_pdf["sampling_interval_seconds"])
+]
+
 live = tag_pdf[tag_pdf["status"] != "Decommissioned"].copy()
 live = live[live["install_date"] < WINDOW_END].reset_index(drop=True)
+
+ALL_SLOTS = int(tag_pdf["potential_slots"].sum())
+LIVE_SLOTS = int(live["potential_slots"].sum())
 
 print(f"{len(tag_pdf):,} current tags on {tag_pdf['equipment_id'].nunique():,} assets, "
       f"{len(eq_pdf):,} assets, {len(area_pdf)} areas, {len(fac_pdf)} facilities")
@@ -656,6 +697,46 @@ for s, n in tag_pdf["status"].value_counts().items():
     print(f"  status {s:<16}{n:>7,}  ({n/len(tag_pdf):.2%})")
 print(f"  emitting rows this run   {len(live):>7,}  "
       f"({len(tag_pdf) - len(live):,} decommissioned or not yet installed)")
+
+# --- where the window's slots go, attributed ---------------------------------------------------
+# Printed every run, because "the denominator is not what you think" is the failure mode this
+# notebook is most prone to and the one hardest to spot from a single percentage.
+_naive = int(sum(86400 // int(c) for c in tag_pdf["sampling_interval_seconds"]) * WINDOW_DAYS)
+_decom = tag_pdf["status"] == "Decommissioned"
+_late = (~_decom) & (tag_pdf["install_date"] >= WINDOW_END)
+_partial = ((~_decom) & (tag_pdf["install_date"] > WINDOW_START)
+            & (tag_pdf["install_date"] < WINDOW_END))
+_full = (~_decom) & (tag_pdf["install_date"] <= WINDOW_START)
+
+print()
+print(f"slot accounting over {WINDOW_DAYS} day(s), per tag's own cadence:")
+print(f"  {'group':<34}{'tags':>7}{'potential':>13}{'of naive':>10}{'mean cover':>12}")
+print("  " + "-" * 76)
+for _name, _m in (("installed before the window", _full),
+                  ("installed inside the window", _partial),
+                  ("installed at/after window end", _late),
+                  ("decommissioned", _decom)):
+    _n = int(_m.sum())
+    if not _n:
+        continue
+    _p = int(tag_pdf.loc[_m, "potential_slots"].sum())
+    _naive_g = int(sum(86400 // int(c)
+                       for c in tag_pdf.loc[_m, "sampling_interval_seconds"]) * WINDOW_DAYS)
+    print(f"  {_name:<34}{_n:>7,}{_p:>13,}{_p/max(_naive,1):>10.3%}"
+          f"{(_p/_naive_g if _naive_g else 0):>12.3f}")
+print("  " + "-" * 76)
+print(f"  {'ALL_SLOTS (denominator)':<34}{len(tag_pdf):>7,}{ALL_SLOTS:>13,}"
+      f"{ALL_SLOTS/max(_naive,1):>10.3%}")
+print(f"  {'naive WINDOW_DAYS x cadence':<34}{len(tag_pdf):>7,}{_naive:>13,}{1.0:>10.3%}")
+print(f"  {'LIVE_SLOTS (tags that emit)':<34}{len(live):>7,}{LIVE_SLOTS:>13,}"
+      f"{LIVE_SLOTS/max(_naive,1):>10.3%}")
+print()
+print(f"  tags installed inside the window : {int(_partial.sum()):,} "
+      f"({int(_partial.sum())/len(tag_pdf):.2%} of the registry), covering "
+      f"{(tag_pdf.loc[_partial, 'potential_slots'].sum() / max(sum(86400 // int(c) for c in tag_pdf.loc[_partial, 'sampling_interval_seconds']) * WINDOW_DAYS, 1)):.1%} "
+      "of the window on average")
+print(f"  slots the naive denominator would have charged as offline: "
+      f"{_naive - ALL_SLOTS:,} ({(_naive - ALL_SLOTS)/max(_naive,1):.3%})")
 print(f"  cadence tiers            "
       + ", ".join(f"{int(c)}s x {n:,}"
                   for c, n in live["sampling_interval_seconds"].value_counts().items()))
@@ -888,32 +969,41 @@ assert_disjoint(freeze_pdf, "tag_sk", "frz_start", "frz_end", "freeze")
 if _n_raw != len(freeze_pdf):
     print(f"  {_n_raw - len(freeze_pdf)} overlapping freeze interval(s) merged")
 
-# Analytic offline expectation, from the knobs rather than from the data -- the figure the
-# realised share is compared against below. A "dark" tag is decommissioned or not yet
-# installed: it emits nothing for the whole window, which is what being offline looks like
-# to anything computing staleness from MAX(reading_ts).
-_win_s = (WINDOW_END - WINDOW_START).total_seconds()
-_dark = len(tag_pdf) - len(live)
-_outage_s = 0.0
-if len(outage_pdf):
-    clipped = outage_pdf.assign(
-        lo=outage_pdf["out_start"].clip(lower=WINDOW_START),
-        hi=outage_pdf["out_end"].clip(upper=WINDOW_END))
-    _outage_s = float((clipped["hi"] - clipped["lo"]).dt.total_seconds().clip(lower=0).sum())
-# Two different denominators, deliberately. OFFLINE_EXPECTED is over EVERY current tag and
-# is what the 1-3% design band refers to -- a decommissioned tag is offline. The projection
-# below instead needs the share of the LIVE tags' slots that an outage removes, because the
-# dark tags are already excluded from the gross figure.
-OFFLINE_EXPECTED = (_dark * _win_s + _outage_s) / (len(tag_pdf) * _win_s)
-OUTAGE_SHARE_LIVE = _outage_s / (len(live) * _win_s)
+# Analytic expectation, in SLOTS rather than seconds, so it is directly comparable with what
+# the generator actually removes. Counting in seconds was an approximation that quietly
+# assumed every tag was live for the whole window; counting the grid points each outage
+# actually covers, clipped to the tag's own install date, is exact -- and it lets the
+# realised figure be asserted equal rather than merely close.
+_cad_of = live.set_index("tag_sk")["sampling_interval_seconds"].to_dict()
+_inst_of = live.set_index("tag_sk")["install_date"].to_dict()
+
+OUTAGE_SLOTS_EXPECTED = int(sum(
+    window_slots(_inst_of[int(r.tag_sk)], _cad_of[int(r.tag_sk)],
+                 lo=max(r.out_start, WINDOW_START), hi=min(r.out_end, WINDOW_END))
+    for r in outage_pdf.itertuples()
+)) if len(outage_pdf) else 0
+
+# A DECOMMISSIONED tag is offline: it exists, it is listed, and it emits nothing. A tag
+# installed at or after WINDOW_END is not offline, it simply did not exist yet -- and it
+# already scores zero potential slots, so it drops out of both sides on its own.
+DARK_SLOTS_EXPECTED = int(tag_pdf.loc[tag_pdf["status"] == "Decommissioned",
+                                      "potential_slots"].sum())
+
+OFFLINE_EXPECTED = (DARK_SLOTS_EXPECTED + OUTAGE_SLOTS_EXPECTED) / ALL_SLOTS
+OUTAGE_SHARE_LIVE = OUTAGE_SLOTS_EXPECTED / max(LIVE_SLOTS, 1)
 
 print(f"outage intervals in window : {len(outage_pdf):,}  "
       f"({len(outage_pdf)/max(len(live),1):.3f} per live tag over {WINDOW_DAYS} days)")
 print(f"frozen tags in window      : {len(freeze_pdf):,}  "
       f"({len(freeze_pdf)/len(tag_pdf):.3%}, target {TELEMETRY_FROZEN_TAG_SHARE:.3%})")
-print(f"permanently dark tags      : {_dark:,}  (decommissioned or installed after the window)")
+print(f"decommissioned tags        : {int((tag_pdf['status'] == 'Decommissioned').sum()):,}"
+      f"  ({DARK_SLOTS_EXPECTED:,} slots, {DARK_SLOTS_EXPECTED/ALL_SLOTS:.3%} of the window)")
+print(f"outage slots expected      : {OUTAGE_SLOTS_EXPECTED:,}  "
+      f"({OUTAGE_SLOTS_EXPECTED/ALL_SLOTS:.3%} of the window)")
 print(f"expected offline share     : {OFFLINE_EXPECTED:.3%}  "
       f"(design band 1-3%, target {TELEMETRY_OFFLINE_TARGET:.1%})")
+print(f"  tags installed mid-window are NOT counted here -- they were not dark, they did "
+      f"not exist yet")
 
 outage_dim = F.broadcast(spark.createDataFrame(
     outage_pdf if len(outage_pdf) else
@@ -1311,8 +1401,12 @@ CADENCES = sorted(int(c) for c in live["sampling_interval_seconds"].unique())
 per_day_by_cadence = {c: int((live["sampling_interval_seconds"] == c).sum() * 86400 // c)
                       for c in CADENCES}
 GROSS_PER_DAY = sum(per_day_by_cadence.values())
-GROSS_ROWS = GROSS_PER_DAY * WINDOW_DAYS
+# GROSS_ROWS is LIVE_SLOTS, not cadence x WINDOW_DAYS. Roughly 12% of tags are installed
+# part-way through a 30-day window, so the flat product overstates the run by ~7% -- which
+# would eat most of the 10% tolerance on the row-count check below for no reason.
+GROSS_ROWS = LIVE_SLOTS
 NET_ROWS = int(round(GROSS_ROWS * (1.0 - OUTAGE_SHARE_LIVE) * (1.0 - TELEMETRY_DROPOUT_RATE)))
+_FLAT_ROWS = GROSS_PER_DAY * WINDOW_DAYS
 
 print(f"projected volume for {WINDOW_DAYS} day(s)")
 print(f"  {'cadence':<12}{'tags':>8}{'slots/day':>12}{'rows/day':>14}{'rows/window':>16}")
@@ -1322,12 +1416,21 @@ for c in CADENCES:
     print(f"  {str(c) + 's':<12}{n:>8,}{86400 // c:>12,}{per_day_by_cadence[c]:>14,}"
           f"{per_day_by_cadence[c] * WINDOW_DAYS:>16,}")
 print("  " + "-" * 62)
-print(f"  {'gross':<12}{len(live):>8,}{'':>12}{GROSS_PER_DAY:>14,}{GROSS_ROWS:>16,}")
+print(f"  {'flat':<12}{len(live):>8,}{'':>12}{GROSS_PER_DAY:>14,}{_FLAT_ROWS:>16,}   "
+      "every live tag charged a full window")
+print(f"  {'gross':<12}{len(live):>8,}{'':>12}{'':>14}{GROSS_ROWS:>16,}   "
+      f"less {_FLAT_ROWS - GROSS_ROWS:,} ({1 - GROSS_ROWS/max(_FLAT_ROWS,1):.2%}) for tags "
+      "installed mid-window")
 print(f"  {'net':<12}{'':>8}{'':>12}{'':>14}{NET_ROWS:>16,}   "
       f"after {OUTAGE_SHARE_LIVE:.2%} outage and {TELEMETRY_DROPOUT_RATE:.2%} dropout")
 
-assert GROSS_ROWS < MAX_TELEMETRY_ROWS_PER_RUN, (
-    f"projected {GROSS_ROWS:,} rows, over the {MAX_TELEMETRY_ROWS_PER_RUN:,} cap. The knobs "
+# The cap is asserted against the FLAT figure, not the gross one. Tags installed mid-window
+# shrink this run but not the next: as the estate ages they become full-window tags, so the
+# flat product is the steady state this notebook has to stay under, and guarding the smaller
+# number would let the run creep over the cap a month later with nothing changed.
+assert _FLAT_ROWS < MAX_TELEMETRY_ROWS_PER_RUN, (
+    f"projected {_FLAT_ROWS:,} rows at steady state ({GROSS_ROWS:,} this run), over the "
+    f"{MAX_TELEMETRY_ROWS_PER_RUN:,} cap. The knobs "
     f"are TELEMETRY_RAW_DAYS (now {TELEMETRY_RAW_DAYS}), HOT_TAG_SHARE (now "
     f"{HOT_TAG_SHARE:.0%}), HOT_INTERVAL_SECONDS (now {HOT_INTERVAL_SECONDS}s), "
     f"STANDARD_INTERVAL_SECONDS (now {STANDARD_INTERVAL_SECONDS}s) and "
@@ -1335,7 +1438,8 @@ assert GROSS_ROWS < MAX_TELEMETRY_ROWS_PER_RUN, (
     "all five live in 01_topology_config. Halving HOT_TAG_SHARE removes roughly "
     f"{int(len(live) * HOT_TAG_SHARE / 2 * (86400 // HOT_INTERVAL_SECONDS - 86400 // STANDARD_INTERVAL_SECONDS) * WINDOW_DAYS):,} rows."
 )
-print(f"\nOK  {GROSS_ROWS:,} projected rows is under the {MAX_TELEMETRY_ROWS_PER_RUN:,} cap")
+print(f"\nOK  {_FLAT_ROWS:,} rows at steady state ({GROSS_ROWS:,} this run) is under the "
+      f"{MAX_TELEMETRY_ROWS_PER_RUN:,} cap")
 print(f"    at {ASSUMED_BYTES_PER_TELEMETRY_ROW} bytes/row that is roughly "
       f"{NET_ROWS * ASSUMED_BYTES_PER_TELEMETRY_ROW / 1e9:.2f} GB before Delta compression")
 
@@ -1456,7 +1560,7 @@ TELEMETRY_SCHEMA = ["tag_sk", "tag_id", "equipment_sk", "area_sk", "facility_sk"
                     "reading_ts", "date_sk", "value_num", "uom", "quality_code",
                     "operating_state", "is_interpolated", "is_synthetic", "ingest_ts"]
 
-_EPOCH_TS = pd.Timestamp("1970-01-01")
+
 
 
 def slots_for_day(day_ts):
@@ -1642,14 +1746,28 @@ ROWS_WRITTEN = int(stats["rows"].sum())
 SLOTS_TOTAL = int(stats["slots"].sum())
 OUTAGE_REMOVED = int(stats["outage"].sum())
 DROPOUT_REMOVED = int(stats["dropout"].sum())
-# Denominator for the offline share: every slot every CURRENT tag could have produced,
-# including the decommissioned ones that produce nothing at all.
-ALL_SLOTS = int(sum(86400 // int(c)
-                    for c in tag_pdf["sampling_interval_seconds"]) * WINDOW_DAYS)
+
+# Two exactness invariants, not tolerances. Both compare what the generator did against what
+# the dimension and the gap model said it would do, and both are what a rate check cannot
+# tell you: a ratio can look right while its numerator and denominator are each wrong.
+assert SLOTS_TOTAL == LIVE_SLOTS, (
+    f"the run offered {SLOTS_TOTAL:,} slots but the registry says {LIVE_SLOTS:,}. "
+    "slots_for_day and window_slots have diverged -- they must apply the same install-date "
+    "clipping on the same grid, or every rate below is measured against the wrong window."
+)
+assert OUTAGE_REMOVED == OUTAGE_SLOTS_EXPECTED, (
+    f"outages removed {OUTAGE_REMOVED:,} slots, the merged interval table predicts "
+    f"{OUTAGE_SLOTS_EXPECTED:,} ({OUTAGE_REMOVED - OUTAGE_SLOTS_EXPECTED:+,}). More means "
+    "the suppression join matched a reading twice; fewer means an interval was dropped "
+    "before the join."
+)
+
 print(f"\n{TABLE}: {ROWS_WRITTEN:,} rows written across {len(DAYS)} partition(s) "
       f"({stats['date_sk'].min()} .. {stats['date_sk'].max()})")
 print(f"  slots offered {SLOTS_TOTAL:,}   removed by outage {OUTAGE_REMOVED:,}   "
       f"by dropout {DROPOUT_REMOVED:,}")
+print(f"  OK  offered slots match the registry exactly, and outage removals match the "
+      f"interval table exactly")
 
 # METADATA ********************
 
@@ -1932,6 +2050,11 @@ print(f"OK  {n_gaps:,} gaps over 2x cadence, {n_ok:,} explained; unexplained rat
 # tag: a decommissioned tag is dark for the whole window, and an outage is dark for its own
 # duration. Isolated dropouts are deliberately NOT offline -- one missing reading is not a
 # dead transmitter, and counting it as one would make the "Sensors Offline" tile meaningless.
+#
+# ALL_SLOTS is clipped per tag to its install date, so ALL_SLOTS - SLOTS_TOTAL is now exactly
+# the decommissioned tags' slots. It used to be WINDOW_DAYS x cadence for every tag, which
+# also charged the ~12% of tags installed mid-window for the part of the window that predates
+# them -- reading 9.4% offline against a 2% target when the real figure was under 2%.
 OFFLINE_REALISED = (ALL_SLOTS - SLOTS_TOTAL + OUTAGE_REMOVED) / ALL_SLOTS
 realised = {
     "offline share": (OFFLINE_REALISED, TELEMETRY_OFFLINE_TARGET),
