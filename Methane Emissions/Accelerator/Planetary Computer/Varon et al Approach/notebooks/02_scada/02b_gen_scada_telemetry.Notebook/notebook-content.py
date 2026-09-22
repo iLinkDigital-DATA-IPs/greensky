@@ -651,6 +651,22 @@ tag_pdf["install_date"] = pd.to_datetime(tag_pdf["install_date"])
 _EPOCH_TS = pd.Timestamp("1970-01-01")
 
 
+def slot_ceil(ts, cadence_s):
+    """First slot index at or after ts, on the global grid.
+
+    Every slot-index boundary in this notebook goes through here, because the one time it
+    did not the two ends of a range were rounded differently. The count of slots with
+    `lo <= k*cadence < hi` is `slot_ceil(hi) - slot_ceil(lo)` -- CEIL at BOTH ends.
+
+    Using floor(hi/cadence) for the upper end is equivalent only when hi lands exactly on a
+    slot boundary. It does for every whole-window and whole-day call, since midnight is
+    divisible by both 300s and 900s -- which is precisely why the asymmetry stayed invisible
+    until outage intervals, whose lognormal end times land nowhere in particular, were
+    counted with the same helper. It undercounted by exactly one slot per interval.
+    """
+    return int(np.ceil((pd.Timestamp(ts) - _EPOCH_TS).total_seconds() / int(cadence_s)))
+
+
 def window_slots(install_date, cadence_s, lo=None, hi=None):
     """Grid slots in [max(lo, install_date), hi) for one tag.
 
@@ -674,10 +690,7 @@ def window_slots(install_date, cadence_s, lo=None, hi=None):
     hi = pd.Timestamp(hi)
     if start >= hi:
         return 0
-    cad = int(cadence_s)
-    first = int(np.ceil((start - _EPOCH_TS).total_seconds() / cad))
-    last = int((hi - _EPOCH_TS).total_seconds() // cad)
-    return max(0, last - first)
+    return max(0, slot_ceil(hi, cadence_s) - slot_ceil(start, cadence_s))
 
 
 tag_pdf["potential_slots"] = [
@@ -1398,6 +1411,18 @@ print("value model defined -- a pure function of (tag, equipment, facility, inte
 # CELL ********************
 
 CADENCES = sorted(int(c) for c in live["sampling_interval_seconds"].unique())
+
+# Every cadence must divide a day. The whole design rests on it: days are generated
+# independently, `86400 // cadence` has to be the exact slot count, and midnight has to land
+# on a slot boundary so a day's last slot abuts the next day's first with no drift. It is
+# also what makes floor and slot_ceil agree on any whole-day or whole-window boundary. A
+# cadence of, say, 400s would tile neither, and the failure would show up as a slow
+# accumulation of off-by-one days rather than as an error.
+_bad_cad = [c for c in CADENCES if 86400 % c]
+assert not _bad_cad, (
+    f"cadence(s) {_bad_cad} do not divide 86400. Set HOT_INTERVAL_SECONDS and "
+    "STANDARD_INTERVAL_SECONDS in 01_topology_config to divisors of a day."
+)
 per_day_by_cadence = {c: int((live["sampling_interval_seconds"] == c).sum() * 86400 // c)
                       for c in CADENCES}
 GROSS_PER_DAY = sum(per_day_by_cadence.values())
@@ -1576,10 +1601,9 @@ def slots_for_day(day_ts):
         cad, per_day = int(cad), 86400 // int(cad)
         inst = grp["install_date"]
         n += int((inst <= day_ts).sum()) * per_day
-        last = int(day_end.timestamp()) // cad
+        last = slot_ceil(day_end, cad)          # same rule as window_slots, not floor
         for d in inst[(inst > day_ts) & (inst < day_end)]:
-            first = int(np.ceil((d - _EPOCH_TS).total_seconds() / cad))
-            n += max(0, last - first)
+            n += max(0, last - slot_ceil(d, cad))
     return n
 
 
@@ -1591,8 +1615,8 @@ def build_day(day_ts):
 
     parts = []
     for cad in CADENCES:
-        base_idx = int(pd.Timestamp(day_ts).timestamp()) // cad
-        n_slots = 86400 // cad
+        base_idx = slot_ceil(day_ts, cad)       # same rule everywhere; midnight is aligned
+        n_slots = 86400 // cad                  # exact: cadences divide a day, asserted above
         slots = (spark.range(0, n_slots)
                  .withColumn("interval_index", F.col("id") + F.lit(base_idx))
                  .drop("id"))
@@ -1757,9 +1781,16 @@ assert SLOTS_TOTAL == LIVE_SLOTS, (
 )
 assert OUTAGE_REMOVED == OUTAGE_SLOTS_EXPECTED, (
     f"outages removed {OUTAGE_REMOVED:,} slots, the merged interval table predicts "
-    f"{OUTAGE_SLOTS_EXPECTED:,} ({OUTAGE_REMOVED - OUTAGE_SLOTS_EXPECTED:+,}). More means "
-    "the suppression join matched a reading twice; fewer means an interval was dropped "
-    "before the join."
+    f"{OUTAGE_SLOTS_EXPECTED:,} ({OUTAGE_REMOVED - OUTAGE_SLOTS_EXPECTED:+,}).\n"
+    f"  A difference of roughly one slot per interval "
+    f"({abs(OUTAGE_REMOVED - OUTAGE_SLOTS_EXPECTED) / max(len(outage_pdf), 1):.2f} here, "
+    f"over {len(outage_pdf):,} intervals) is a GRID mismatch, not a structural one: the two "
+    "sides are rounding the ends of a range differently. Both must use slot_ceil at both "
+    "ends, and both must clip to the tag's install_date -- build_day never offers a slot "
+    "before install, so the expectation must not count one.\n"
+    "  A difference that is a large multiple of the interval count is structural: more "
+    "means the suppression join matched a reading twice, fewer means an interval was "
+    "dropped before the join."
 )
 
 print(f"\n{TABLE}: {ROWS_WRITTEN:,} rows written across {len(DAYS)} partition(s) "
