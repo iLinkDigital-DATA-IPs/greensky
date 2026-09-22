@@ -847,6 +847,27 @@ STANDARD_INTERVAL_SECONDS = 900
 # on the tag_sk and quality columns take the effective figure well below the raw 25 bytes.
 ASSUMED_BYTES_PER_TELEMETRY_ROW = 48
 
+# Raw telemetry retention window, consumed by 02b_gen_scada_telemetry. A backfill generates
+# the trailing TELEMETRY_RAW_DAYS days from TOPOLOGY_AS_OF; an incremental run takes its
+# window from the table's own watermark instead. It lives here rather than in 02b because it
+# is a VOLUME knob, and the three others that set volume -- HOT_TAG_SHARE, the two cadences
+# and MAX_INSTRUMENTED_ASSETS_PER_FACILITY -- are already here. At the current estate that is
+#   991 hot x 288 slots/day + 2,974 standard x 96 slots/day = 570,912 rows/day
+# so 30 days is ~17.1M rows across both tiers.
+#
+# It must not exceed STATE_HISTORY_DAYS: every reading has to fall inside an interval of
+# fact_asset_state, and none exist before that anchor.
+TELEMETRY_RAW_DAYS = 30
+
+# Volume guard for 02b, the sibling of MAX_STATE_ROWS_PER_30D below. 02b projects its row
+# count from the tag tiers and the cadences BEFORE generating anything and fails against
+# this, so an over-scaled estate refuses to start rather than falling over part way through
+# a 17M-row write on a demo capacity.
+MAX_TELEMETRY_ROWS_PER_RUN = 25_000_000
+
+assert TELEMETRY_RAW_DAYS > 0, "TELEMETRY_RAW_DAYS must be positive"
+assert MAX_TELEMETRY_ROWS_PER_RUN > 0, "MAX_TELEMETRY_ROWS_PER_RUN must be positive"
+
 # METADATA ********************
 
 # META {
@@ -1003,6 +1024,8 @@ print(f"  cap per facility         {MAX_INSTRUMENTED_ASSETS_PER_FACILITY}"
       f"  -> at most {MAX_INSTRUMENTED_ASSETS_PER_FACILITY * N_FACILITIES:,} instrumented assets")
 print(f"  tiering                  {HOT_TAG_SHARE:.0%} hot at {HOT_INTERVAL_SECONDS}s,"
       f" rest at {STANDARD_INTERVAL_SECONDS}s")
+print(f"  raw telemetry window     {TELEMETRY_RAW_DAYS} days, capped at "
+      f"{MAX_TELEMETRY_ROWS_PER_RUN:,} rows per run")
 print()
 print(f"  {'equipment_type':<20}{'tags':>6}   tag names")
 for _et in sorted(TAG_TEMPLATES, key=lambda e: INSTRUMENT_PRIORITY[e]):
@@ -1115,6 +1138,12 @@ MAX_STATE_ROWS_PER_30D = 200_000
 
 # --- validation -------------------------------------------------------------------------------
 assert STATE_HISTORY_DAYS > 0, "STATE_HISTORY_DAYS must be positive"
+assert TELEMETRY_RAW_DAYS <= STATE_HISTORY_DAYS, (
+    f"TELEMETRY_RAW_DAYS ({TELEMETRY_RAW_DAYS}) exceeds STATE_HISTORY_DAYS "
+    f"({STATE_HISTORY_DAYS}). 02b conditions every reading on the asset's operating state, "
+    "and fact_asset_state has no intervals before the state history anchor, so the earliest "
+    "telemetry days would have nothing to join to."
+)
 assert set(STATE_DUTY_FACTOR) == set(EQUIPMENT_TYPES), (
     "STATE_DUTY_FACTOR must cover exactly the equipment types in EQUIPMENT_TYPES; "
     f"missing {sorted(set(EQUIPMENT_TYPES) - set(STATE_DUTY_FACTOR))}"
