@@ -669,25 +669,111 @@ print(f"total alarms before enrichment: {N_RAW_ALARMS:,}")
 
 # CELL ********************
 
+# 2**63, as a STRING cast to decimal -- never F.lit(9223372036854775808).
+#
+# stable_key in 01_topology_config reduces its 64-bit digest with `& 0x7FFF_FFFF_FFFF_FFFF`,
+# and for a non-negative value that mask IS `% 2**63`. But 2**63 is exactly one past
+# Long.MAX_VALUE, so Spark cannot build it as a long literal at all: F.lit(2**63) raises
+# NumberFormatException while the expression is being constructed, before any data moves.
+# Routing the constant through a decimal keeps the modulus exact and in a type that survives
+# the round trip. conv() on 16 hex characters yields up to 20 digits, which decimal(20,0)
+# holds exactly, and the result of the modulus is below 2**63 so the cast to long is safe.
+SK_MODULUS = F.lit("9223372036854775808").cast("decimal(20,0)")
+
+
+def sk_from_sha(*parts):
+    """stable_key(*parts) from 01_topology_config, expressed in Spark.
+
+    There is no existing Spark formulation to reuse: stable_key itself is pure Python, and
+    01c/01d/02a call it in pandas. 02b's golden check passes because it compares HEX DIGESTS
+    and its hash_uniform only ever takes 8 hex characters, which fit a double -- it never
+    builds a 63-bit key in Spark, so its formulation does not transfer to a table whose
+    surrogate key has to be derived in the engine.
+    """
+    s = F.concat_ws("|", F.lit(str(TOPOLOGY_SEED)), *parts)
+    h = F.substring(F.sha2(s, 256), 1, 16)
+    return (F.conv(h, 16, 10).cast("decimal(20,0)") % SK_MODULUS).cast("long")
+
+
 def alarm_key(tag_id_col, ts_col):
     """stable_key("alarm", tag_id, raised_ts), in Spark. Low 63 bits, so it fits bigint."""
-    s = F.concat_ws("|", F.lit(str(TOPOLOGY_SEED)), F.lit("alarm"), tag_id_col,
-                    F.date_format(ts_col, "yyyy-MM-dd HH:mm:ss"))
-    h = F.substring(F.sha2(s, 256), 1, 16)
-    return (F.conv(h, 16, 10).cast("decimal(20,0)")
-            % F.lit(9223372036854775808)).cast("long")
+    return sk_from_sha(F.lit("alarm"), tag_id_col,
+                       F.date_format(ts_col, "yyyy-MM-dd HH:mm:ss"))
 
 
 _g = [("GS-0001.A1.PT-101", "2026-08-20 13:45:00"), ("GS-0042.A3.FT-104", "2026-09-01 00:00:00")]
+
+# The vectors must EXERCISE the modulus, not just pass around it. A 16-hex-character digest
+# is below 2**63 about half the time, and a set of vectors that all happened to land there
+# would verify nothing about the reduction -- the broken F.lit(2**63) form would still have
+# failed at construction, but a silently wrong modulus would not. So at least one vector is
+# required to have a raw digest at or above 2**63, asserted here rather than hoped for.
+_raw = [int(hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{s}".encode()).hexdigest()[:16], 16)
+        for t, s in _g]
+assert max(_raw) >= 2 ** 63, (
+    "no golden vector has a digest at or above 2**63, so the 63-bit reduction in sk_from_sha "
+    "is never exercised. Add a (tag_id, timestamp) pair whose first 16 hex digits start with "
+    "8-f."
+)
+
+# --- layer 1: the DIGEST ----------------------------------------------------------------------
+# Checked before the numeric key, because the two fail for different reasons and want
+# different fixes. A digest mismatch means Spark and Python are hashing DIFFERENT STRINGS --
+# a null in concat_ws, a timestamp rendered differently, a changed seed. A digest match with
+# a key mismatch means the string is right and the 63-bit REDUCTION is wrong, which is local
+# arithmetic. Running them in this order turns "the key is wrong" into one of those two
+# sentences instead of leaving both open.
+#
+# This layer is also the more robust of the two by construction: comparing hex does no
+# arithmetic, so it cannot itself break the way the numeric check did when its modulus was
+# expressed as a long literal Spark could not build.
+_dig = [(t, s, hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{s}".encode()).hexdigest()[:16])
+        for t, s in _g]
+_bad_d = (spark.createDataFrame(_dig, "tag_id string, ts string, expected string")
+          .withColumn("actual", F.substring(F.sha2(F.concat_ws(
+              "|", F.lit(str(TOPOLOGY_SEED)), F.lit("alarm"), F.col("tag_id"),
+              F.date_format(F.to_timestamp("ts"), "yyyy-MM-dd HH:mm:ss")), 256), 1, 16))
+          .filter("actual <> expected").collect())
+assert not _bad_d, (
+    f"sha2 DIGEST mismatch: {_bad_d[0]}\n"
+    "  Spark and Python are hashing different strings. The reduction is NOT implicated -- "
+    "the numeric check below has not run. Look at concat_ws for a null argument (concat_ws "
+    "skips nulls, so a null tag_id silently shortens the string), the timestamp format, and "
+    "TOPOLOGY_SEED."
+)
+print("OK  sha2 digests agree -- Spark and Python hash the same string")
+
+# --- layer 2: the 63-bit reduction --------------------------------------------------------------
 _golden = [(t, s, stable_key("alarm", t, s)) for t, s in _g]
 _chk = (spark.createDataFrame(_golden, "tag_id string, ts string, expected long")
         .withColumn("actual", alarm_key(F.col("tag_id"), F.to_timestamp("ts"))))
 _bad = _chk.filter("actual <> expected").collect()
 assert not _bad, (
-    f"Spark's alarm_key disagrees with stable_key from 01_topology_config: {_bad[0]}. "
-    "The two must agree or alarm_sk stops being reproducible across notebooks."
+    f"63-bit REDUCTION mismatch: {_bad[0]}\n"
+    "  The digests already agreed, so the string being hashed is correct and only the "
+    "reduction is wrong. stable_key uses `& 0x7FFF_FFFF_FFFF_FFFF`; sk_from_sha uses "
+    "`% 2**63`, which is the same thing for a non-negative value. Check SK_MODULUS is still "
+    "a decimal and not a long literal, and that conv() is reading all 16 hex characters."
 )
-print(f"OK  alarm_key matches stable_key on {len(_golden)} golden vectors")
+
+# Same helper, four parts instead of three -- this is what event_sk uses, so the concat_ws
+# arity is covered too rather than assumed from the three-part case.
+_ge = [("GS-0001.A1.PT-101", "2026-08-20 13:45:00", "Offline"),
+       ("GS-0042.A3.FT-104", "2026-09-01 00:00:00", "Online")]
+_golden_e = [(t, s, st, stable_key("sensor_event", t, s, st)) for t, s, st in _ge]
+_bad_e = (spark.createDataFrame(
+    _golden_e, "tag_id string, ts string, st string, expected long")
+    .withColumn("actual", sk_from_sha(F.lit("sensor_event"), F.col("tag_id"),
+                                      F.col("ts"), F.col("st")))
+    .filter("actual <> expected").collect())
+assert not _bad_e, (
+    f"Spark's sk_from_sha disagrees with stable_key on the four-part event key: {_bad_e[0]}"
+)
+
+print(f"OK  sk_from_sha matches stable_key on {len(_golden) + len(_golden_e)} golden vectors "
+      f"(3-part alarm_sk and 4-part event_sk)")
+print(f"    max raw digest {max(_raw)} >= 2**63, so the 63-bit reduction is exercised")
+print("    checked in two layers: digest first (is the string right?), then the reduction")
 
 # --- peak value over each alarm's own interval ---------------------------------------------
 # Joined on the tag and bounded by the alarm's own timestamps. The alarm table is small, so
@@ -882,12 +968,9 @@ decom = spark.createDataFrame(dec_pdf)
 
 status_ev = (leave.unionByName(back).unionByName(decom)
              .withColumn("event_sk",
-                         (F.conv(F.substring(
-                             F.sha2(F.concat_ws("|", F.lit(str(TOPOLOGY_SEED)),
-                                                F.lit("sensor_event"), F.col("tag_id"),
-                                                F.date_format("event_ts", "yyyy-MM-dd HH:mm:ss"),
-                                                F.col("to_status")), 256), 1, 16), 16, 10)
-                          .cast("decimal(20,0)") % F.lit(9223372036854775808)).cast("long"))
+                         sk_from_sha(F.lit("sensor_event"), F.col("tag_id"),
+                                     F.date_format("event_ts", "yyyy-MM-dd HH:mm:ss"),
+                                     F.col("to_status")))
              .withColumn("date_sk", F.date_format("event_ts", "yyyyMMdd").cast("long"))
              .withColumn("is_synthetic", F.lit(True)))
 
