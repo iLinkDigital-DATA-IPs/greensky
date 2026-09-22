@@ -804,6 +804,57 @@ for r in live.itertuples():
 
 outage_pdf = pd.DataFrame(outage_rows, columns=["tag_sk", "out_start", "out_end"])
 
+
+def merge_intervals(pdf, key, start, end):
+    """Collapse overlapping or abutting intervals per key into their union.
+
+    Two outages that overlap in time are physically ONE outage, and they have to be stored
+    that way. The suppression join below is a LEFT join on a half-open range predicate, so a
+    reading covered by two intervals matches twice and is emitted twice. That does not
+    corrupt the written table -- both copies are dropped as outage rows -- but it inflates
+    the pre-filter slot count the per-day assertion checks, and it double-counts offline
+    seconds in the volume projection and the offline-share expectation.
+
+    Overlaps are not exotic here. A Faulty tag draws Poisson(8) arrivals per 45-day slot with
+    a mean duration near 9 h, so a handful of the ~80 faulty tags will have two outages that
+    run into each other in any given month. Merging at the source fixes the count, fixes the
+    arithmetic, and is what the physics says anyway: a transmitter that drops out again
+    before it came back was never back.
+    """
+    if not len(pdf):
+        return pdf
+    out, cur = [], None
+    for r in pdf.sort_values([key, start], kind="mergesort").to_dict("records"):
+        if cur is not None and r[key] == cur[key] and r[start] <= cur[end]:
+            cur[end] = max(cur[end], r[end])
+            continue
+        if cur is not None:
+            out.append(cur)
+        cur = dict(r)
+    out.append(cur)
+    return pd.DataFrame(out).reset_index(drop=True)
+
+
+def assert_disjoint(pdf, key, start, end, what):
+    """No two intervals for the same key may overlap, or the join stops being one-to-one."""
+    if len(pdf) < 2:
+        return
+    g = pdf.sort_values([key, start], kind="mergesort").reset_index(drop=True)
+    same = g[key].eq(g[key].shift(1))
+    bad = int((same & (g[start] < g[end].shift(1))).sum())
+    assert bad == 0, (
+        f"{bad} overlapping {what} interval pair(s) survived merge_intervals. A reading "
+        "inside the overlap would match both and be emitted twice."
+    )
+
+
+_n_raw = len(outage_pdf)
+outage_pdf = merge_intervals(outage_pdf, "tag_sk", "out_start", "out_end")
+assert_disjoint(outage_pdf, "tag_sk", "out_start", "out_end", "outage")
+if _n_raw != len(outage_pdf):
+    print(f"  {_n_raw - len(outage_pdf)} overlapping outage interval(s) merged "
+          f"({_n_raw} drawn -> {len(outage_pdf)} distinct)")
+
 freeze_rows = []
 for r in live.itertuples():
     for k in _slot_range(FREEZE_SLOT_S, WINDOW_START, WINDOW_END):
@@ -825,6 +876,17 @@ for r in live.itertuples():
 freeze_pdf = pd.DataFrame(
     freeze_rows,
     columns=["tag_sk", "frz_start", "frz_end", "frz_idx", "sampling_interval_seconds"])
+
+# Same treatment, same reason. Two freezes can only collide when one from the previous
+# 30-day slot runs past the boundary into the next, which is rare -- but the join has the
+# same shape, so it gets the same guarantee rather than an argument about probability.
+# merge_intervals keeps the EARLIEST row's frz_idx, which is the correct onset: the held
+# value is the reading the instrument last actually took before it stuck.
+_n_raw = len(freeze_pdf)
+freeze_pdf = merge_intervals(freeze_pdf, "tag_sk", "frz_start", "frz_end")
+assert_disjoint(freeze_pdf, "tag_sk", "frz_start", "frz_end", "freeze")
+if _n_raw != len(freeze_pdf):
+    print(f"  {_n_raw - len(freeze_pdf)} overlapping freeze interval(s) merged")
 
 # Analytic offline expectation, from the knobs rather than from the data -- the figure the
 # realised share is compared against below. A "dark" tag is decommissioned or not yet
@@ -872,13 +934,34 @@ freeze_dim_pdf = freeze_pdf
 # ### Joining `fact_asset_state`
 #
 # A reading is conditioned on the state its asset was in at that instant, which is a range
-# join on `(equipment_sk, reading_ts BETWEEN start_ts AND end_ts)`. Done naively that is a
+# join on `equipment_sk` and the interval containing `reading_ts`. Done naively that is a
 # broadcast nested loop: 570k readings a day against 20k intervals is 1.1e10 comparisons.
 #
 # Instead each interval is exploded into the **hour buckets** it covers and the join becomes
 # an equi-join on `(equipment_sk, hour_bucket)` with the range predicate applied afterwards
 # to the handful of candidates in each bucket. Intervals are at least 15 minutes long, so no
 # bucket holds more than a few.
+#
+# ### The predicate is half-open, and has to be
+#
+# `start_ts <= reading_ts AND reading_ts < end_ts`, never `BETWEEN start_ts AND end_ts`.
+#
+# `02a` guarantees intervals **tile** — one interval's `end_ts` is exactly the next one's
+# `start_ts`, and it asserts that difference is zero. A closed predicate on both ends
+# therefore matches *both* intervals for any reading landing exactly on a boundary, and the
+# join stops being one-to-one. At ~177 boundaries an asset-day, with cadences of 300s and
+# 900s dividing the hour, a boundary landing exactly on a slot is not rare. The half-open
+# convention is what makes the join exactly one-to-one, and it is the reason the state
+# machine can tile without ambiguity in the first place.
+#
+# The open interval per asset carries a **null** `end_ts`, so it is coalesced to a far-future
+# `eff_end` before the comparison rather than tested separately — a null on the right of `<`
+# would make the predicate null, not true, and every reading in the open interval would be
+# dropped.
+#
+# The same convention is used for every other interval join in this notebook: outages,
+# freezes and episodes. Each is half-open, and each source is de-overlapped before the join
+# so no reading can match two of them either.
 #
 # `02a` asserts that intervals tile continuously with no gaps and no overlaps, so exactly
 # one state row matches every reading. That is asserted here too rather than assumed — a
@@ -1518,8 +1601,20 @@ for day_ts in DAYS:
     expected = slots_for_day(day_ts)
     assert agg["slots"] == expected, (
         f"{day_ts.date()}: the day produced {agg['slots']:,} readings where the dimension "
-        f"says {expected:,}. More means fact_asset_state has overlapping intervals for some "
-        "asset; fewer means it has a gap, and 02a asserts neither."
+        f"says {expected:,} ({agg['slots'] - expected:+,}).\n"
+        "  TOO MANY means some interval join stopped being one-to-one. Check, in this "
+        "order:\n"
+        "    1. a join predicate that is not half-open -- fact_asset_state intervals TILE, "
+        "so end_ts equals the next start_ts exactly, and a closed predicate matches a "
+        "boundary reading twice. Every predicate here must be "
+        "'start <= reading_ts AND reading_ts < end'.\n"
+        "    2. two overlapping intervals in the same gap source -- outages or freezes for "
+        "one tag. merge_intervals collapses those and assert_disjoint guards it; if either "
+        "was bypassed this is where it shows.\n"
+        "    3. a genuine overlap in fact_asset_state itself, which 02a asserts against and "
+        "is therefore the LEAST likely of the three.\n"
+        "  TOO FEW means fact_asset_state has a gap, or a reading fell outside every "
+        "interval -- 02a asserts against both."
     )
 
     out = df.filter("keep").select(*TELEMETRY_SCHEMA)
@@ -1814,8 +1909,14 @@ explained = (gaps
              .withColumn("explained",
                          F.col("o_tag").isNotNull() | F.col("m_eq").isNotNull()))
 
-g = explained.agg(F.count("*").alias("n"),
-                  F.sum(F.when(F.col("explained"), 1).otherwise(0)).alias("ok")).collect()[0]
+# Collapse back to one row per gap before counting. Both joins above are left joins on
+# overlap, not containment, so a single long gap can match several Maintenance intervals and
+# would otherwise be counted several times. The unexplained rate happens to survive that
+# (an unexplained gap matches nothing, so it is never duplicated), but the reported gap
+# TOTAL would not, and a number that is only accidentally right is not worth printing.
+per_gap = (explained.groupBy("tag_sk", "prev_t", "reading_ts")
+           .agg(F.max(F.when(F.col("explained"), 1).otherwise(0)).alias("ok")))
+g = per_gap.agg(F.count("*").alias("n"), F.sum("ok").alias("ok")).collect()[0]
 n_gaps, n_ok = int(g["n"]), int(g["ok"])
 unexplained_rate = (n_gaps - n_ok) / max(ROWS_WRITTEN, 1)
 assert unexplained_rate < GAP_UNEXPLAINED_MAX, (
