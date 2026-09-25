@@ -656,9 +656,9 @@ print(f"total alarms before enrichment: {N_RAW_ALARMS:,}")
 
 # ### Peak value, priority, keys, chattering and acknowledgement
 #
-# `alarm_sk` is `stable_key("alarm", tag_id, raised_ts)` — the same SHA-256 construction
-# `01_topology_config` uses, computed in Spark so the telemetry is never collected. Golden
-# vectors guard the two implementations against drifting apart, as in 02b.
+# `alarm_sk` is `stable_key("alarm", tag_id, alarm_type, raised_ts)` — the same SHA-256
+# construction `01_topology_config` uses, computed in Spark so the telemetry is never collected.
+# Golden vectors guard the two implementations against drifting apart, as in 02b.
 #
 # **Acknowledgement is the one thing here that is not intrinsic to the telemetry**, and it is
 # where §2.3 of `DESIGN_NOTE_incremental_facts.md` applies. The delay is drawn **once, from
@@ -725,8 +725,8 @@ _raw = [int(hashlib.sha256(f"{TOPOLOGY_SEED}|alarm|{t}|{k}|{s}".encode()).hexdig
         for t, k, s in _g]
 assert max(_raw) >= 2 ** 63, (
     "no golden vector has a digest at or above 2**63, so the 63-bit reduction in sk_from_sha "
-    "is never exercised. Add a (tag_id, timestamp) pair whose first 16 hex digits start with "
-    "8-f."
+    "is never exercised. Add a (tag_id, alarm_type, timestamp) vector whose first 16 hex "
+    "digits start with 8-f."
 )
 
 # --- layer 1: the DIGEST ----------------------------------------------------------------------
@@ -774,8 +774,8 @@ assert not _bad, (
     "a decimal and not a long literal, and that conv() is reading all 16 hex characters."
 )
 
-# Same helper, four parts instead of three -- this is what event_sk uses, so the concat_ws
-# arity is covered too rather than assumed from the three-part case.
+# Same helper for event_sk. Both keys are now four-part, so this no longer adds arity
+# coverage; it covers the other prefix and a timestamp passed in as a string, not formatted.
 _ge = [("GS-0001.A1.PT-101", "2026-08-20 13:45:00", "Offline"),
        ("GS-0042.A3.FT-104", "2026-09-01 00:00:00", "Online")]
 _golden_e = [(t, s, st, stable_key("sensor_event", t, s, st)) for t, s, st in _ge]
@@ -789,7 +789,7 @@ assert not _bad_e, (
 )
 
 print(f"OK  sk_from_sha matches stable_key on {len(_golden) + len(_golden_e)} golden vectors "
-      f"(3-part alarm_sk and 4-part event_sk)")
+      f"(4-part alarm_sk and 4-part event_sk)")
 print(f"    max raw digest {max(_raw)} >= 2**63, so the 63-bit reduction is exercised")
 print("    checked in two layers: digest first (is the string right?), then the reduction")
 
@@ -1107,20 +1107,24 @@ status_tbl = spark.table(STATUS_TABLE).filter(PREDICATE)
 
 # --- 1. every alarm is backed by breaching readings -------------------------------------------
 proc_only = alarm_tbl.filter(F.col("alarm_type").isin("HiHi", "Hi", "Lo", "LoLo"))
+# Both sides of this join, and of the one in section 2, carry tag_sk. An unqualified tag_sk
+# anywhere in the condition throws AMBIGUOUS_REFERENCE on Spark, so each side is aliased --
+# a for the alarm, t for the telemetry -- and every column reference names its side.
 backing = (F.broadcast(proc_only.select("alarm_sk", "tag_sk", "alarm_type", "raised_ts"))
-           .join(limit_dim, ["tag_sk", "alarm_type"])
+           .join(limit_dim, ["tag_sk", "alarm_type"]).alias("a")
            .join(tel.select("tag_sk", F.col("reading_ts").alias("rts"), "value_num",
                             "quality_code", "operating_state", "suppressed", "neutral")
                  .alias("t"),
-                 (F.col("t.tag_sk") == F.col("tag_sk"))
-                 & (F.col("rts") <= F.col("raised_ts")), "left")
-           .filter(F.col("rts") >= F.expr(
-               f"raised_ts - INTERVAL {ALARM_DEBOUNCE_SAMPLES * 2} HOURS"))
+                 (F.col("t.tag_sk") == F.col("a.tag_sk"))
+                 & (F.col("t.rts") <= F.col("a.raised_ts")), "left")
+           .filter(F.col("t.rts") >= F.expr(
+               f"a.raised_ts - INTERVAL {ALARM_DEBOUNCE_SAMPLES * 2} HOURS"))
            .withColumn("breaching",
-                       F.when(F.col("is_upper"), F.col("value_num") > F.col("limit_value"))
-                        .otherwise(F.col("value_num") < F.col("limit_value"))
-                       & ~F.col("suppressed") & ~F.col("neutral"))
-           .groupBy("alarm_sk")
+                       F.when(F.col("a.is_upper"),
+                              F.col("t.value_num") > F.col("a.limit_value"))
+                        .otherwise(F.col("t.value_num") < F.col("a.limit_value"))
+                       & ~F.col("t.suppressed") & ~F.col("t.neutral"))
+           .groupBy(F.col("a.alarm_sk").alias("alarm_sk"))
            .agg(F.sum(F.col("breaching").cast("int")).alias("n_breach")))
 
 short = backing.filter(F.col("n_breach") < ALARM_DEBOUNCE_SAMPLES).limit(5).collect()
@@ -1134,10 +1138,17 @@ print(f"OK  every process alarm has >= {ALARM_DEBOUNCE_SAMPLES} breaching readin
 
 # --- 2. no alarm raised from a suppressed state or a non-raising quality -----------------------
 raise_rows = (F.broadcast(alarm_tbl.select("alarm_sk", "tag_sk", "raised_ts", "alarm_type"))
+              .alias("a")
               .join(tel.select("tag_sk", F.col("reading_ts").alias("rts"), "quality_code",
-                               "operating_state"),
-                    (F.col("tag_sk") == tel["tag_sk"]) & (F.col("rts") == F.col("raised_ts")),
-                    "inner"))
+                               "operating_state").alias("t"),
+                    (F.col("a.tag_sk") == F.col("t.tag_sk"))
+                    & (F.col("t.rts") == F.col("a.raised_ts")),
+                    "inner")
+              # one copy of each column, so the checks below cannot hit the duplicate tag_sk
+              .select(F.col("a.alarm_sk").alias("alarm_sk"),
+                      F.col("a.alarm_type").alias("alarm_type"),
+                      F.col("t.quality_code").alias("quality_code"),
+                      F.col("t.operating_state").alias("operating_state")))
 bad_state = raise_rows.filter(
     F.col("operating_state").isin("Down", "Maintenance")).limit(5).collect()
 assert not bad_state, (
