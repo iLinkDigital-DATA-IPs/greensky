@@ -1053,46 +1053,60 @@ else:
 # Propagate uncertainty through: CH4 retrieval noise + wind speed uncertainty
 # Output: 5th and 95th percentile emission rate bounds
 
+# Seeded per plume, from its plume_id (mc_seed in 00_config). This used to draw from the
+# global, unseeded np.random, so p5/p50/p95, uncertainty_ratio and confidence moved on every
+# run -- confidence 66/9 then 65/10 on identical input -- and gen_financial consumes those
+# bounds directly. Each plume now gets its own generator, so its bounds are a pure function
+# of its own identity: not of the run, and not of which other plumes are in the catalog or
+# the order they are processed in. Only the SOURCE of the randomness changed. The noise
+# model, the 500 samples, the wind-uncertainty fraction and the draw sequence (IME noise,
+# then wind noise, per sample) are exactly as before.
+
+def mc_rates_for(row, rng):
+    """Step 8's Monte Carlo for one plume, drawing from `rng`. Returns the sampled rates."""
+    ime_kg = row["ime_kg"]
+    U_eff = row["U_eff_ms"]
+    L_m = row["L_m"]
+    n_pixels = row["n_pixels"]
+    mean_enh = row["mean_ch4_enhancement_ppb"]
+
+    # Estimate CH4 retrieval noise (~10 ppb per pixel for TROPOMI)
+    ch4_noise_ppb = 10.0
+
+    mc_rates = []
+    for _ in range(n_mc):
+        # Perturb IME: add noise to each pixel's enhancement
+        # Total IME noise scales as sqrt(n_pixels) * per_pixel_noise
+        ime_noise = rng.normal(0, ch4_noise_ppb * np.sqrt(n_pixels) * PPB_TO_KG)
+        perturbed_ime = max(0, ime_kg + ime_noise)
+
+        # Perturb wind speed
+        wind_noise = rng.normal(0, U_eff * wind_unc_frac)
+        perturbed_wind = max(min_wind, U_eff + wind_noise)
+
+        # Compute emission rate
+        if L_m > 0 and perturbed_wind > min_wind:
+            t_mix = L_m / perturbed_wind
+        else:
+            t_mix = CONFIG["mixing_time_fallback_s"]
+
+        rate = perturbed_ime / t_mix
+        mc_rates.append(rate)
+
+    return np.array(mc_rates)
+
+
 if len(ime_df) > 0:
     n_mc = CONFIG["mc_samples"]
     wind_unc_frac = CONFIG["wind_uncertainty_fraction"]
     min_wind = CONFIG["min_wind_speed_ms"]
-    
+
     uncertainty_results = []
-    
+
     for _, row in ime_df.iterrows():
         cluster_idx = row["cluster_idx"]
-        ime_kg = row["ime_kg"]
-        U_eff = row["U_eff_ms"]
-        L_m = row["L_m"]
-        n_pixels = row["n_pixels"]
-        mean_enh = row["mean_ch4_enhancement_ppb"]
-        
-        # Estimate CH4 retrieval noise (~10 ppb per pixel for TROPOMI)
-        ch4_noise_ppb = 10.0
-        
-        mc_rates = []
-        for _ in range(n_mc):
-            # Perturb IME: add noise to each pixel's enhancement
-            # Total IME noise scales as sqrt(n_pixels) * per_pixel_noise
-            ime_noise = np.random.normal(0, ch4_noise_ppb * np.sqrt(n_pixels) * PPB_TO_KG)
-            perturbed_ime = max(0, ime_kg + ime_noise)
-            
-            # Perturb wind speed
-            wind_noise = np.random.normal(0, U_eff * wind_unc_frac)
-            perturbed_wind = max(min_wind, U_eff + wind_noise)
-            
-            # Compute emission rate
-            if L_m > 0 and perturbed_wind > min_wind:
-                t_mix = L_m / perturbed_wind
-            else:
-                t_mix = CONFIG["mixing_time_fallback_s"]
-            
-            rate = perturbed_ime / t_mix
-            mc_rates.append(rate)
-        
-        mc_rates = np.array(mc_rates)
-        
+        mc_rates = mc_rates_for(row, np.random.default_rng(mc_seed(row["plume_id"])))
+
         uncertainty_results.append({
             "cluster_idx": cluster_idx,
             "emission_rate_p5_kg_s": np.percentile(mc_rates, 5),
@@ -1447,7 +1461,10 @@ else:
 # set.** Every run records its input fingerprint (per-`stac_id` pixel count, time range and
 # CH₄ range of `silver_plume_ready_pixels`, plus `CONFIG`) and its sorted `plume_id`s in
 # `gold_plume_id_runs`; if an earlier run had the same fingerprint, the two sets must be
-# identical.
+# identical — and so must every plume's `emission_rate_p50_kg_h` (to 1e-9 relative), so an
+# unseeded Monte Carlo draw fails loudly rather than drifting quietly. Within the run, the
+# Monte Carlo is also re-run for five plumes from their seeds and must reproduce p5/p50/p95
+# exactly.
 #
 # **This check fires only on Fabric.** It compares two real executions against real silver
 # data; the offline harness (`tools/harness/harness_plume_ids.py`) can show that the IDs do not
@@ -1502,6 +1519,29 @@ if len(plumes_pdf):
         _ties += int(len(set(zip(top["latitude"], top["longitude"]))) > 1)
 print(f"    plumes whose peak enhancement is tied between distinct pixels: {_ties}")
 
+# --- the Monte Carlo is seeded: re-running it reproduces the stored percentiles ------------
+# Five plumes, the first five by plume_id, re-run through the same mc_rates_for with a fresh
+# generator from the same seed. Exact equality: same seed, same inputs, same arithmetic. A
+# different seed must move them, or this check could not tell a seeded draw from a constant.
+if len(ime_df) > 0:
+    def _pcts(rates):
+        return tuple(float(np.percentile(rates, q)) for q in (5, 50, 95))
+
+    _mc_cols = ["emission_rate_p5_kg_s", "emission_rate_p50_kg_s", "emission_rate_p95_kg_s"]
+    _mc_sample = ime_df.sort_values("plume_id").head(5)
+    for _, _r in _mc_sample.iterrows():
+        _again = _pcts(mc_rates_for(_r, np.random.default_rng(mc_seed(_r["plume_id"]))))
+        _stored = tuple(float(_r[c]) for c in _mc_cols)
+        assert _again == _stored, (
+            f"{_r['plume_id']}: re-running the Monte Carlo with its seed gave p5/p50/p95 "
+            f"{_again}, stored {_stored} -- the draws are not coming from mc_seed alone")
+    _r = _mc_sample.iloc[0]
+    _other = _pcts(mc_rates_for(_r, np.random.default_rng(mc_seed(_r["plume_id"]) + 1)))
+    assert _other != tuple(float(_r[c]) for c in _mc_cols), \
+        "a different seed reproduced the same percentiles -- the seed is not reaching the draws"
+    print(f"OK  Monte Carlo reproduces p5/p50/p95 exactly for {len(_mc_sample)} plumes from "
+          "their seeds; a different seed moves them")
+
 # --- first run after the change: the same plume set as the counter-keyed catalog? ----------
 _prev = globals().get("prev_catalog_pdf")
 if (_prev is not None and len(_prev)
@@ -1524,9 +1564,17 @@ _fp_rows = (silver.groupBy("stac_id")
 INPUT_FINGERPRINT = id_digest(json.dumps([[str(v) for v in r] for r in _fp_rows]),
                               json.dumps(CONFIG, sort_keys=True, default=str))
 _ids_cat, _ids_all = sorted(valid_ids), sorted(all_ids)
+# emission_rate_p50_kg_h per plume, in plume_id order, stored as exact reprs. Compared with
+# a relative tolerance, not exactly: ime_kg is a float sum over pixels in toPandas() order,
+# which Spark does not fix, so two executions can differ in the last bits -- ~1e-16. An
+# unseeded draw moves p50 by tenths of a percent. 1e-9 sits cleanly between the two.
+_p50_of = (dict(zip(ime_df["plume_id"], ime_df["emission_rate_p50_kg_h"]))
+           if len(ime_df) > 0 else {})
 _run = {"input_fingerprint": INPUT_FINGERPRINT, "n_plumes": len(_ids_cat),
         "catalog_digest": id_digest(*_ids_cat), "all_ids_digest": id_digest(*_ids_all),
-        "plume_ids": ",".join(_ids_cat)}
+        "plume_ids": ",".join(_ids_cat),
+        "p50_kg_h": ",".join(repr(float(_p50_of[p])) for p in _ids_cat)}
+P50_RTOL = 1e-9
 
 _prior = None
 if spark.catalog.tableExists(ID_RUNS_TABLE):
@@ -1535,8 +1583,10 @@ if spark.catalog.tableExists(ID_RUNS_TABLE):
     _prior = _r[0] if _r else None
 
 # recorded before the assertion, so a failing run still leaves its evidence
+# mergeSchema: runs recorded before p50_kg_h existed have no such column; they keep a null
 (spark.createDataFrame([_run]).withColumn("run_ts", current_timestamp())
- .write.format("delta").mode("append").saveAsTable(ID_RUNS_TABLE))
+ .write.format("delta").mode("append").option("mergeSchema", "true")
+ .saveAsTable(ID_RUNS_TABLE))
 
 if _prior is None:
     print(f"\nno earlier run on this input and CONFIG in {ID_RUNS_TABLE} -- this run is "
@@ -1554,6 +1604,24 @@ else:
             "count above, then at anything order-dependent upstream of source_lat/source_lon.")
     print(f"\nOK  rerun regression: {len(_ids_cat)} plume_ids identical to the run at "
           f"{_prior['run_ts']} on the same input (fingerprint {INPUT_FINGERPRINT[:12]})")
+
+    # ...and the same uncertainty. The earlier run's p50 is null if it predates seeding;
+    # the first seeded run then has nothing to compare against, and its draws are expected
+    # to differ from the unseeded catalog before it -- a one-time change.
+    _prior_p50 = _prior.asDict().get("p50_kg_h")
+    if _prior_p50 is None:
+        print("    p50 not compared: the earlier run predates the seeded Monte Carlo")
+    else:
+        _was_p50 = dict(zip(_prior["plume_ids"].split(","),
+                            map(float, _prior_p50.split(",")))) if _prior_p50 else {}
+        _moved = [(p, _was_p50[p], float(_p50_of[p])) for p in _ids_cat
+                  if abs(float(_p50_of[p]) - _was_p50[p]) > P50_RTOL * max(abs(_was_p50[p]), 1e-12)]
+        assert not _moved, (
+            f"emission_rate_p50_kg_h changed on a rerun with identical input for {len(_moved)} "
+            f"plume(s), e.g. {_moved[:3]} (plume, before, after). The IDs agree, so the Monte "
+            "Carlo is drawing from something other than mc_seed -- an unseeded draw is back.")
+        print(f"OK  emission_rate_p50_kg_h identical (rtol {P50_RTOL:g}) for all "
+              f"{len(_ids_cat)} plumes")
 
 # METADATA ********************
 

@@ -1325,14 +1325,13 @@ else:
 #
 # _To be completed after reviewing Cells 0-7._
 #
-# **Note on run-to-run variability.** The Monte Carlo uncertainty estimation in
-# `04_derive_emissions` Step 8 calls `np.random.normal` without seeding the generator, so
-# `emission_rate_p5_kg_h`, `emission_rate_p95_kg_h` and `uncertainty_ratio` differ between
-# runs on an identical plume set — the confidence distribution moved from 63 high / 12
-# medium to 66 high / 9 medium across two such runs. Anything in this notebook that reads
-# p5, p95, `uncertainty_ratio` or `confidence` will therefore vary run to run and should
-# not be quoted to more precision than that wobble. `emission_rate_kg_h` itself is
-# deterministic and is not affected.
+# **Note on run-to-run variability — resolved.** The Monte Carlo in `04_derive_emissions`
+# Step 8 used to draw from the unseeded `np.random`, so p5, p95, `uncertainty_ratio` and
+# `confidence` moved between runs on an identical plume set (confidence 63/12, then 66/9).
+# It is now seeded per plume from `plume_id` (`mc_seed` in `00_config`), so those columns
+# are reproducible, and 04 fails if a rerun on the same input changes any plume's p50.
+# Figures quoted from catalogs written before that change will not match current ones —
+# the draws changed once, when the seed was introduced.
 #
 # 1. **Destriping (Cell 0).** How many detector columns does a typical accepted plume
 #    span? Did any plume survive with a single `(stac_id, ground_pixel)` pair — i.e. did a

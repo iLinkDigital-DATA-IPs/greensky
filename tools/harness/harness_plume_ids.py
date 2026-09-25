@@ -9,6 +9,9 @@ and clusters, and asserts:
   - shifting the window -- dropping the earliest scene -- leaves every remaining plume_id
     unchanged, where the old counters renumber (asserted too, so the test has teeth)
   - session time zones are honoured: a naive CDT timestamp labels as its UTC instant
+  - the Monte Carlo, run through 04's own mc_rates_for (extracted from the notebook), is a
+    pure function of each plume's seed: dropping a plume or reordering leaves every other
+    plume's p5/p50/p95 unchanged, where one global seeded generator shifts them
 
 What this cannot show is that two separate executions of 04 on Fabric agree: that depends on
 real silver data and Spark, and is checked only by the rerun regression at the end of 04.
@@ -110,6 +113,44 @@ if __name__ == "__main__":
     assert moved > 0, "the old counter did not renumber -- this test would not catch the defect"
     print(f"OK  window shift (earliest scene dropped): all {len(kept)} remaining plume_ids "
           f"unchanged; the old counter renumbered {moved} of them")
+
+    # --- the seeded Monte Carlo: 04's own mc_rates_for, extracted from the notebook ----------
+    import shared_defs as S
+    nb04 = (REPO / "Methane Emissions/Accelerator/Planetary Computer/Varon et al Approach"
+            / "notebooks/04_core_logic/04_derive_emissions.Notebook/notebook-content.py")
+    env = {"np": np, "CONFIG": G["CONFIG"], "PPB_TO_KG": G["PPB_TO_KG"],
+           "n_mc": G["CONFIG"]["mc_samples"],
+           "wind_unc_frac": G["CONFIG"]["wind_uncertainty_fraction"],
+           "min_wind": G["CONFIG"]["min_wind_speed_ms"]}
+    exec(S.extract(nb04, ["mc_rates_for"])["mc_rates_for"], env)
+    mc_rates_for, mc_seed = env["mc_rates_for"], G["mc_seed"]
+    rng = np.random.default_rng(11)
+    plumes = [dict(plume_id=pid, ime_kg=float(rng.uniform(2e4, 2e5)),
+                   U_eff_ms=float(rng.uniform(1, 8)), L_m=float(rng.uniform(1e4, 4e4)),
+                   n_pixels=int(rng.integers(3, 12)), mean_ch4_enhancement_ppb=30.0)
+              for pid in sorted(set(base_new.values()))[:10]]
+
+    def pct(r):
+        return tuple(float(np.percentile(r, q)) for q in (5, 50, 95))
+
+    def per_plume(ps):
+        return {p["plume_id"]: pct(mc_rates_for(p, np.random.default_rng(mc_seed(p["plume_id"]))))
+                for p in ps}
+
+    def one_global(ps):
+        g = np.random.default_rng(0)
+        return {p["plume_id"]: pct(mc_rates_for(p, g)) for p in ps}
+
+    full = per_plume(plumes)
+    assert per_plume(plumes) == full, "same seeds did not reproduce the percentiles"
+    fewer = per_plume(plumes[3:][::-1] + plumes[:2])          # one dropped, order reversed
+    assert all(fewer[k] == full[k] for k in fewer), "a plume's bounds depend on the others"
+    g_full, g_fewer = one_global(plumes), one_global(plumes[:2] + plumes[3:])
+    shifted = sum(g_fewer[k] != g_full[k] for k in g_fewer)
+    assert shifted > 0, "one global generator did not shift -- the contrast is not reproduced"
+    print(f"OK  seeded Monte Carlo (04's mc_rates_for): reruns identical; dropping a plume and "
+          f"reversing the order leaves all {len(fewer)} others' p5/p50/p95 unchanged, where "
+          f"one global seeded generator shifted {shifted} of them")
 
     cdt = scene_label(pd.Series([pd.Timestamp("2026-06-10 13:12:03")]), "America/Chicago").iloc[0]
     assert cdt == "SCN-20260610T181203", cdt

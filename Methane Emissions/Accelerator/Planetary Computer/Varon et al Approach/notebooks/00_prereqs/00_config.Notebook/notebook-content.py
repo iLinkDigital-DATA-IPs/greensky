@@ -270,7 +270,38 @@ for _s, _a, _o, _k, _p in PLUME_ID_GOLDEN:
     assert plume_key(_s, _a, _o) == _p, f"plume_key{(_s, _a, _o)} != {_p}"
 _sl = scene_label(_pd.Series([_pd.Timestamp("2024-08-15 18:12:03")]), "UTC").iloc[0]
 assert _sl == "SCN-20240815T181203", f"scene_label gives {_sl!r}"
-print(f"plume_key / scene_label: {len(PLUME_ID_GOLDEN)} golden vectors OK")
+def mc_seed(plume_id):
+    """The Monte Carlo seed for one plume: a pure function of its plume_id.
+
+    stable_key's formulation (01_topology_config) end to end -- sha256 over the "|"-joined
+    parts, then the low 63 bits of the first 16 hex characters -- with the same single
+    difference as plume_key: no TOPOLOGY_SEED, because a real plume's uncertainty must not
+    change when the synthetic estate's seed does. Unlike plume_id this one IS reduced, to an
+    integer numpy's default_rng accepts, so the golden vectors below must exercise the mask.
+
+    Per plume rather than one global seed: a single seeded generator still hands out draws in
+    processing order, so adding or removing one plume would shift every later plume's bounds.
+    """
+    return int(id_digest("mc_uncertainty", plume_id)[:16], 16) & 0x7FFF_FFFF_FFFF_FFFF
+
+
+# (plume_id, first 16 hex of sha256("mc_uncertainty|" + plume_id), mc_seed)
+MC_SEED_GOLDEN = [
+    ("PL-1adc27ebf84d", "8a356995d09f3024", 735610206316081188),
+    ("PL-1ae2a27c825a", "1e5f343bf73413bf", 2188525376080450495),
+    ("PL-eda51b89e786", "ea2e5f9895d6bc7d", 7651157925902597245),
+]
+# The mask must be exercised, not passed around: a 16-hex digest is below 2**63 half the
+# time, and a set of vectors that all landed there would verify nothing about the reduction.
+assert max(int(_h, 16) for _, _h, _ in MC_SEED_GOLDEN) >= 2 ** 63, \
+    "no MC_SEED_GOLDEN digest is >= 2**63, so the 63-bit mask is never exercised"
+for _pid, _h, _seed in MC_SEED_GOLDEN:
+    # digest first (is the string right?), then the reduction -- as 02d checks alarm_sk
+    assert id_digest("mc_uncertainty", _pid)[:16] == _h, f"mc_seed digest changed for {_pid}"
+    assert mc_seed(_pid) == _seed, f"mc_seed({_pid}) reduction changed: {mc_seed(_pid)}"
+
+print(f"plume_key / scene_label / mc_seed: {len(PLUME_ID_GOLDEN)} + {len(MC_SEED_GOLDEN)} "
+      "golden vectors OK")
 
 # METADATA ********************
 
