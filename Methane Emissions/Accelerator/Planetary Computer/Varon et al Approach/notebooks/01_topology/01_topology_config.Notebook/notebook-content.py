@@ -327,7 +327,8 @@ print(f"Outside band bounded to {OUTSIDE_MIN_DEG}-{OUTSIDE_MAX_DEG} deg beyond t
 N_FACILITIES         = 150
 N_OPERATORS          = 12
 SENSORS_PER_FACILITY = 4
-SENSOR_INTERVAL_HOURS = 4
+# The CH4 detector cadence is CH4_INTERVAL_HOURS, in the CH4 detector block below. It
+# replaced SENSOR_INTERVAL_HOURS = 4, and 01b writes it to dim_sensor.reading_interval_hours.
 
 # Commissioning window for facilities: up to 15 years of history.
 HISTORY_YEARS = 15
@@ -463,6 +464,97 @@ MANUFACTURERS = {
 
 SENSOR_TYPES = {"Point": 0.50, "OGI": 0.20, "CMS": 0.30}
 assert abs(sum(SENSOR_TYPES.values()) - 1.0) < 1e-9, "SENSOR_TYPES weights must sum to 1"
+
+# ---- CH4 detector model: dim_sensor (01b) and sensor_telemetry (02e) ----------------------
+# One hour. V1's flat 4 h gave two readings inside the dashboard's 8-hour offline horizon, so
+# a single missed reading nearly tripped the KPI. 01b writes this to
+# dim_sensor.reading_interval_hours, and 02e asserts the two agree.
+CH4_INTERVAL_HOURS = 1
+assert 24 % CH4_INTERVAL_HOURS == 0, "CH4_INTERVAL_HOURS must divide a day"
+
+# Registry status mix, as exact counts ranked by a hash of sensor_id rather than a
+# per-sensor draw: with 600 sensors a binomial draw at 1% could land on 2 or 11, and the
+# decommissioned count alone moves the offline share by a full point.
+SENSOR_FAULTY_SHARE = 0.015
+SENSOR_DECOMMISSIONED_SHARE = 0.010
+
+# Baseline: regional ambient methane, ppm. V1's scale (1.9-2.1) kept -- it is physically
+# sensible for Permian ambient. Diurnal peak before dawn (the nocturnal boundary layer traps
+# surface emissions); a regional series shared basin-wide plus a small per-facility one, both
+# slow; and a trend at roughly the global growth rate.
+CH4_AMBIENT_REF_PPM = 1.97
+CH4_DIURNAL_PPM = 0.030
+CH4_DIURNAL_PEAK_LOCAL_H = 5.0
+CH4_LOCAL_UTC_OFFSET_H = -6.0          # Permian, CST
+CH4_REGIONAL_PPM = 0.025
+CH4_SITE_PPM = 0.010
+CH4_TREND_PPM_PER_YEAR = 0.010
+CH4_BASELINE_TIME_STRETCH = 12.0       # regional/site series: 02b periods x 12 (0.8 to 78 days)
+# A unit-variance spectral series is bounded by sum(a_h) <= sqrt(2 * n_harmonics) = 3.47
+# (Cauchy-Schwarz on sum(a_h^2) = 2), so the baseline envelope is known without generating it.
+CH4_SPECTRAL_BOUND = 3.47
+CH4_BASELINE_BOUNDS = (1.80, 2.20)
+_ch4_swing = CH4_DIURNAL_PPM + CH4_SPECTRAL_BOUND * (CH4_REGIONAL_PPM + CH4_SITE_PPM) \
+    + CH4_TREND_PPM_PER_YEAR
+assert (CH4_BASELINE_BOUNDS[0] <= CH4_AMBIENT_REF_PPM - _ch4_swing
+        and CH4_AMBIENT_REF_PPM + _ch4_swing <= CH4_BASELINE_BOUNDS[1]), (
+    f"baseline can reach {CH4_AMBIENT_REF_PPM - _ch4_swing:.3f}-"
+    f"{CH4_AMBIENT_REF_PPM + _ch4_swing:.3f} ppm, outside {CH4_BASELINE_BOUNDS}")
+
+# Enhancement. sigma_ppm is a sensor's plume sensitivity: ppm of enhancement per unit of the
+# leak latent above onset. It depends on the sensor type, with +/-20% per sensor.
+CH4_SIGMA_PPM = {"Point": 1.00, "CMS": 0.60, "OGI": 1.50}
+CH4_SIGMA_JITTER = 0.20
+assert set(CH4_SIGMA_PPM) == set(SENSOR_TYPES), "CH4_SIGMA_PPM must cover every sensor type"
+CH4_BG_PPM = 0.020                     # the always-present near-zero wander, >= 0
+# exceedance_threshold_ppm = ambient + CH4_EXCEEDANCE_SIGMAS * sigma_ppm, tighter by
+# CH4_CRITICAL_THRESHOLD_FACTOR on tier = 'critical' (a sensor on a Critical asset).
+CH4_EXCEEDANCE_SIGMAS = 1.0
+CH4_CRITICAL_THRESHOLD_FACTOR = 0.85
+_min_thr = CH4_AMBIENT_REF_PPM + CH4_EXCEEDANCE_SIGMAS * CH4_CRITICAL_THRESHOLD_FACTOR \
+    * min(CH4_SIGMA_PPM.values()) * (1 - CH4_SIGMA_JITTER)
+assert _min_thr - (CH4_AMBIENT_REF_PPM + _ch4_swing + CH4_BG_PPM) >= 0.10, (
+    f"the lowest possible exceedance threshold {_min_thr:.3f} ppm is within 0.1 ppm of the "
+    "baseline ceiling, so baseline wander alone could flag -- an exceedance must need a plume")
+
+# The leak latent is 02b's spectral series with time stretched by this factor (periods 13 h
+# to 52 days), so a crossing persists for hours rather than one reading -- measured in the
+# harness at a median run of 6 h, against 1 h unstretched. The onset is lowered on assets
+# with higher relative risk and in venting states; Maintenance suppresses the leak term.
+CH4_LEAK_TIME_STRETCH = 8.0
+CH4_LEAK_ONSET = 1.75                  # latent units; flagging needs ~onset + 1.0 (threshold)
+CH4_AGE_WEIGHT = 1.0                   # risk = leak_propensity * (1 + this * age / life)
+CH4_RISK_SHIFT = 2.0                   # onset -= this * (risk / estate mean risk - 1)
+# Venting states act two ways, chosen by how long they last. Standby runs for hours, so it
+# lowers the onset: a plateau, not a spike. Startup and Shutdown last about an hour, and an
+# onset step that short makes an isolated one-reading spike -- measured in the harness, one
+# such spike on a quiet sensor pulls its lag-1 autocorrelation to ~0.4. So they multiply a
+# leak already under way instead: purging amplifies an emission, it does not invent one.
+# 1.5, not more: at 2.5 a Startup straight after Maintenance (leak held at 0) still made a
+# one-hour spike, and the harness's minimum autocorrelation fell to 0.60; at 1.5 it is 0.80.
+CH4_STATE_SHIFT = {"Running": 0.0, "Standby": 0.6, "Startup": 0.0, "Shutdown": 0.0,
+                   "Down": 0.0, "Maintenance": 0.0}
+CH4_STATE_LEAK_MULT = {"Running": 1.0, "Standby": 1.0, "Startup": 1.5, "Shutdown": 1.5,
+                       "Down": 1.0, "Maintenance": 1.0}
+CH4_SUPPRESSED_STATES = ("Maintenance",)
+CH4_EXCEEDANCE_BAND = (0.005, 0.020)   # realised share of readings flagged, asserted
+
+# Wind per facility: a basin-wide series and a facility series mixed 0.6 / 0.8 (unit
+# variance), lognormal in speed with a mean-preserving correction, prevailing southerly.
+CH4_WIND_MEAN_MS = 4.5
+CH4_WIND_LOG_SD = 0.45
+CH4_WIND_DIR_PREVAILING = 180.0
+CH4_WIND_DIR_SPREAD = 45.0
+
+# Gaps: the same model and values as 02b's TELEMETRY_OUTAGE_* -- Poisson arrivals on a fixed
+# 45-day slot grid, lognormal duration -- keyed on sensor_id.
+CH4_OUTAGE_MEAN_DAYS = 45.0
+CH4_OUTAGE_MEDIAN_H = 6.0
+CH4_OUTAGE_SIGMA = 0.894
+CH4_OUTAGE_MAX_H = 120.0
+CH4_FAULTY_OUTAGE_MULT = 8.0
+CH4_DROPOUT_RATE = 0.002
+CH4_OFFLINE_BAND = (0.010, 0.030)
 
 EQUIPMENT_TYPE_NAMES = list(EQUIPMENT_TYPES)   # fixed order; weight vectors align to it
 

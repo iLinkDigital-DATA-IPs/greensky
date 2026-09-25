@@ -315,6 +315,17 @@ print("OK  each facility type's mix is distinguishable from a uniform draw")
 #
 # `SENSORS_PER_FACILITY` instruments per site, placed on the highest-criticality assets —
 # V1's rule, and a sensible one: you monitor what matters.
+#
+# Three columns beyond V1's, consumed by `02e_gen_ch4_telemetry`:
+#
+# | column | meaning |
+# |---|---|
+# | `sigma_ppm` | plume sensitivity: ppm of enhancement per unit of 02e's leak latent, by `sensor_type`, ±20% per sensor |
+# | `exceedance_threshold_ppm` | `CH4_AMBIENT_REF_PPM + CH4_EXCEEDANCE_SIGMAS × sigma_ppm`, 15% tighter on `tier = 'critical'` |
+# | `tier` | `critical` for a sensor on a Critical asset, else `standard` |
+#
+# `reading_interval_hours` is `CH4_INTERVAL_HOURS` (1 h), which is what 02e generates. `status`
+# carries an exact 1.5% Faulty and 1.0% Decommissioned, ranked by a hash of `sensor_id`.
 
 # CELL ********************
 
@@ -337,21 +348,42 @@ for f in fac_pdf.itertuples():
 
     for c in chosen.itertuples():
         sid += 1
+        stype = str(srng.choice(sensor_types, p=sensor_probs))
+        dlim = float(srng.uniform(0.5, 5.0))
+        # Everything added after V1 draws from its own per-sensor rng, never from srng, so
+        # the sensor_type and detection_limit sequence above is unchanged.
+        tier = "critical" if c.criticality == "Critical" else "standard"
+        sigma = CH4_SIGMA_PPM[stype] * (1.0 + CH4_SIGMA_JITTER * (
+            2.0 * get_rng("sensor_sigma", f"SNS-{sid:05d}").random() - 1.0))
+        thr = CH4_AMBIENT_REF_PPM + CH4_EXCEEDANCE_SIGMAS * sigma * (
+            CH4_CRITICAL_THRESHOLD_FACTOR if tier == "critical" else 1.0)
         sensor_rows.append({
-            "sensor_sk":              sid,
-            "sensor_id":              f"SNS-{sid:05d}",
-            "equipment_sk":           c.equipment_sk,
-            "equipment_id":           c.equipment_id,
-            "facility_sk":            f.facility_sk,
-            "facility_id":            f.facility_id,
-            "sensor_type":            str(srng.choice(sensor_types, p=sensor_probs)),
-            "detection_limit_kg_hr":  float(srng.uniform(0.5, 5.0)),
-            "reading_interval_hours": SENSOR_INTERVAL_HOURS,
-            "install_date":           c.install_date,
-            "status":                 "Active",
+            "sensor_sk":                sid,
+            "sensor_id":                f"SNS-{sid:05d}",
+            "equipment_sk":             c.equipment_sk,
+            "equipment_id":             c.equipment_id,
+            "facility_sk":              f.facility_sk,
+            "facility_id":              f.facility_id,
+            "sensor_type":              stype,
+            "detection_limit_kg_hr":    dlim,
+            "reading_interval_hours":   CH4_INTERVAL_HOURS,
+            "install_date":             c.install_date,
+            "status":                   "Active",
+            "exceedance_threshold_ppm": round(thr, 4),
+            "sigma_ppm":                round(sigma, 4),
+            "tier":                     tier,
         })
 
 sen_pdf = pd.DataFrame(sensor_rows)
+
+# Status mix: exact counts, the sensors ranked by a hash of sensor_id. Decommissioned sensors
+# stay in the registry and emit nothing; Faulty ones emit, with sensor_status = 'Fault' and a
+# higher outage rate, in 02e.
+_rank = sen_pdf["sensor_id"].map(lambda s: stable_key("sensor_status", s)).rank(method="first")
+_n_dec = int(round(SENSOR_DECOMMISSIONED_SHARE * len(sen_pdf)))
+_n_flt = int(round(SENSOR_FAULTY_SHARE * len(sen_pdf)))
+sen_pdf.loc[_rank <= _n_dec, "status"] = "Decommissioned"
+sen_pdf.loc[(_rank > _n_dec) & (_rank <= _n_dec + _n_flt), "status"] = "Faulty"
 sen_pdf["effective_from"] = pd.Timestamp(TOPOLOGY_AS_OF)
 sen_pdf["effective_to"]   = pd.Timestamp("2999-12-31")
 sen_pdf["is_current"]     = True
@@ -362,6 +394,13 @@ print()
 print("sensor_type distribution:")
 for t, n in sen_pdf["sensor_type"].value_counts().items():
     print(f"  {t:<10}{n:>6,}  ({n/len(sen_pdf):5.1%})")
+print()
+print("status: " + "  ".join(f"{k} {v:,}" for k, v in sen_pdf["status"].value_counts().items()))
+print("tier:   " + "  ".join(f"{k} {v:,}" for k, v in sen_pdf["tier"].value_counts().items()))
+print(f"exceedance_threshold_ppm {sen_pdf['exceedance_threshold_ppm'].min():.3f} .. "
+      f"{sen_pdf['exceedance_threshold_ppm'].max():.3f}   sigma_ppm "
+      f"{sen_pdf['sigma_ppm'].min():.3f} .. {sen_pdf['sigma_ppm'].max():.3f}   "
+      f"reading_interval_hours {CH4_INTERVAL_HOURS}")
 print()
 print("criticality of instrumented assets:")
 instrumented = eq_pdf[eq_pdf["equipment_id"].isin(sen_pdf["equipment_id"])]

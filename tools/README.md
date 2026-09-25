@@ -68,6 +68,8 @@ Run any script directly; each asserts its own claims and exits non-zero on failu
 | `harness_sessionise.py` | 02d's three-window-pass sessioniser is equivalent to an explicit debounce/deadband state machine |
 | `harness_alarm_incr.py` | 02d's full-retention scan reproduces the backfill, **and** that the rejected lookback design does not |
 | `harness_alarm_keys.py` | `alarm_sk` and `event_sk` are unique at the grain their tables actually have, including when two alarm types raise on the same reading |
+| `harness_ch4.py` | 02e's copy of 02b's helpers is identical to 02b's text; and, on a synthetic registry and state history, the CH4 model's exceedance rate is in band, concentrated by risk and state, zero in Maintenance and clustered in runs, lag-1 autocorrelation > 0.7 on every sensor, offline share 1-3% with a non-zero 8-hour KPI, and a backfill equal to 30 one-day runs |
+| `shared_defs.py` | not a check: the list of definitions 02e copies from 02b, and the `ast` extractor `harness_ch4.py` compares them with |
 | `harness_rollup.py` | 02c's rollups are deterministic under any row order, a backfill equals 30 one-day incremental runs bitwise, an incomplete final day converges once re-rolled, day-grain `value_avg` is `good_count`-weighted (and a flat mean would fail), stddev matches raw, and missing hours produce no row |
 | `harness_alarm_backing.py` | validation section 1 flags an alarm with no telemetry behind it, and that the earlier filter-after-left-join formulation, and the join without `coalesce`, both did not |
 | `harness_alarms.py` | how far the alarm limits sit from centre in units of the generated process sd |
