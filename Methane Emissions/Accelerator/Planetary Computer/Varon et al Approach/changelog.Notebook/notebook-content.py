@@ -789,3 +789,184 @@
 # - [ ] 01a's coverage cell needs a real gold_plume_catalog to size N_FACILITIES properly;
 #       the 17.3% uncovered figure is against a uniform synthetic catalogue.
 # - [ ] Telemetry generation, then alarms and maintenance records.
+
+
+# MARKDOWN ********************
+
+# ### 2026-09-22 -- Day 11 (Completed)
+#
+# SCADA telemetry and the alarms derived from it, plus an offline tools/ directory.
+#
+# #### Added: 02b_gen_scada_telemetry
+# Writes scada_telemetry, Spark-native, partitioned by date_sk and written one day at a time
+# with replaceWhere.
+# - Values are a pure function of (tag, interval_index): deterministic spectral synthesis
+#   (six fixed-frequency harmonics, hash-derived amplitudes and phases), a shared per-asset
+#   load series and a per-facility series, state conditioning from fact_asset_state, drift,
+#   noise and quantisation. Every per-row random value comes from one sha2 per row, checked
+#   against golden vectors computed offline.
+# - Outages and freezes are drawn on a fixed slot grid anchored at TELEMETRY_EPOCH, not per
+#   run window, so an incremental day sees exactly the outages a backfill would. Outage rows
+#   are absent, not null, which is what makes "Sensors Offline" computable.
+# - On Fabric: 15,479,087 rows over 30 days from 3,895 of 3,965 tags (978 hot at 300 s,
+#   2,917 standard at 900 s). Quality Good 95.1%, Substituted 3.3%, Uncertain 1.1%,
+#   Bad 0.5%. Offline share 2.035% from 2,966 outage intervals plus 47 decommissioned tags.
+#
+# #### Fixed in 02b, three accounting bugs
+# - Overlapping outages matched a reading twice through the half-open interval join,
+#   inflating the slot count and double-counting offline seconds. A Faulty tag draws
+#   Poisson(8) arrivals per 45-day slot, so overlaps were not rare. merge_intervals now
+#   collapses them at the source and assert_disjoint proves it; freezes get the same
+#   treatment.
+# - The offline share measured ~9.4% against a 2% target, because tags installed part-way
+#   through the window (~12% of them -- the estate is young) scored their pre-install slots
+#   as offline. window_slots now clips to each tag's install date.
+# - The slot grid rounded its two ends differently (ceil at one, floor at the other). That
+#   was invisible on whole days, where midnight divides both cadences, and undercounted by
+#   exactly one slot per outage interval. slot_ceil is now used at both ends, and cadences
+#   are asserted to divide 86,400.
+#
+# #### Added: 02d_gen_alarms
+# Writes fact_scada_alarm and fact_sensor_status_event, both derived entirely from
+# scada_telemetry. There is no independent alarm stream: every alarm has breaching readings
+# behind it, so drilling from an alarm to its trend finds the excursion.
+# - Four suppressions: debounce, deadband, quality (Bad and Substituted never raise,
+#   Uncertain neither raises nor clears), and state (no alarms while Down, Maintenance,
+#   Startup or Shutdown; Standby also suppresses flow and rpm).
+# - Derived from the full 30-day retention in both run modes, not a lookback window. The
+#   debounce raises on the Nth consecutive breach, so a scan edge landing mid-run raises late
+#   or never; in the harness a 7-day lookback disagreed with the backfill on 119 of 400
+#   simulated months. A full scan makes backfill and incremental identical by construction.
+# - TELEMETRY_PROCESS_SD_FRACTION raised 0.25 -> 0.33 in 01_topology_config. At 0.25 the
+#   normal band edge sat at 4.0 sigma, the process never crossed it, and the alarm table came
+#   out effectively empty. At 0.33 the band edge is at 3.03 sigma.
+# - On Fabric: 3,942 alarms and 5,447 sensor status events.
+#
+# #### Fixed in 02d: alarm_sk
+# - The 63-bit reduction was written % F.lit(2**63). 2**63 is one past Long.MAX_VALUE, so
+#   Spark could not build the literal and the golden-vector check failed at construction.
+#   The modulus is now a string cast to decimal(20,0), shared with event_sk as sk_from_sha,
+#   and the key check runs in two layers: digest first, then the reduction.
+# - alarm_sk was stable_key("alarm", tag_id, raised_ts), omitting alarm_type, while the
+#   table's grain includes it. A value crossing Lo and LoLo on the same reading raised two
+#   alarms at one raised_ts, and they collided: 3 collisions in 646 alarms in the harness,
+#   every one a Lo/LoLo pair from a compressor entering Standby. alarm_type is now in the
+#   key, and uniqueness is asserted before the write, not three sections into validation.
+# - event_sk was checked and is unique. A tag cannot leave and return at one instant, by
+#   construction.
+#
+# #### Added: tools/
+# Offline checks, none of which run in Fabric.
+# - lint_lit.py flags integer literals outside the Java long range, the one Spark-side
+#   defect detectable without a JVM. It catches the % F.lit(2**63) bug above.
+# - check_nb.py checks Fabric cell structure and Python syntax.
+# - harness/ is a NumPy mirror of 02b's value model and 02d's sessioniser.
+#   harness_alarm_keys.py closes the gap that hid the collision: the existing sessioniser
+#   harness exercised one (tag, alarm_type) stream at a time and never built a key.
+# - The README states plainly what none of this catches: whether a Spark expression computes
+#   what its Python counterpart does. Only the in-notebook golden vectors check that, and
+#   only on Fabric.
+
+
+# MARKDOWN ********************
+
+# ### 2026-09-25 -- Day 12 (Completed)
+#
+# Two validation fixes in 02d, telemetry rollups, the CH4 detector telemetry, and stable
+# plume identifiers with a reproducible Monte Carlo.
+#
+# #### Fixed in 02d validation
+# - Sections 1 and 2 joined alarms to telemetry with tag_sk unqualified on both sides, which
+#   throws AMBIGUOUS_REFERENCE on Spark. Both sides are now aliased and every column
+#   reference is qualified. This had been patched by hand in the Fabric session; the repo now
+#   carries the same fix, so it does not come back on the next sync.
+# - Section 1 passed on the exact failure it exists to catch. It left-joined on the upper time
+#   bound and applied the lower bound as a filter afterwards, which discarded an alarm with
+#   no readings in its window. Both bounds are now in the join condition. n_breach is
+#   coalesce(sum(...), 0), because sum() over an all-null group is null and null < N is not
+#   true -- moving the bound alone would still have dropped the alarm.
+#   harness_alarm_backing.py reproduces both failure modes and asserts the fix.
+#
+# #### Added: 02c_rollup_telemetry
+# Writes scada_telemetry_hourly and scada_telemetry_daily, over exactly the raw window
+# (ROLLUP_MATCH_RAW_WINDOW in 01_topology_config records why).
+# - Value columns are over Good readings only; counts are over every reading. A bucket with
+#   no Good reading keeps its row, with null values. An hour with no readings has no row --
+#   nothing is fabricated.
+# - The day grain is rolled from the written hourly table, from summed sums, so value_avg is
+#   good_count-weighted by construction. The sums are exact integers (values scaled by 1e6,
+#   squares in decimal(38,0)). That makes the day's stddev exact -- a frozen day is exactly 0,
+#   where a double sum(x^2) formula gave ~3e-5 -- and makes every aggregate independent of
+#   Spark's merge order.
+# - On Fabric: scada_telemetry_hourly holds 2.56M rows.
+#
+# #### Added: 02e_gen_ch4_telemetry
+# Writes sensor_telemetry for the 600 CH4 detectors, keeping V1's gold.sensor_telemetry
+# columns exactly (build_snapshots selects them by name), plus date_sk and is_synthetic.
+# - Hourly, replacing V1's 4 hours, which left two readings inside the 8-hour offline horizon.
+#   CH4_INTERVAL_HOURS = 1 in 01_topology_config, and dim_sensor.reading_interval_hours now
+#   carries it.
+# - dim_sensor did not have exceedance_threshold_ppm, sigma_ppm or tier, although the brief
+#   described them as existing; 01b now writes them. It also writes an exact 1.5% Faulty /
+#   1.0% Decommissioned status mix, where every sensor had been Active.
+# - 02b's hash, spectral, slot-grid, interval and state-join code is copied in verbatim, and
+#   harness_ch4.py fails if the copy ever differs from 02b's text.
+# - Exceedances come from the sensor's own spectral series with time stretched x8, so a
+#   crossing lasts hours: the median run was 1 h unstretched, 6 h stretched. They are
+#   concentrated by relative risk (leak_propensity x age / life, normalised to the estate
+#   mean) and by Standby. Startup and Shutdown multiply an existing leak by 1.5 rather than
+#   lowering the onset, because a one-hour onset step made isolated spikes that pulled a
+#   quiet sensor's autocorrelation to ~0.4. Maintenance suppresses the leak term.
+# - Harness, on a synthetic registry: exceedance rate 1.10%, a third of sensors exceed and the
+#   top 10% hold 75%, runs have a median of 6 h, minimum lag-1 autocorrelation 0.80, offline
+#   share 1.98%, and a non-zero 8-hour KPI at every probe. The rate and offline bands are
+#   asserted over the whole 30-day table, since single days ran 0.5-1.7%.
+#
+# #### Fixed: plume_id and scene_id are content-derived
+# Removes the "iteration-order counters" known issue. 04 overwrote gold_plume_catalog with
+# counters on every run, silently invalidating gold_plume_site_mapping,
+# gold_multi_gas_signatures and 05's attribution.
+# - scene_id is "SCN-" plus the scene group's UTC start. plume_id is "PL-" plus 12 hex of
+#   sha256(scene_id|source_lat|source_lon). Both helpers live in 00_config, because 07c
+#   matches its reconstructed scenes against gold_plume_catalog by scene_id, and a leftover
+#   counter there would have matched nothing.
+# - No detection logic changed. The new labels sort chronologically, so every per-scene loop
+#   visits scenes in the old order. A within-run cluster_idx keys the intermediate steps, and
+#   plume_id is assigned where source_lat/source_lon first exist.
+# - Downstream: 04b no longer mints a monotonically_increasing_id when plume_id is missing;
+#   04, 04b and 06 write with overwriteSchema for the bigint -> string change; 06 breaks
+#   detection_date ties on plume_id so site assignment is reproducible.
+# - 04 asserts plume_id unique and never numeric, and records each run's input fingerprint
+#   and plume_id set in gold_plume_id_runs. A rerun on the same input fails if the set
+#   changes. That check fires only on Fabric.
+#
+# #### Fixed: the Monte Carlo is seeded per plume
+# - Step 8 drew from the unseeded global np.random, so p5/p50/p95, uncertainty_ratio and
+#   confidence moved on every run: confidence 66/9 then 65/10 on identical input, and one
+#   plume's p95 26,385.68 -> 26,126.62 kg/h. gen_financial consumes those bounds directly.
+# - Each plume now draws from default_rng(mc_seed(plume_id)). mc_seed follows stable_key
+#   without TOPOLOGY_SEED, as plume_id does. It is per plume rather than one global seed,
+#   because a shared generator hands out draws in processing order; in the harness, dropping
+#   one plume shifted 7 of 9 others' bounds under a global seed and none under per-plume
+#   seeds. The sampling itself is unchanged.
+# - 04 re-runs the Monte Carlo for five plumes and asserts identical percentiles.
+#   gold_plume_id_runs also records each plume's p50, and a rerun on the same input fails if
+#   any p50 moves by more than 1e-9 relative.
+#
+# #### Flagged, not changed
+# - 02e's harness uses a synthetic registry and state history, because the real ones live in
+#   OneLake. Its rates show the mechanism works; Fabric's figures will differ somewhat.
+# - 04's "same 75 plumes" check against the pre-change catalog is print-only. 04 cannot tell
+#   whether silver_plume_ready_pixels changed since that run, so an assertion could fail a
+#   correct run.
+# - The first 04 run after the seeding change differs from the existing catalog's bounds,
+#   once. It has no seeded run to compare against.
+#
+# #### Remaining
+# - [ ] Run on Fabric: 01b, then 01c (01b rewrites dim_equipment without 01c's area columns),
+#       then 02e in backfill mode.
+# - [ ] Run 04 twice unchanged. The first run should print 75 of 75 against the old catalog;
+#       the second exercises the rerun regression for both plume_id and p50.
+# - [ ] Then 04b, 05, 06 and 07c. 07c's match count should stay 75 of 75.
+# - [ ] Enterprise fact layer next, starting with gen_financial, which consumes the now
+#       reproducible emission_rate_p5/p50/p95.
