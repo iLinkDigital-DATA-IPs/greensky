@@ -1115,22 +1115,29 @@ backing = (F.broadcast(proc_only.select("alarm_sk", "tag_sk", "alarm_type", "rai
            .join(tel.select("tag_sk", F.col("reading_ts").alias("rts"), "value_num",
                             "quality_code", "operating_state", "suppressed", "neutral")
                  .alias("t"),
+                 # BOTH time bounds belong in the join condition. A bound applied as a
+                 # filter after the left join discards the unmatched row -- the alarm with
+                 # no readings behind it, which is the failure this check exists to catch --
+                 # and the check then passes on exactly that case.
                  (F.col("t.tag_sk") == F.col("a.tag_sk"))
-                 & (F.col("t.rts") <= F.col("a.raised_ts")), "left")
-           .filter(F.col("t.rts") >= F.expr(
-               f"a.raised_ts - INTERVAL {ALARM_DEBOUNCE_SAMPLES * 2} HOURS"))
+                 & (F.col("t.rts") <= F.col("a.raised_ts"))
+                 & (F.col("t.rts") >= F.expr(
+                     f"a.raised_ts - INTERVAL {ALARM_DEBOUNCE_SAMPLES * 2} HOURS")), "left")
            .withColumn("breaching",
                        F.when(F.col("a.is_upper"),
                               F.col("t.value_num") > F.col("a.limit_value"))
                         .otherwise(F.col("t.value_num") < F.col("a.limit_value"))
                        & ~F.col("t.suppressed") & ~F.col("t.neutral"))
            .groupBy(F.col("a.alarm_sk").alias("alarm_sk"))
-           .agg(F.sum(F.col("breaching").cast("int")).alias("n_breach")))
+           # an unmatched alarm's only row is all-null, and sum() over nulls is null, not 0;
+           # without the coalesce `n_breach < N` is null and the filter below drops it anyway
+           .agg(F.coalesce(F.sum(F.col("breaching").cast("int")), F.lit(0)).alias("n_breach")))
 
 short = backing.filter(F.col("n_breach") < ALARM_DEBOUNCE_SAMPLES).limit(5).collect()
 assert not short, (
     f"{len(short)} alarm(s) have fewer than {ALARM_DEBOUNCE_SAMPLES} breaching readings "
-    f"behind their raised_ts: {[r['alarm_sk'] for r in short]}. Alarms must be DERIVED from "
+    f"behind their raised_ts (alarm_sk, n_breach): "
+    f"{[(r['alarm_sk'], r['n_breach']) for r in short]}. Alarms must be DERIVED from "
     "the telemetry -- a user drilling from the alarm into the trend has to find the excursion."
 )
 print(f"OK  every process alarm has >= {ALARM_DEBOUNCE_SAMPLES} breaching readings at or "
