@@ -877,6 +877,24 @@ TELEMETRY_RAW_DAYS = 30
 # a 17M-row write on a demo capacity.
 MAX_TELEMETRY_ROWS_PER_RUN = 25_000_000
 
+# Rollup window, consumed by 02c_rollup_telemetry. The hourly and daily rollups cover EXACTLY
+# the window scada_telemetry covers -- no further back, and no further forward -- and 02c
+# fails at the start if the raw table covers anything else.
+#
+# The reasoning, recorded so the decision is visible rather than implied by the code:
+#   - A rollup is a pure function of the raw table. Before the raw window there is nothing
+#     to aggregate, so an older bucket could only be fabricated, and a fabricated hourly
+#     average would sit beside real ones with nothing to tell them apart.
+#   - The raw data has genuine gaps (outages ~2% of slots, plus decommissioned tags). An hour
+#     with no readings has no row, and that absence is the signal a completeness tile reads.
+#     A rollup that ran past the raw window would show every older hour as "missing" when it
+#     was never observed at all -- a different fact that looks identical.
+#   - Rollups have no backlog to drain, so DESIGN_NOTE_incremental_facts.md section 2.3 does
+#     not apply; section 2.2 does -- window-scoped, idempotent replaceWhere writes.
+# 01d's "full history" hourly/daily row projection is a sizing upper bound for a longer raw
+# retention, not what 02c builds.
+ROLLUP_MATCH_RAW_WINDOW = True
+
 assert TELEMETRY_RAW_DAYS > 0, "TELEMETRY_RAW_DAYS must be positive"
 assert MAX_TELEMETRY_ROWS_PER_RUN > 0, "MAX_TELEMETRY_ROWS_PER_RUN must be positive"
 
@@ -1111,6 +1129,8 @@ print(f"  tiering                  {HOT_TAG_SHARE:.0%} hot at {HOT_INTERVAL_SECO
       f" rest at {STANDARD_INTERVAL_SECONDS}s")
 print(f"  raw telemetry window     {TELEMETRY_RAW_DAYS} days, capped at "
       f"{MAX_TELEMETRY_ROWS_PER_RUN:,} rows per run")
+print(f"  rollup window            "
+      f"{'matches the raw window exactly' if ROLLUP_MATCH_RAW_WINDOW else 'NOT tied to raw'}")
 print()
 _warn_z, _trip_z = [], []
 for _et2, _tm2 in TAG_TEMPLATES.items():

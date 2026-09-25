@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "02c_rollup_telemetry"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "cdeb0f3e-ca32-4370-8145-97e6eb99a36d"
+  }
+}
