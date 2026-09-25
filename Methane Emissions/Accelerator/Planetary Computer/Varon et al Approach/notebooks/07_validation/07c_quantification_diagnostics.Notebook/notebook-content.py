@@ -138,9 +138,10 @@ except Exception:
 # detection, Union-Find clustering) against `silver_plume_ready_pixels`, all duplicated from
 # that notebook and flagged inline — must stay in sync with it. Also computes an alternative
 # annulus background per pixel (Cell 2's hypothesis). Reconstructed clusters are matched back
-# to `gold_plume_catalog` rows by `(scene_id, source_lat, source_lon)` rather than by
-# `plume_id`, because `plume_id` is an unstable iteration-order counter (see `CLAUDE.md`
-# "Known issues") and is not safe to use as a join key across separate runs.
+# to `gold_plume_catalog` rows by `(scene_id, source_lat, source_lon)`. That triple is what
+# `plume_id` is now derived from (`plume_key` in `00_config`), so the match is equivalent to
+# matching on `plume_id`; the scene labels are built with 04's own `scene_label` for the same
+# reason.
 
 # CELL ********************
 
@@ -160,7 +161,13 @@ stac_times_pdf["time_gap_s"] = (
 stac_times_pdf["new_scene"] = (
     stac_times_pdf["time_gap_s"].isna() | (stac_times_pdf["time_gap_s"] > scene_gap_seconds)
 )
-stac_times_pdf["scene_id"] = stac_times_pdf["new_scene"].cumsum()
+stac_times_pdf["scene_seq"] = stac_times_pdf["new_scene"].cumsum()
+# Labelled exactly as 04 labels them -- scene_label from 00_config, the scene group's UTC
+# start -- because clusters are matched back to gold_plume_catalog by scene_id below. A
+# cumsum here would never equal 04's "SCN-..." strings and every plume would go unmatched.
+stac_times_pdf["scene_id"] = scene_label(
+    stac_times_pdf.groupby("scene_seq")["scene_start"].transform("min"),
+    spark.conf.get("spark.sql.session.timeZone"))
 
 diag_pixels = silver_pdf.merge(stac_times_pdf[["stac_id", "scene_id"]], on="stac_id", how="inner")
 print(f"Scenes reproduced from silver_plume_ready_pixels: {diag_pixels['scene_id'].nunique()}")

@@ -78,7 +78,12 @@ def haversine_km(lat1, lon1, lat2, lon2):
 
 match_radius_km = CONFIG["persistence_match_radius_km"]  # 5 km
 
-plumes_sorted = plumes.sort_values("detection_date").reset_index(drop=True)
+# plume_id breaks ties. Plumes from one scene share a detection_date, and without a tie-break
+# their order -- and so which one founds a site, and every site_id after it -- came from
+# whatever row order toPandas() returned. With a content-derived plume_id the order, and
+# gold_plume_site_mapping with it, is reproducible across reruns.
+plumes_sorted = (plumes.sort_values(["detection_date", "plume_id"], kind="mergesort")
+                 .reset_index(drop=True))
 
 # Greedy site assignment: each plume joins nearest existing site or creates a new one
 sites = []
@@ -185,7 +190,9 @@ for site in sites:
         "dominant_confidence": dominant_confidence,
         "attributed_facility": top_facility,
         "detection_dates": str(detection_dates),
-        "plume_ids": str(site["plume_ids"]),
+        # Plain str per element: under NumPy 2, str() of a list of numpy scalars renders
+        # "[np.str_('PL-...')]" (or "[np.int64(7)]" for the old counters), not the IDs.
+        "plume_ids": str([str(p) for p in site["plume_ids"]]),
     })
 
 sites_df = pd.DataFrame(site_records)
@@ -283,9 +290,12 @@ for site in sites:
 
 map_df = pd.DataFrame(plume_site_map)
 map_spark = spark.createDataFrame(map_df)
+# overwriteSchema: plume_id is a string now (content-derived in 04), and Delta rejects the
+# bigint -> string change on a plain overwrite.
 map_spark.write \
     .format("delta") \
     .mode("overwrite") \
+    .option("overwriteSchema", "true") \
     .saveAsTable("gold_plume_site_mapping")
 print(f"Written {len(map_df)} plume-to-site mappings")
 

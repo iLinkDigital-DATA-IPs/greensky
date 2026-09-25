@@ -175,10 +175,11 @@ if "plume_id" in plume_cols:
 elif "cluster_id" in plume_cols:
     ID_COL = "cluster_id"
 else:
-    # Generate one from row number
-    from pyspark.sql.functions import monotonically_increasing_id
-    plumes = plumes.withColumn("plume_id", monotonically_increasing_id())
-    ID_COL = "plume_id"
+    # No fallback to a generated ID. This used to mint one with monotonically_increasing_id(),
+    # a numeric counter that changes with partitioning -- exactly the unstable identifier
+    # plume_id stopped being. gold_multi_gas_signatures is keyed by plume_id downstream, so a
+    # plume table without one is an error, not something to paper over.
+    raise ValueError(f"gold_plume_catalog has neither plume_id nor cluster_id: {plumes.columns}")
 
 print(f"Resolved columns → ID: {ID_COL}, Lat: {LAT_COL}, Lon: {LON_COL}, Time: {TS_COL}, Rate: {RATE_COL}")
 
@@ -378,9 +379,12 @@ result.groupBy("emission_signature").agg(
 
 # CELL ********************
 
+# overwriteSchema: plume_id and scene_id arrive as strings now (content-derived in 04), and
+# Delta rejects the bigint -> string change on a plain overwrite.
 result.write \
     .format("delta") \
     .mode("overwrite") \
+    .option("overwriteSchema", "true") \
     .saveAsTable(OUTPUT_TABLE)
 
 count = spark.table(OUTPUT_TABLE).count()

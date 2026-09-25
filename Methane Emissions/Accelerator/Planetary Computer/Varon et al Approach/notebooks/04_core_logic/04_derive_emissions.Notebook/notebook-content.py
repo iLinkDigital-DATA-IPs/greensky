@@ -108,7 +108,18 @@ stac_times_pdf["new_scene"] = (
     stac_times_pdf["time_gap_s"].isna() | 
     (stac_times_pdf["time_gap_s"] > scene_gap_seconds)
 )
-stac_times_pdf["scene_id"] = stac_times_pdf["new_scene"].cumsum()
+stac_times_pdf["scene_seq"] = stac_times_pdf["new_scene"].cumsum()
+
+# The grouping above is unchanged; only the label is. scene_id used to be scene_seq, a
+# counter over whichever stac_ids are in this run's window, so it renumbered on every
+# rerun. It is now the scene group's own start (its minimum scene_start) in UTC -- see
+# scene_label in 00_config. Groups are separated by more than scene_gap_minutes, so two
+# groups cannot share a start second; asserted rather than assumed.
+SESSION_TZ = spark.conf.get("spark.sql.session.timeZone")
+stac_times_pdf["scene_id"] = scene_label(
+    stac_times_pdf.groupby("scene_seq")["scene_start"].transform("min"), SESSION_TZ)
+assert stac_times_pdf["scene_id"].nunique() == stac_times_pdf["scene_seq"].nunique(), (
+    "two scene groups share a scene_id -- their starts fall in the same UTC second")
 
 print(f"Scenes identified: {stac_times_pdf['scene_id'].nunique()}")
 print("\nScene summary:")
@@ -523,7 +534,10 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
     """Union-Find clustering plus the size / collinearity / shape filters.
 
     Returns (valid, flagged_large, rejected, plume_counter); the first three are lists
-    of per-cluster pixel frames. `apply_collinearity=False` reproduces the pre-B3
+    of per-cluster pixel frames. Each frame carries cluster_idx, a WITHIN-RUN index used
+    only to key the intermediate frames of steps 5-8. It is not an identifier: plume_id
+    needs source_lat/source_lon, which step 6 computes, so it is assigned there.
+    `apply_collinearity=False` reproduces the pre-B3
     filter chain (size + shape only) and is used for the like-for-like before/after
     destriping comparison in the summary cell.
     """
@@ -618,7 +632,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
 
             if reject_reason is not None:
                 counter += 1
-                cluster_data["plume_id"] = counter
+                cluster_data["cluster_idx"] = counter
                 cluster_data["plume_flag"] = reject_reason
                 cluster_data["aspect_ratio"] = aspect_ratio
                 cluster_data["variance_explained"] = variance_explained
@@ -645,7 +659,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
             # Large cluster handling
             if cluster_size > max_pixels:
                 counter += 1
-                cluster_data["plume_id"] = counter
+                cluster_data["cluster_idx"] = counter
                 cluster_data["plume_flag"] = "large_cluster"
                 cluster_data["aspect_ratio"] = aspect_ratio
                 flagged.append(cluster_data)
@@ -656,7 +670,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
 
             # Valid plume
             counter += 1
-            cluster_data["plume_id"] = counter
+            cluster_data["cluster_idx"] = counter
             cluster_data["plume_flag"] = "valid"
             cluster_data["aspect_ratio"] = aspect_ratio
             valid.append(cluster_data)
@@ -684,7 +698,7 @@ print(f"Flagged large clusters: {len(flagged_large)}")
 print(f"Rejected, pixels fit a line (var explained > {collinearity_max_r2}): "
       f"{n_rejected_collinear}")
 print(f"Rejected, single (stac_id, ground_pixel) column: {n_rejected_single_column}")
-print(f"Total plume IDs assigned: {plume_counter}")
+print(f"Clusters indexed this run (cluster_idx, not plume_id): {plume_counter}")
 
 if all_plumes:
     plumes_pdf = pd.concat(all_plumes, ignore_index=True)
@@ -731,7 +745,7 @@ else:
     
     plume_summaries = []
     
-    for plume_id, plume_group in plumes_pdf.groupby("plume_id"):
+    for cluster_idx, plume_group in plumes_pdf.groupby("cluster_idx"):
         lats = plume_group["latitude"].values
         lons = plume_group["longitude"].values
         
@@ -769,7 +783,7 @@ else:
             wind_confidence = "medium"
         
         plume_summaries.append({
-            "plume_id": plume_id,
+            "cluster_idx": cluster_idx,
             "plume_orientation_deg": plume_orientation,
             "wind_direction_deg": wind_direction,
             "wind_alignment_deg": angle_diff,
@@ -779,10 +793,70 @@ else:
     
     wind_df = pd.DataFrame(plume_summaries)
     print("Wind alignment results:")
-    print(wind_df[["plume_id", "wind_alignment_deg", "wind_confidence", "era5_wind_speed_ms"]].to_string())
+    print(wind_df[["cluster_idx", "wind_alignment_deg", "wind_confidence", "era5_wind_speed_ms"]].to_string())
     
     # Merge wind alignment back to plume pixels
-    plumes_pdf = plumes_pdf.merge(wind_df, on="plume_id", how="left")
+    plumes_pdf = plumes_pdf.merge(wind_df, on="cluster_idx", how="left")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Plume identifiers:
+#
+# `plume_id` is `plume_key(scene_id, source_lat, source_lon)` from `00_config`: content, not
+# iteration order, so a rerun on the same window reproduces every ID. It is assigned in step 6,
+# where `source_lat` / `source_lon` (the peak-enhancement pixel) first exist; until then the
+# frames carry `cluster_idx`, a within-run index. Flagged and rejected clusters never reach
+# step 6, so they take the same rule over their own peak pixel below.
+
+# CELL ********************
+
+# Digest-level check: Spark's sha2 over the same key string must give the same hex as
+# hashlib, so anyone recomputing a plume_id in SQL gets the one 04 wrote. This is 02d's
+# layer 1 (is the string being hashed right?). There is no layer 2: 02d goes on to check a
+# 63-bit reduction to a bigint, but plume_id keeps a hex prefix and is never reduced, so
+# there is nothing further to verify. The key strings come from plume_key_string -- Python's
+# .5f -- because Spark's format_string may round a decimal tie differently (00_config).
+from pyspark.sql.functions import sha2, concat, substring
+
+_pg = spark.createDataFrame(
+    [(_s, plume_key_string(_s, _a, _o), _p) for _s, _a, _o, _k, _p in PLUME_ID_GOLDEN],
+    "scene_id string, key string, expected string",
+).withColumn("actual", concat(lit("PL-"), substring(sha2(col("key"), 256), 1, 12)))
+_bad = _pg.filter("actual <> expected").collect()
+assert not _bad, (
+    f"Spark's sha2 disagrees with plume_key on {_bad[0]}. Both hash the same string, so "
+    "the digest itself differs -- check the string's encoding, not the coordinates.")
+print(f"OK  Spark sha2 matches plume_key on {len(PLUME_ID_GOLDEN)} golden vectors "
+      "(digest level; no reduction applies to a hex-prefix ID)")
+
+
+def assign_plume_ids(cluster_frames):
+    """plume_id for clusters that never reach step 6, from their own peak-enhancement pixel.
+
+    Step 6 defines source_lat/source_lon as the pixel with the highest DETECT_COL, first
+    occurrence on a tie (argmax). The same rule applies here, so a cluster's plume_id means
+    the same thing in every table that carries one. Clusters are disjoint sets of pixels, so
+    no two share a peak pixel and the IDs are unique across all three tables -- asserted at
+    the end of the notebook.
+    """
+    for c in cluster_frames:
+        i = int(c[DETECT_COL].values.argmax())
+        c["plume_id"] = plume_key(c["scene_id"].iloc[0],
+                                  c["latitude"].iloc[i], c["longitude"].iloc[i])
+    return cluster_frames
+
+
+flagged_large = assign_plume_ids(flagged_large)
+rejected_collinear = assign_plume_ids(rejected_collinear)
+print(f"plume_id assigned to {len(flagged_large)} flagged and {len(rejected_collinear)} "
+      "rejected clusters; valid plumes get theirs in step 6")
 
 # METADATA ********************
 
@@ -823,7 +897,7 @@ print(f"  = {PPB_TO_KG * 1000:.4f} g CH4")
 if len(plumes_pdf) > 0:
     ime_results = []
     
-    for plume_id, plume_group in plumes_pdf.groupby("plume_id"):
+    for cluster_idx, plume_group in plumes_pdf.groupby("cluster_idx"):
         # IME is computed on the destriped enhancement (step 2b); the raw
         # ch4_enhancement column is kept on the frame for comparison.
         enhancements = plume_group[DETECT_COL].values
@@ -855,7 +929,11 @@ if len(plumes_pdf) > 0:
         stac_id = plume_group["stac_id"].iloc[0]
         
         ime_results.append({
-            "plume_id": plume_id,
+            # The plume summary is where the identifier is assigned: source_lat and
+            # source_lon exist only from here. cluster_idx stays as the key for steps 7-8
+            # so their row order -- and so the Monte Carlo's draw order -- is unchanged.
+            "cluster_idx": cluster_idx,
+            "plume_id": plume_key(scene_id, source_lat, source_lon),
             "scene_id": scene_id,
             "stac_id": stac_id,
             "detection_date": detection_date,
@@ -896,7 +974,7 @@ else:
 
 if len(ime_df) > 0 and len(plumes_pdf) > 0:
     # Merge wind info into IME results
-    wind_info = plumes_pdf.groupby("plume_id").agg({
+    wind_info = plumes_pdf.groupby("cluster_idx").agg({
         "era5_u10": "mean",
         "era5_v10": "mean",
         "era5_blh": "mean",
@@ -907,13 +985,13 @@ if len(ime_df) > 0 and len(plumes_pdf) > 0:
         wind_info["era5_u10"]**2 + wind_info["era5_v10"]**2
     )
     
-    ime_df = ime_df.merge(wind_info, on="plume_id", how="left")
+    ime_df = ime_df.merge(wind_info, on="cluster_idx", how="left")
     
     # Also merge wind alignment
     if "wind_alignment_deg" in wind_df.columns:
         ime_df = ime_df.merge(
-            wind_df[["plume_id", "wind_alignment_deg", "wind_confidence"]],
-            on="plume_id", how="left"
+            wind_df[["cluster_idx", "wind_alignment_deg", "wind_confidence"]],
+            on="cluster_idx", how="left"
         )
     
     min_wind = CONFIG["min_wind_speed_ms"]
@@ -940,7 +1018,7 @@ if len(ime_df) > 0 and len(plumes_pdf) > 0:
         emission_rate = row["ime_kg"] / t_mix  # kg/s
         
         emission_results.append({
-            "plume_id": row["plume_id"],
+            "cluster_idx": row["cluster_idx"],
             "L_m": L_m,
             "U_eff_ms": U_eff,
             "t_mix_s": t_mix,
@@ -951,7 +1029,7 @@ if len(ime_df) > 0 and len(plumes_pdf) > 0:
         })
     
     emission_df = pd.DataFrame(emission_results)
-    ime_df = ime_df.merge(emission_df, on="plume_id", how="left")
+    ime_df = ime_df.merge(emission_df, on="cluster_idx", how="left")
     
     print("Emission rates calculated:")
     print(ime_df[["plume_id", "ime_kg", "U_eff_ms", "t_mix_s", 
@@ -983,7 +1061,7 @@ if len(ime_df) > 0:
     uncertainty_results = []
     
     for _, row in ime_df.iterrows():
-        plume_id = row["plume_id"]
+        cluster_idx = row["cluster_idx"]
         ime_kg = row["ime_kg"]
         U_eff = row["U_eff_ms"]
         L_m = row["L_m"]
@@ -1016,7 +1094,7 @@ if len(ime_df) > 0:
         mc_rates = np.array(mc_rates)
         
         uncertainty_results.append({
-            "plume_id": plume_id,
+            "cluster_idx": cluster_idx,
             "emission_rate_p5_kg_s": np.percentile(mc_rates, 5),
             "emission_rate_p50_kg_s": np.percentile(mc_rates, 50),
             "emission_rate_p95_kg_s": np.percentile(mc_rates, 95),
@@ -1030,7 +1108,7 @@ if len(ime_df) > 0:
         })
     
     unc_df = pd.DataFrame(uncertainty_results)
-    ime_df = ime_df.merge(unc_df, on="plume_id", how="left")
+    ime_df = ime_df.merge(unc_df, on="cluster_idx", how="left")
     
     print("Uncertainty estimation complete:")
     print(ime_df[["plume_id", "emission_rate_kg_h", 
@@ -1124,10 +1202,24 @@ if len(ime_df) > 0:
     gold_pdf = ime_df[available_columns]
     
     gold_spark = spark.createDataFrame(gold_pdf)
-    
+
+    # The previous catalog, read before it is overwritten, for the plume-set comparison in
+    # the last cell. On the first run after plume_id became a string this is the old
+    # counter-keyed catalog, and the comparison is by (stac_id, source position) instead.
+    try:
+        prev_catalog_pdf = spark.table("gold_plume_catalog").select(
+            "plume_id", "stac_id", "source_lat", "source_lon").toPandas()
+    except Exception:
+        prev_catalog_pdf = None
+
+    # overwriteSchema because plume_id and scene_id change type, bigint to string, on the
+    # first run after this change; Delta rejects a type change on a plain overwrite. It also
+    # drops 05's attribution columns until 05 runs again -- which is the order the pipeline
+    # runs in anyway, and 05 already writes with overwriteSchema.
     gold_spark.write \
         .format("delta") \
         .mode("overwrite") \
+        .option("overwriteSchema", "true") \
         .saveAsTable("gold_plume_catalog")
     
     print(f"Written {len(gold_pdf)} plumes to gold_plume_catalog")
@@ -1142,6 +1234,7 @@ if len(ime_df) > 0:
         flagged_spark.write \
             .format("delta") \
             .mode("overwrite") \
+            .option("overwriteSchema", "true") \
             .saveAsTable("gold_flagged_large_clusters")
         print(f"Written {len(flagged_pdf)} pixels in {len(flagged_large)} flagged large clusters")
     else:
@@ -1337,6 +1430,130 @@ else:
     print(f"  Total pixels: {total_pixels}")
     print(f"  Candidate pixels: {total_candidates}")
     print(f"  Enhancement range: {enhanced_pdf['ch4_enhancement'].min():.1f} to {enhanced_pdf['ch4_enhancement'].max():.1f} ppb")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Identifier checks, and the rerun regression:
+#
+# `plume_id` must be unique, well-formed and never numeric, so a counter cannot silently
+# return. Then the check that matters: **a rerun on the same input produces the same plume_id
+# set.** Every run records its input fingerprint (per-`stac_id` pixel count, time range and
+# CH₄ range of `silver_plume_ready_pixels`, plus `CONFIG`) and its sorted `plume_id`s in
+# `gold_plume_id_runs`; if an earlier run had the same fingerprint, the two sets must be
+# identical.
+#
+# **This check fires only on Fabric.** It compares two real executions against real silver
+# data; the offline harness (`tools/harness/harness_plume_ids.py`) can show that the IDs do not
+# depend on row or iteration order within one execution, but not that two executions agree.
+# The first run after this change has no earlier fingerprint to compare with — **run 04 twice**
+# to exercise it.
+
+# CELL ********************
+
+import re
+import json
+from pyspark.sql.functions import current_timestamp
+
+ID_RUNS_TABLE = "gold_plume_id_runs"
+
+valid_ids = ime_df["plume_id"].tolist() if len(ime_df) > 0 else []
+flag_ids = [c["plume_id"].iloc[0] for c in flagged_large]
+rej_ids = [c["plume_id"].iloc[0] for c in rejected_collinear]
+all_ids = valid_ids + flag_ids + rej_ids
+
+# --- unique, well-formed, never numeric -----------------------------------------------------
+_dup = pd.Series(valid_ids)[pd.Series(valid_ids).duplicated()].tolist()
+assert not _dup, f"plume_id not unique in gold_plume_catalog: {_dup[:5]}"
+_dup = pd.Series(all_ids)[pd.Series(all_ids).duplicated()].tolist()
+assert not _dup, (f"plume_id shared between gold_plume_catalog, gold_flagged_large_clusters "
+                  f"and gold_rejected_collinear: {_dup[:5]}")
+_num = [p for p in all_ids if re.fullmatch(r"\d+", str(p))]
+assert not _num, f"numeric plume_id(s) {_num[:5]} -- an iteration-order counter has returned"
+_bad = [p for p in all_ids if not re.fullmatch(r"PL-[0-9a-f]{12}", str(p))]
+assert not _bad, f"malformed plume_id(s): {_bad[:5]}"
+_bad = sorted({s for s in stac_times_pdf["scene_id"] if not re.fullmatch(r"SCN-\d{8}T\d{6}", s)})
+assert not _bad, f"malformed scene_id(s): {_bad[:5]}"
+if len(ime_df) > 0:
+    _tbl = spark.table("gold_plume_catalog")
+    _types = dict(_tbl.dtypes)
+    assert _types["plume_id"] == "string" and _types["scene_id"] == "string", (
+        f"gold_plume_catalog stores plume_id as {_types['plume_id']} and scene_id as "
+        f"{_types['scene_id']}; both must be string")
+    _n, _d = _tbl.count(), _tbl.select("plume_id").distinct().count()
+    assert _n == _d == len(valid_ids), (
+        f"gold_plume_catalog holds {_n} rows, {_d} distinct plume_id, {len(valid_ids)} expected")
+print(f"OK  plume_id unique: {len(set(valid_ids))} distinct in gold_plume_catalog, "
+      f"{len(set(all_ids))} across it, gold_flagged_large_clusters and gold_rejected_collinear")
+print(r"OK  no plume_id matches ^\d+$; every plume_id is PL-<12 hex>, every scene_id SCN-<UTC>")
+
+# A plume whose peak enhancement is shared by two distinct pixels would take its source
+# position -- and so its plume_id -- from whichever comes first in row order. Expected zero.
+_ties = 0
+if len(plumes_pdf):
+    for _, g in plumes_pdf.groupby("cluster_idx"):
+        top = g[g[DETECT_COL] == g[DETECT_COL].max()]
+        _ties += int(len(set(zip(top["latitude"], top["longitude"]))) > 1)
+print(f"    plumes whose peak enhancement is tied between distinct pixels: {_ties}")
+
+# --- first run after the change: the same plume set as the counter-keyed catalog? ----------
+_prev = globals().get("prev_catalog_pdf")
+if (_prev is not None and len(_prev)
+        and _prev["plume_id"].astype(str).str.fullmatch(r"\d+").all()):
+    def _pos(df):
+        return set(zip(df["stac_id"], df["source_lat"].round(5), df["source_lon"].round(5)))
+    _old = _pos(_prev)
+    _new = _pos(ime_df) if len(ime_df) else set()
+    print(f"\nprevious gold_plume_catalog used numeric plume_ids: {len(_old)} plumes; this "
+          f"run {len(_new)}; matched by (stac_id, source position) {len(_old & _new)}")
+    print("    an identifier-only change should match every one -- a difference means the")
+    print("    input or CONFIG changed since that run, or detection itself changed")
+
+# --- the rerun regression -------------------------------------------------------------------
+_fp_rows = (silver.groupBy("stac_id")
+            .agg(spark_count("*").alias("n"), spark_min("datetime").alias("t0"),
+                 spark_max("datetime").alias("t1"), spark_min("ch4").alias("c0"),
+                 spark_max("ch4").alias("c1"))
+            .orderBy("stac_id").collect())
+INPUT_FINGERPRINT = id_digest(json.dumps([[str(v) for v in r] for r in _fp_rows]),
+                              json.dumps(CONFIG, sort_keys=True, default=str))
+_ids_cat, _ids_all = sorted(valid_ids), sorted(all_ids)
+_run = {"input_fingerprint": INPUT_FINGERPRINT, "n_plumes": len(_ids_cat),
+        "catalog_digest": id_digest(*_ids_cat), "all_ids_digest": id_digest(*_ids_all),
+        "plume_ids": ",".join(_ids_cat)}
+
+_prior = None
+if spark.catalog.tableExists(ID_RUNS_TABLE):
+    _r = (spark.table(ID_RUNS_TABLE).filter(col("input_fingerprint") == INPUT_FINGERPRINT)
+          .orderBy(col("run_ts").desc()).limit(1).collect())
+    _prior = _r[0] if _r else None
+
+# recorded before the assertion, so a failing run still leaves its evidence
+(spark.createDataFrame([_run]).withColumn("run_ts", current_timestamp())
+ .write.format("delta").mode("append").saveAsTable(ID_RUNS_TABLE))
+
+if _prior is None:
+    print(f"\nno earlier run on this input and CONFIG in {ID_RUNS_TABLE} -- this run is "
+          "recorded; run 04 again unchanged and this check compares the two")
+else:
+    if ((_prior["catalog_digest"], _prior["all_ids_digest"])
+            != (_run["catalog_digest"], _run["all_ids_digest"])):
+        _was = set(_prior["plume_ids"].split(",")) if _prior["plume_ids"] else set()
+        raise AssertionError(
+            f"plume_id set changed on a rerun with identical input and CONFIG (fingerprint "
+            f"{INPUT_FINGERPRINT[:12]}, earlier run {_prior['run_ts']}).\n"
+            f"  catalog: {_prior['n_plumes']} -> {len(_ids_cat)} plumes; new "
+            f"{sorted(set(_ids_cat) - _was)[:5]}, gone {sorted(_was - set(_ids_cat))[:5]}\n"
+            "  plume_id is meant to be a pure function of the data. Look first at the tie "
+            "count above, then at anything order-dependent upstream of source_lat/source_lon.")
+    print(f"\nOK  rerun regression: {len(_ids_cat)} plume_ids identical to the run at "
+          f"{_prior['run_ts']} on the same input (fingerprint {INPUT_FINGERPRINT[:12]})")
 
 # METADATA ********************
 

@@ -183,3 +183,98 @@ print(f"PPB_TO_KG: {PPB_TO_KG:.3f} kg CH4 per ppb per pixel")
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
+
+# MARKDOWN ********************
+
+# ### Content-derived plume and scene identifiers:
+
+# CELL ********************
+
+# Cell 3 - 00_config
+# scene_id and plume_id, derived from what was observed rather than from iteration order.
+#
+# They used to be counters: scene_id a cumsum over whichever stac_ids were in the window,
+# plume_id a counter over scenes and Union-Find roots. 04 overwrites gold_plume_catalog, so
+# every rerun renumbered every plume and silently invalidated gold_plume_site_mapping,
+# gold_multi_gas_signatures and 05's attribution columns. Both are now functions of the data:
+#
+#   scene_id  "SCN-" + the scene's UTC start, yyyyMMddTHHmmss
+#   plume_id  "PL-"  + first 12 hex of sha256(f"{scene_id}|{source_lat:.5f}|{source_lon:.5f}")
+#
+# They live here, not in 04, because 07c reproduces 04's scene grouping and matches its
+# clusters back to gold_plume_catalog by scene_id -- the two must label scenes identically.
+#
+# plume_key reuses stable_key's construction from 01_topology_config -- sha256 over the
+# "|"-joined parts, hex digest -- with two deliberate differences:
+#   - No TOPOLOGY_SEED prefix. A plume is an observation of real satellite data; its
+#     identity must not change when the synthetic estate's seed does, and the detection
+#     layer does not run 01_topology_config at all.
+#   - No 63-bit reduction. stable_key and 02d's sk_from_sha reduce the digest to a bigint
+#     surrogate key; plume_id is a string, so it keeps a hex prefix instead and there is no
+#     reduction step to check. 12 hex characters are 48 bits: at 10,000 plumes the chance
+#     of any collision is about 2e-7, and 04 asserts uniqueness regardless.
+#
+# Coordinates are formatted by Python's .5f, which rounds the float's exact binary value.
+# Spark's format_string (Java's Formatter) can round a decimal tie the other way --
+# 31.123455 is 31.12345 here and may be 31.12346 there -- so a SQL recomputation of plume_id
+# must be given the Python-formatted strings, never format its own. The third golden vector
+# below is that case.
+import hashlib as _hashlib
+import pandas as _pd
+
+
+def id_digest(*parts):
+    """sha256 hex over the '|'-joined parts: stable_key's construction, unseeded, unreduced."""
+    return _hashlib.sha256("|".join(map(str, parts)).encode()).hexdigest()
+
+
+def plume_key_string(scene_id, source_lat, source_lon):
+    """The exact string plume_id hashes. Exposed so 04 can check Spark's sha2 against it."""
+    return "|".join([str(scene_id), f"{source_lat:.5f}", f"{source_lon:.5f}"])
+
+
+def plume_key(scene_id, source_lat, source_lon):
+    """'PL-' + the first 12 hex characters of sha256(scene_id|lat|lon)."""
+    return "PL-" + _hashlib.sha256(
+        plume_key_string(scene_id, source_lat, source_lon).encode()).hexdigest()[:12]
+
+
+def scene_label(scene_start, session_tz):
+    """'SCN-' + UTC scene_start as yyyyMMddTHHmmss, for a Series of scene starts.
+
+    toPandas() returns timestamps as naive wall-clock time in the Spark SESSION time zone,
+    which none of these notebooks sets, so they are localised to that zone before being
+    converted to UTC rather than assumed to be UTC already.
+    """
+    ts = _pd.to_datetime(scene_start)
+    if ts.dt.tz is None:
+        ts = ts.dt.tz_localize(session_tz)
+    return "SCN-" + ts.dt.tz_convert("UTC").dt.strftime("%Y%m%dT%H%M%S")
+
+
+# Golden vectors at the real arity: (scene_id, source_lat, source_lon) -> plume_id. The
+# first two differ only in the fifth decimal of longitude; the third is a decimal tie whose
+# binary value lies below it, so Python formats 31.123455 as 31.12345.
+PLUME_ID_GOLDEN = [
+    ("SCN-20240815T181203", 31.87432, -102.61157,
+     "SCN-20240815T181203|31.87432|-102.61157", "PL-1adc27ebf84d"),
+    ("SCN-20240815T181203", 31.87432, -102.61158,
+     "SCN-20240815T181203|31.87432|-102.61158", "PL-1ae2a27c825a"),
+    ("SCN-20250102T193055", 31.123455, -102.345675,
+     "SCN-20250102T193055|31.12345|-102.34567", "PL-eda51b89e786"),
+]
+for _s, _a, _o, _k, _p in PLUME_ID_GOLDEN:
+    assert plume_key_string(_s, _a, _o) == _k, (
+        f"plume key string {plume_key_string(_s, _a, _o)!r} != {_k!r}: the coordinate "
+        "formatting or the separator has changed, and every plume_id would change with it")
+    assert plume_key(_s, _a, _o) == _p, f"plume_key{(_s, _a, _o)} != {_p}"
+_sl = scene_label(_pd.Series([_pd.Timestamp("2024-08-15 18:12:03")]), "UTC").iloc[0]
+assert _sl == "SCN-20240815T181203", f"scene_label gives {_sl!r}"
+print(f"plume_key / scene_label: {len(PLUME_ID_GOLDEN)} golden vectors OK")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
