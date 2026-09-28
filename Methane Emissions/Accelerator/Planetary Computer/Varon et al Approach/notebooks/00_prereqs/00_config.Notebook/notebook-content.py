@@ -65,6 +65,18 @@ CONFIG = {
     "shape_threshold": 20,
     "collinearity_max_r2": 0.98,        # reject clusters whose pixels fit a line this well
     "collinearity_min_pixels": 4,       # only apply the test above this size
+    # Single-detector-column rejection (04 step 4): reject a cluster when its largest
+    # (orbit, ground_pixel) group holds at least this share of its pixels, provided that
+    # group has at least single_column_min_group_pixels. Unanimity (every pixel on one
+    # column) was insufficient: PL-059118a52421, then the top emitter at 131,498 kg/h,
+    # had 14 of 15 pixels on (45136, 65), stepping 0.049 deg in latitude -- the
+    # along-track pixel size -- over 33 km. That is one detector column, and one stray
+    # pixel from the adjacent column defeated the unanimous test. A compact real plume
+    # at 5.5 km across-track resolution should span several columns and sit well below
+    # this share. 0.80 is provisional until 07c's dominance distribution over the
+    # accepted catalogue confirms it separates stripes from plumes.
+    "single_column_dominance": 0.80,
+    "single_column_min_group_pixels": 3,
 
     # Wind alignment
     "wind_alignment_threshold_deg": 75,

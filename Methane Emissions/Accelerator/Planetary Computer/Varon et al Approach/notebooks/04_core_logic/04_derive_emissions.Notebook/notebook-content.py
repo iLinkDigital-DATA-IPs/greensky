@@ -535,6 +535,20 @@ max_pixels = CONFIG["max_cluster_pixels"]
 shape_threshold = CONFIG["shape_threshold"]
 collinearity_max_r2 = CONFIG["collinearity_max_r2"]
 collinearity_min_pixels = CONFIG["collinearity_min_pixels"]
+single_column_dominance = CONFIG["single_column_dominance"]
+single_column_min_group = CONFIG["single_column_min_group_pixels"]
+
+
+def column_dominance(cluster_data):
+    """(dominant_column_share, dominant_group_pixels) over (orbit, ground_pixel) groups.
+
+    The share of the cluster's pixels that sit in its most populated physical detector
+    column. 1.0 is the old unanimity case; a stripe with a stray pixel or two from a
+    neighbouring column sits just below it.
+    """
+    sizes = pd.Series(list(zip(cluster_data["orbit"].values,
+                               cluster_data["ground_pixel"].values))).value_counts()
+    return float(sizes.iloc[0] / len(cluster_data)), int(sizes.iloc[0])
 
 
 def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
@@ -608,15 +622,18 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
             # straight, evenly spaced line. Two tests catch that:
             #   1. the pixels fit a line too well (first principal component carries
             #      more than collinearity_max_r2 of the variance), or
-            #   2. every pixel comes from one detector column, at any cluster size.
+            #   2. one detector column dominates: its largest (orbit, ground_pixel)
+            #      group holds at least single_column_dominance of the pixels, and at
+            #      least single_column_min_group_pixels of them, at any cluster size.
+            #      This was unanimity (every pixel on one column), and one stray pixel
+            #      defeated it: PL-059118a52421 had 14 of 15 pixels on (45136, 65).
+            #      See the note on single_column_dominance in 00_config.
             #
             # Test 2 is keyed on (orbit, ground_pixel): one physical detector column
             # on one overpass. It is deliberately NOT keyed on step 2b's
             # (stac_id, ground_pixel). stac_id names a product, not a column, and the
             # NRTI and OFFL granules of one orbit both carry the same column. Keyed on
             # stac_id, a stripe drawn from both granules had two "pairs" and escaped.
-            # That is how PL-059118a52421 (15 pixels, every one on ground_pixel 65,
-            # orbit 45136, two granules) reached the catalogue as its highest rate.
             # orbit is sat:absolute_orbit (02_ingest_tropomi_ch4), so it identifies
             # the physical overpass. Destriping stays per granule for the reasons given
             # in step 2b. The two keys differ on purpose. Do not unify them.
@@ -636,6 +653,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                 cluster_data["orbit"].values,
                 cluster_data["ground_pixel"].values,
             )))
+            dominant_column_share, dominant_group_pixels = column_dominance(cluster_data)
 
             if n_unique_locations >= collinearity_min_pixels:
                 _axis, variance_explained = principal_axis(lats, lons)
@@ -644,7 +662,8 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
 
             reject_reason = None
             if apply_collinearity:
-                if n_physical_columns == 1:
+                if (dominant_column_share >= single_column_dominance
+                        and dominant_group_pixels >= single_column_min_group):
                     reject_reason = "single_column"
                 elif (n_unique_locations >= collinearity_min_pixels
                       and variance_explained > collinearity_max_r2):
@@ -658,6 +677,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                 cluster_data["variance_explained"] = variance_explained
                 cluster_data["n_column_pairs"] = n_column_pairs
                 cluster_data["n_physical_columns"] = n_physical_columns
+                cluster_data["dominant_column_share"] = dominant_column_share
                 # Would this cluster have become a valid plume without the new
                 # filters? Recorded so the summary can count the pre-rejection stage
                 # on the same size + shape basis as every other stage.
@@ -671,6 +691,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                           f"({cluster_size} pixels, "
                           f"var_explained={variance_explained:.4f}, "
                           f"distinct (orbit, ground_pixel)={n_physical_columns}, "
+                          f"dominant column share={dominant_column_share:.2f}, "
                           f"(stac_id, ground_pixel)={n_column_pairs})")
                 continue
 
@@ -734,26 +755,79 @@ print(f"\nValid plumes: {len(all_plumes)}")
 print(f"Flagged large clusters: {len(flagged_large)}")
 print(f"Rejected, pixels fit a line (var explained > {collinearity_max_r2}): "
       f"{n_rejected_collinear}")
-print(f"Rejected, single (orbit, ground_pixel) column: {n_rejected_single_column}")
+# Single-column rejections the unanimity rule would have let through: the dominant
+# column holds the threshold share but the cluster spans more than one column. Of those,
+# the ones the variance test would not have caught either, and that would otherwise have
+# passed size + shape, are the plumes this rule removes from the catalogue.
+_dominance_only = [
+    c for c in rejected_collinear
+    if c["plume_flag"].iloc[0] == "single_column" and c["n_physical_columns"].iloc[0] > 1
+]
+n_single_column_dominance_only = len(_dominance_only)
+n_single_column_dominance_removed = sum(
+    1 for c in _dominance_only
+    if bool(c["would_be_valid"].iloc[0])
+    and not (len(set(zip(c["latitude"], c["longitude"]))) >= collinearity_min_pixels
+             and c["variance_explained"].iloc[0] > collinearity_max_r2)
+)
+print(f"Rejected, one (orbit, ground_pixel) column holds >= "
+      f"{single_column_dominance:.0%} of pixels: {n_rejected_single_column}")
 print(f"    of which span >1 granule (missed by the old (stac_id, ground_pixel) key): "
       f"{n_single_column_multi_granule}")
+print(f"    of which span >1 column (missed by the unanimity rule): "
+      f"{n_single_column_dominance_only}; would otherwise have been accepted "
+      f"(passed size, shape and the variance test): {n_single_column_dominance_removed}")
+
+# Is single_column_dominance a clean cut? The population it is judged against is the
+# catalogue the unanimity rule would have produced: every accepted plume, plus the
+# dominance-only rejections that would otherwise have been accepted. A real compact
+# plume should span several columns and sit well below the threshold; if this
+# distribution has no gap near it, the threshold is cutting through real detections.
+_shares = sorted(
+    [column_dominance(c)[0] for c in all_plumes]
+    + [float(c["dominant_column_share"].iloc[0]) for c in _dominance_only
+       if bool(c["would_be_valid"].iloc[0])
+       and not (len(set(zip(c["latitude"], c["longitude"]))) >= collinearity_min_pixels
+                and c["variance_explained"].iloc[0] > collinearity_max_r2)],
+    reverse=True)
+if _shares:
+    _s = np.array(_shares)
+    print(f"\ndominant_column_share over the {len(_s)} plumes the unanimity rule would "
+          f"have accepted (threshold {single_column_dominance:.2f}):")
+    print(f"  min/p25/median/p75/p90/max = {_s.min():.2f} / {np.percentile(_s, 25):.2f} / "
+          f"{np.median(_s):.2f} / {np.percentile(_s, 75):.2f} / "
+          f"{np.percentile(_s, 90):.2f} / {_s.max():.2f}")
+    _h, _e = np.histogram(_s, bins=np.linspace(0.0, 1.0, 21))
+    for _lo, _n in zip(_e[:-1], _h):
+        _mark = "  <-- threshold" if np.isclose(_lo, single_column_dominance) else ""
+        print(f"  [{_lo:.2f}, {_lo + 0.05:.2f}{']' if _lo >= 0.95 else ')'}  {_n:3d}  "
+              f"{'#' * int(_n)}{_mark}")
+    print(f"  highest ten: {[round(x, 3) for x in _shares[:10]]}")
+    _kept, _cut = _s[_s < single_column_dominance], _s[_s >= single_column_dominance]
+    if len(_kept) and len(_cut):
+        print(f"  gap at the threshold: highest kept {_kept.max():.3f}, "
+              f"lowest rejected {_cut.min():.3f}")
 print(f"Clusters indexed this run (cluster_idx, not plume_id): {plume_counter}")
 
-# No accepted plume may sit on a single physical detector column. Checked on the
-# accepted frames directly, independently of the filter above, so that if the key ever
-# drifts back to stac_id this fails rather than passing the stripe through.
-_single = [
-    (c["scene_id"].iloc[0], int(c["orbit"].iloc[0]), int(c["ground_pixel"].iloc[0]),
-     len(c), int(c["stac_id"].nunique()))
-    for c in all_plumes
-    if len(set(zip(c["orbit"].values, c["ground_pixel"].values))) == 1
-]
+# No accepted plume may be dominated by one physical detector column. Checked on the
+# accepted frames directly, and counted here with groupby rather than column_dominance,
+# so that if the filter's key or rule drifts (back to stac_id, back to unanimity) this
+# fails rather than passing the stripe through.
+_single = []
+for c in all_plumes:
+    _groups = c.groupby(["orbit", "ground_pixel"]).size()
+    _top = int(_groups.max())
+    if _top >= single_column_min_group and _top / len(c) >= single_column_dominance:
+        _orbit, _gp = _groups.idxmax()
+        _single.append((c["scene_id"].iloc[0], int(_orbit), int(_gp), _top, len(c),
+                        int(c["stac_id"].nunique())))
 assert not _single, (
-    f"{len(_single)} accepted plume(s) lie on a single (orbit, ground_pixel) detector "
+    f"{len(_single)} accepted plume(s) have >= {single_column_dominance:.0%} of their "
+    f"pixels (and >= {single_column_min_group}) on one (orbit, ground_pixel) detector "
     f"column -- striping artefacts past rejection. (scene_id, orbit, ground_pixel, "
-    f"n_pixels, n_granules): {_single[:5]}")
-print(f"OK  no accepted plume lies on a single (orbit, ground_pixel) column "
-      f"({len(all_plumes)} checked)")
+    f"pixels on it, n_pixels, n_granules): {_single[:5]}")
+print(f"OK  no accepted plume has >= {single_column_dominance:.0%} of its pixels on one "
+      f"(orbit, ground_pixel) column ({len(all_plumes)} checked)")
 
 if all_plumes:
     plumes_pdf = pd.concat(all_plumes, ignore_index=True)
@@ -1325,7 +1399,7 @@ if rejected_collinear:
                       "stac_id", "orbit", "ground_pixel", "scanline",
                       "plume_flag", "aspect_ratio",
                       "variance_explained", "n_column_pairs", "n_physical_columns",
-                      "would_be_valid"]]
+                      "dominant_column_share", "would_be_valid"]]
     )
     rejected_spark.write \
         .format("delta") \
@@ -1543,7 +1617,12 @@ ID_RUNS_TABLE = "gold_plume_id_runs"
 #   2  single-column rejection keyed on (orbit, ground_pixel) rather than
 #      (stac_id, ground_pixel): one physical detector column seen in both the NRTI and
 #      the OFFL granule of an orbit counted as two and escaped rejection
-DETECTION_VERSION = 2
+#   3  single-column rejection by dominance instead of unanimity: reject when the largest
+#      (orbit, ground_pixel) group holds >= CONFIG["single_column_dominance"] (0.80) of
+#      the pixels and >= single_column_min_group_pixels (3) of them. PL-059118a52421,
+#      the top emitter at 131,498 kg/h, had 14 of 15 pixels on (45136, 65), and one
+#      stray pixel from the adjacent column defeated the unanimous test
+DETECTION_VERSION = 3
 
 valid_ids = ime_df["plume_id"].tolist() if len(ime_df) > 0 else []
 flag_ids = [c["plume_id"].iloc[0] for c in flagged_large]
@@ -1702,72 +1781,6 @@ else:
             "Carlo is drawing from something other than mc_seed -- an unseeded draw is back.")
         print(f"OK  emission_rate_p50_kg_h identical (rtol {P50_RTOL:g}) for all "
               f"{len(_ids_cat)} plumes")
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-spark.table("gold_plume_catalog") \
-  .orderBy("emission_rate_kg_h", ascending=False) \
-  .select("plume_id","n_pixels","emission_rate_kg_h","source_lat","source_lon") \
-  .show(3, truncate=False)
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-tel = spark.table("silver_plume_ready_pixels")
-p = (spark.table("gold_plume_catalog")
-     .filter("plume_id = 'PL-059118a52421'")
-     .select("source_lat","source_lon","scene_id").collect()[0])
-print(p)
-
-# the pixels 07c showed for this plume
-(tel.filter("orbit = 45136")
-    .filter("ground_pixel = 65")
-    .select("orbit","ground_pixel","scanline","stac_id","latitude","longitude","ch4")
-    .orderBy("latitude").show(20, truncate=False))
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-spark.table("gold_rejected_collinear") \
-  .select("plume_id","orbit","n_physical_columns","variance_explained") \
-  .orderBy("n_physical_columns").show(10, truncate=False)
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# CELL ********************
-
-tel = spark.table("silver_plume_ready_pixels")
-# the plume's own bounding region, from its member pixels
-(tel.filter("orbit = 45136")
-    .filter("latitude between 31.60 and 31.99")
-    .filter("longitude between -101.13 and -101.00")
-    .groupBy("ground_pixel")
-    .count()
-    .orderBy("ground_pixel").show(20))
 
 # METADATA ********************
 

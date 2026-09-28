@@ -341,6 +341,16 @@ max_pixels = CONFIG["max_cluster_pixels"]
 shape_threshold = CONFIG["shape_threshold"]
 collinearity_max_r2 = CONFIG["collinearity_max_r2"]
 collinearity_min_pixels = CONFIG["collinearity_min_pixels"]
+single_column_dominance = CONFIG["single_column_dominance"]
+single_column_min_group = CONFIG["single_column_min_group_pixels"]
+
+
+# ── Duplicated from 04_derive_emissions Step 4. Must stay in sync with that notebook. ──
+def column_dominance(cluster_data):
+    """(dominant_column_share, dominant_group_pixels) over (orbit, ground_pixel) groups."""
+    sizes = pd.Series(list(zip(cluster_data["orbit"].values,
+                               cluster_data["ground_pixel"].values))).value_counts()
+    return float(sizes.iloc[0] / len(cluster_data)), int(sizes.iloc[0])
 
 
 # ── Total-least-squares line fit, duplicated from 04_derive_emissions Step 4. Must stay
@@ -423,15 +433,16 @@ for scene_id, scene_candidates in candidates_only.groupby("scene_id"):
         # those would simply fail to match a gold row, but reproducing 04's filter chain
         # keeps n_reconstructed meaningful. Keyed on (orbit, ground_pixel), the physical
         # column, as in 04. Not (stac_id, ground_pixel): that let a stripe drawn from both
-        # the NRTI and the OFFL granule of one orbit through. ──
+        # the NRTI and the OFFL granule of one orbit through. Rejects by dominance, not
+        # unanimity: one stray pixel from a neighbouring column defeated unanimity. ──
         n_unique_locations = len(set(zip(lats, lons)))
-        n_physical_columns = len(set(zip(cluster_data["orbit"].values,
-                                         cluster_data["ground_pixel"].values)))
+        dominant_column_share, dominant_group_pixels = column_dominance(cluster_data)
         variance_explained = float("nan")
         if n_unique_locations >= collinearity_min_pixels:
             _axis, variance_explained = principal_axis(lats, lons)
 
-        if n_physical_columns == 1:
+        if (dominant_column_share >= single_column_dominance
+                and dominant_group_pixels >= single_column_min_group):
             n_rejected_single_column += 1
             continue
         if (n_unique_locations >= collinearity_min_pixels
@@ -506,6 +517,8 @@ for plume_id, pix in plume_pixel_map.items():
         "plume_id": plume_id,
         "n_pixels": len(pix),
         "n_physical_columns": len(set(zip(pix["orbit"].values, pix["ground_pixel"].values))),
+        "dominant_column_share": column_dominance(pix)[0],
+        "dominant_group_pixels": column_dominance(pix)[1],
         "n_column_pairs": len(set(zip(pix["stac_id"].values, pix["ground_pixel"].values))),
         "n_granules": int(pix["stac_id"].nunique()),
         "n_ground_pixel_values": int(pix["ground_pixel"].nunique()),
@@ -540,16 +553,27 @@ print()
 print("=== Distinct (stac_id, ground_pixel) pairs per plume (not a column count) ===")
 print(composition_df["n_column_pairs"].describe().to_string())
 
-single_column_plumes = composition_df[composition_df["n_physical_columns"] == 1]
+print()
+print("=== dominant_column_share per plume (largest (orbit, ground_pixel) group / n_pixels) ===")
+print(composition_df["dominant_column_share"].describe().to_string())
+print("Highest ten:")
+print(composition_df.sort_values("dominant_column_share", ascending=False)
+      [["plume_id", "n_pixels", "dominant_group_pixels", "dominant_column_share",
+        "n_physical_columns", "emission_rate_kg_h"]].head(10).round(3).to_string(index=False))
+
+single_column_plumes = composition_df[
+    (composition_df["dominant_column_share"] >= single_column_dominance)
+    & (composition_df["dominant_group_pixels"] >= single_column_min_group)
+]
 print()
 if len(single_column_plumes) > 0:
-    print(f"*** FLAG: {len(single_column_plumes)} accepted plume(s) occupy a SINGLE "
-          f"(orbit, ground_pixel) detector column. These are striping artifacts that "
-          f"survived rejection: ***")
+    print(f"*** FLAG: {len(single_column_plumes)} accepted plume(s) have >= "
+          f"{single_column_dominance:.0%} of their pixels on one (orbit, ground_pixel) "
+          f"detector column. These are striping artifacts that survived rejection: ***")
     print(single_column_plumes.to_string(index=False))
 else:
-    print("No accepted plume occupies a single (orbit, ground_pixel) detector column — "
-          "rejection did its job.")
+    print(f"No accepted plume has >= {single_column_dominance:.0%} of its pixels on one "
+          f"(orbit, ground_pixel) detector column — rejection did its job.")
 
 # Where the pair count exceeds the physical count, the plume holds the same physical
 # column under more than one stac_id, i.e. from both granules of one orbit.
