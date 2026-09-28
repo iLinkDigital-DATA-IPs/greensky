@@ -863,7 +863,6 @@ else:
 # MARKDOWN ********************
 
 # ### Plume identifiers:
-#
 # `plume_id` is `plume_key(scene_id, source_lat, source_lon)` from `00_config`: content, not
 # iteration order, so a rerun on the same window reproduces every ID. It is assigned in step 6,
 # where `source_lat` / `source_lon` (the peak-enhancement pixel) first exist; until then the
@@ -1511,7 +1510,6 @@ else:
 # MARKDOWN ********************
 
 # ### Identifier checks, and the rerun regression:
-#
 # `plume_id` must be unique, well-formed and never numeric, so a counter cannot silently
 # return. Then the check that matters: **a rerun on the same input produces the same plume_id
 # set.** Every run records its input fingerprint (per-`stac_id` pixel count, time range and
@@ -1521,12 +1519,12 @@ else:
 # unseeded Monte Carlo draw fails loudly rather than drifting quietly. Within the run, the
 # Monte Carlo is also re-run for five plumes from their seeds and must reproduce p5/p50/p95
 # exactly.
-#
 # **This check fires only on Fabric.** It compares two real executions against real silver
 # data; the offline harness (`tools/harness/harness_plume_ids.py`) can show that the IDs do not
 # depend on row or iteration order within one execution, but not that two executions agree.
 # The first run after this change has no earlier fingerprint to compare with — **run 04 twice**
 # to exercise it.
+
 
 # CELL ********************
 
@@ -1535,6 +1533,17 @@ import json
 from pyspark.sql.functions import current_timestamp
 
 ID_RUNS_TABLE = "gold_plume_id_runs"
+
+# Bump this whenever a change to 04 is MEANT to change the plume set -- a new rejection
+# rule, a threshold, a different clustering key. It is part of the rerun fingerprint, so
+# bumping it makes this run incomparable with earlier ones and the regression below skips
+# instead of failing. Leaving it alone is what makes an unintended change fail loudly.
+#
+#   1  original
+#   2  single-column rejection keyed on (orbit, ground_pixel) rather than
+#      (stac_id, ground_pixel): one physical detector column seen in both the NRTI and
+#      the OFFL granule of an orbit counted as two and escaped rejection
+DETECTION_VERSION = 2
 
 valid_ids = ime_df["plume_id"].tolist() if len(ime_df) > 0 else []
 flag_ids = [c["plume_id"].iloc[0] for c in flagged_large]
@@ -1612,13 +1621,19 @@ if (_prev is not None and len(_prev)
     print("    input or CONFIG changed since that run, or detection itself changed")
 
 # --- the rerun regression -------------------------------------------------------------------
+# The fingerprint covers the input (silver, per granule), CONFIG, and DETECTION_VERSION.
+# Without the last, a deliberate change to the detection rules trips this check, because the
+# data and CONFIG are unchanged but the plume set is meant to move. Bumping the version
+# makes the run incomparable and the check skips, which is the correct behaviour -- but it
+# has to be a deliberate act, or the check would never catch anything.
 _fp_rows = (silver.groupBy("stac_id")
             .agg(spark_count("*").alias("n"), spark_min("datetime").alias("t0"),
                  spark_max("datetime").alias("t1"), spark_min("ch4").alias("c0"),
                  spark_max("ch4").alias("c1"))
             .orderBy("stac_id").collect())
 INPUT_FINGERPRINT = id_digest(json.dumps([[str(v) for v in r] for r in _fp_rows]),
-                              json.dumps(CONFIG, sort_keys=True, default=str))
+                              json.dumps(CONFIG, sort_keys=True, default=str),
+                              f"detection_v{DETECTION_VERSION}")
 _ids_cat, _ids_all = sorted(valid_ids), sorted(all_ids)
 # emission_rate_p50_kg_h per plume, in plume_id order, stored as exact reprs. Compared with
 # a relative tolerance, not exactly: ime_kg is a float sum over pixels in toPandas() order,
@@ -1626,7 +1641,8 @@ _ids_cat, _ids_all = sorted(valid_ids), sorted(all_ids)
 # unseeded draw moves p50 by tenths of a percent. 1e-9 sits cleanly between the two.
 _p50_of = (dict(zip(ime_df["plume_id"], ime_df["emission_rate_p50_kg_h"]))
            if len(ime_df) > 0 else {})
-_run = {"input_fingerprint": INPUT_FINGERPRINT, "n_plumes": len(_ids_cat),
+_run = {"input_fingerprint": INPUT_FINGERPRINT, "detection_version": DETECTION_VERSION,
+        "n_plumes": len(_ids_cat),
         "catalog_digest": id_digest(*_ids_cat), "all_ids_digest": id_digest(*_ids_all),
         "plume_ids": ",".join(_ids_cat),
         "p50_kg_h": ",".join(repr(float(_p50_of[p])) for p in _ids_cat)}
@@ -1639,27 +1655,35 @@ if spark.catalog.tableExists(ID_RUNS_TABLE):
     _prior = _r[0] if _r else None
 
 # recorded before the assertion, so a failing run still leaves its evidence
-# mergeSchema: runs recorded before p50_kg_h existed have no such column; they keep a null
+# mergeSchema: runs recorded before p50_kg_h or detection_version existed have no such
+# column; they keep a null
 (spark.createDataFrame([_run]).withColumn("run_ts", current_timestamp())
  .write.format("delta").mode("append").option("mergeSchema", "true")
  .saveAsTable(ID_RUNS_TABLE))
 
 if _prior is None:
-    print(f"\nno earlier run on this input and CONFIG in {ID_RUNS_TABLE} -- this run is "
-          "recorded; run 04 again unchanged and this check compares the two")
+    print(f"\nno earlier run on this input, CONFIG and detection v{DETECTION_VERSION} in "
+          f"{ID_RUNS_TABLE} -- this run is recorded; run 04 again unchanged and this check "
+          "compares the two")
 else:
     if ((_prior["catalog_digest"], _prior["all_ids_digest"])
             != (_run["catalog_digest"], _run["all_ids_digest"])):
         _was = set(_prior["plume_ids"].split(",")) if _prior["plume_ids"] else set()
         raise AssertionError(
-            f"plume_id set changed on a rerun with identical input and CONFIG (fingerprint "
-            f"{INPUT_FINGERPRINT[:12]}, earlier run {_prior['run_ts']}).\n"
+            f"plume_id set changed on a rerun with identical input, CONFIG and detection "
+            f"v{DETECTION_VERSION} (fingerprint {INPUT_FINGERPRINT[:12]}, earlier run "
+            f"{_prior['run_ts']}).\n"
             f"  catalog: {_prior['n_plumes']} -> {len(_ids_cat)} plumes; new "
             f"{sorted(set(_ids_cat) - _was)[:5]}, gone {sorted(_was - set(_ids_cat))[:5]}\n"
-            "  plume_id is meant to be a pure function of the data. Look first at the tie "
-            "count above, then at anything order-dependent upstream of source_lat/source_lon.")
+            "  If you changed a detection rule and MEANT the plume set to move, bump "
+            "DETECTION_VERSION at the top of this cell and record why -- that makes this run "
+            "incomparable with the earlier one and this check will skip.\n"
+            "  If you did not, plume_id is meant to be a pure function of the data. Look "
+            "first at the tie count above, then at anything order-dependent upstream of "
+            "source_lat/source_lon.")
     print(f"\nOK  rerun regression: {len(_ids_cat)} plume_ids identical to the run at "
-          f"{_prior['run_ts']} on the same input (fingerprint {INPUT_FINGERPRINT[:12]})")
+          f"{_prior['run_ts']} on the same input (fingerprint {INPUT_FINGERPRINT[:12]}, "
+          f"detection v{DETECTION_VERSION})")
 
     # ...and the same uncertainty. The earlier run's p50 is null if it predates seeding;
     # the first seeded run then has nothing to compare against, and its draws are expected
@@ -1678,6 +1702,72 @@ else:
             "Carlo is drawing from something other than mc_seed -- an unseeded draw is back.")
         print(f"OK  emission_rate_p50_kg_h identical (rtol {P50_RTOL:g}) for all "
               f"{len(_ids_cat)} plumes")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.table("gold_plume_catalog") \
+  .orderBy("emission_rate_kg_h", ascending=False) \
+  .select("plume_id","n_pixels","emission_rate_kg_h","source_lat","source_lon") \
+  .show(3, truncate=False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+tel = spark.table("silver_plume_ready_pixels")
+p = (spark.table("gold_plume_catalog")
+     .filter("plume_id = 'PL-059118a52421'")
+     .select("source_lat","source_lon","scene_id").collect()[0])
+print(p)
+
+# the pixels 07c showed for this plume
+(tel.filter("orbit = 45136")
+    .filter("ground_pixel = 65")
+    .select("orbit","ground_pixel","scanline","stac_id","latitude","longitude","ch4")
+    .orderBy("latitude").show(20, truncate=False))
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.table("gold_rejected_collinear") \
+  .select("plume_id","orbit","n_physical_columns","variance_explained") \
+  .orderBy("n_physical_columns").show(10, truncate=False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+tel = spark.table("silver_plume_ready_pixels")
+# the plume's own bounding region, from its member pixels
+(tel.filter("orbit = 45136")
+    .filter("latitude between 31.60 and 31.99")
+    .filter("longitude between -101.13 and -101.00")
+    .groupBy("ground_pixel")
+    .count()
+    .orderBy("ground_pixel").show(20))
 
 # METADATA ********************
 
