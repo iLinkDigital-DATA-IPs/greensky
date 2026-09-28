@@ -241,6 +241,15 @@ def report(g, assets, ep, days):
         print(f"      median / max        {above['peak_rate_kg_h'].median() / 1000:.1f} / "
               f"{above['peak_rate_kg_h'].max() / 1000:.1f} t/h")
     print(f"    top 5% by mass        {top_share(ep['total_mass_kg']):.1%} of total mass")
+    w0, w1 = pd.Timestamp("2026-08-16"), pd.Timestamp("2026-09-16")
+    act = above[(above["start_ts"] < w1) & (above["end_ts"] > w0)]
+    act_days = {d for r in act.itertuples()
+                for d in pd.date_range(max(r.start_ts, w0).normalize(), min(r.end_ts, w1), freq="D")
+                if d < w1}
+    print(f"    active 08-16..09-15   {len(act)} above-floor episode(s), on {len(act_days)} of 31 days")
+    mix = ep.groupby("root_cause").agg(n=("episode_sk", "size"), sup=("_is_super", "mean"))
+    print("    cause mix             " + ", ".join(f"{c} {r.n} ({r.sup:.0%} super)"
+                                                     for c, r in mix.iterrows()))
     print(f"    truncated by a stop   {ep['_truncated'].mean():.1%};  intermittent "
           f"{ep['is_intermittent'].mean():.1%}")
     fac = ep.groupby("facility_id").size().reindex(

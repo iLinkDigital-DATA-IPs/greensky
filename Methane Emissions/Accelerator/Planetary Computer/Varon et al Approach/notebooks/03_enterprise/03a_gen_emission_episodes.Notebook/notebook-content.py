@@ -250,11 +250,10 @@ MEAN_FRACTION = {True: (0.20, 0.50), False: (0.70, 0.95)}
 # plumes. The observed above-floor plumes (2026-08-16..2026-09-15) have median 19.7 t/h and
 # max 71.8 t/h, n = 49 over 14 scene days. CAMS, same instrument, gives a median of 48 t/h.
 #
-# A single log-normal cannot meet both constraints. For episodes above 3 t/h to be rare
-# (<= 3%) AND for that subset to have a median near 20 t/h, sigma has to be 6.5-9.5 in log
-# units. That puts the body median at a few grams per hour or less, and the maximum across
-# ~50 above-floor episodes at 10^4 t/h or more. The real above-floor spread is narrow:
-# 3.2 to 71.8 t/h, about 0.7 in log units.
+# A single log-normal cannot meet both constraints. For the share above 3 t/h to be
+# anything from 1% to 30%, AND for that subset to have a median near 20 t/h, sigma has to be
+# 3.7-7.6 in log units. That puts the maximum across ~50 above-floor episodes at 5,000 t/h or
+# more. The real above-floor spread is narrow: 3.2 to 71.8 t/h, about 0.7 in log units.
 #
 # So rates are a two-component log-normal mixture, which is also how super-emitter
 # populations are usually described:
@@ -263,16 +262,41 @@ MEAN_FRACTION = {True: (0.20, 0.50), False: (0.70, 0.95)}
 #   super-emitter  median 20 t/h, sigma 0.7 -- the above-floor population, matched to the
 #                  observed median and spread
 # The super-emitter probability depends on root cause. Unlit flares and tank flashing are
-# the classic Permian super-emitters, compressor blowby occasionally, and component leaks
-# almost never. Estate-wide it comes to ~0.3%, which also puts the top 5% of episodes at
-# 70-80% of total mass. V1's target was 50%+.
+# the classic Permian super-emitters, compressor blowby often, and component leaks rarely.
+#
+# How often it fires is set by a TAIL-FREQUENCY target, not by the shape. The target is
+# the number of above-floor episodes active during the detection window (2026-08-16..09-15)
+# that is consistent with what TROPOMI saw: 50-100, aiming at ~70.
+#   - Of the 49 plumes, 42 attribute to an estate facility, but at a median of 21 km
+#     inside a 50 km search. With 150 facilities spread over the basin nearly any plume
+#     finds one, so that is attribution geometry, not origin. The estate is perhaps 5-15%
+#     of the basin's super-emitter-capable infrastructure, and some of the 49 are likely
+#     false positives (CAMS's median is 2.4x ours). Taken literally that is a handful of
+#     estate-origin detections. The demo needs the estate to carry a real share, so the
+#     target is 10-20 estate-origin detections: above the literal estimate, short of 42.
+#   - Detection per above-floor episode is ~0.2. Only 14 of 31 days are scene days, the
+#     episode must be active at the one daily overpass, and detection near the floor is
+#     poor. 45 of 47 gold_emission_sites are single-detection. A multi-day super-emitter
+#     seen on most clear overpasses would make repeat sites common, so the per-overpass
+#     detection probability must be ~0.15-0.3.
+#   - 10-20 / 0.2 = 50-100 active above-floor episodes.
+# At ~2 episodes per asset-year this makes ~14% of episodes super-emitters. That is far
+# from rare, and far above any real leak population. It is the price of an estate that
+# must account for a real share of a basin's satellite detections. The other lever,
+# many more small episodes, would keep the share rare but leave 02b's telemetry overlay
+# switched on almost constantly. The first calibration, at ~0.3%, gave 0-2 above-floor
+# episodes in the window: nothing for the satellite to have seen.
+# Resulting shape (harness_episodes.py, synthetic estate): above-floor median ~19-20 t/h,
+# top 5% of episodes ~85% of total mass. V1's target was 50%+.
 RATE_BODY_MEDIAN_KG_H = 25.0
 RATE_BODY_SIGMA = 1.3
 RATE_SUPER_MEDIAN_KG_H = 20000.0
 RATE_SUPER_SIGMA = 0.7
-SUPER_EMITTER_SHARE = {"Seal failure": 0.0010, "Valve leak": 0.0015, "Tank flashing": 0.0100,
-                       "Unlit flare": 0.0200, "Corrosion": 0.0010, "Pneumatic device": 0.0005,
-                       "Compressor blowby": 0.0040, "Unknown": 0.0020}
+SUPER_EMITTER_SHARE = {"Seal failure": 0.060, "Valve leak": 0.100, "Tank flashing": 0.420,
+                       "Unlit flare": 0.700, "Corrosion": 0.050, "Pneumatic device": 0.035,
+                       "Compressor blowby": 0.240, "Unknown": 0.100}
+# The target above, checked in the calibration report.
+ACTIVE_IN_WINDOW_TARGET = (50, 100)
 TROPOMI_FLOOR_KG_H = 3000.0
 
 # ---- hazard ------------------------------------------------------------------------------
@@ -795,9 +819,11 @@ if not 0.67 <= _med_ratio <= 1.5:
     print("    DOES NOT RESEMBLE the observed catalogue on the median -- the rate model, not")
     print("    the observed side, is what needs revisiting.")
 
-# Rough count consistency: above-floor episodes active during the detection window, and the
-# days on which at least one was active. The observed catalogue covers the whole Permian
-# BBOX, not only this 150-facility estate, so the estate should account for a minority of it.
+# The tail-frequency target: above-floor episodes active during the detection window, and
+# the days on which at least one was active. ACTIVE_IN_WINDOW_TARGET (50-100) is derived in
+# the model cell: 10-20 estate-origin detections at ~0.2 detection per above-floor episode.
+# Printed, not asserted: the count is a Poisson draw on the real estate, and the target
+# is a judgement, not a measurement.
 if WINDOW_START <= DETECTION_WINDOW[0] and WINDOW_END >= DETECTION_WINDOW[1] - _DAY:
     _act = ep[ep["above_tropomi_floor"] & (ep["start_ts"] < DETECTION_WINDOW[1])
               & (ep["end_ts"] > DETECTION_WINDOW[0])]
@@ -807,12 +833,15 @@ if WINDOW_START <= DETECTION_WINDOW[0] and WINDOW_END >= DETECTION_WINDOW[1] - _
                                min(r.end_ts, DETECTION_WINDOW[1]), freq="D"):
             if d < DETECTION_WINDOW[1]:
                 _active_days.add(d)
+    _lo, _hi = ACTIVE_IN_WINDOW_TARGET
     print()
-    print(f"  rough consistency, 2026-08-16..2026-09-15: {len(_act)} above-floor episode(s) "
-          f"active, on {len(_active_days)} of 31 days")
-    print(f"    against {OBSERVED['n_plumes']} plumes on {OBSERVED['scene_days']} scene days "
-          "basin-wide -- detection probability and the non-estate share of the basin sit")
-    print("    between the two; this is a sanity check, not a fit")
+    print(f"  active 2026-08-16..09-15 {len(_act)} above-floor episode(s), on "
+          f"{len(_active_days)} of 31 days   (target {_lo}-{_hi}: "
+          f"{'within' if _lo <= len(_act) <= _hi else 'OUTSIDE'})")
+    print(f"    at ~0.2 detection each, ~{0.2 * len(_act):.0f} estate-origin detections, against "
+          f"{OBSERVED['n_plumes']} plumes basin-wide on {OBSERVED['scene_days']} scene days")
+    print("    (42 attributed to the estate, but at a median 21 km: attribution geometry, "
+          "not origin)")
 
 # --- episodes per facility --------------------------------------------------------------------
 _fac = (_win.groupby("facility_id").size()

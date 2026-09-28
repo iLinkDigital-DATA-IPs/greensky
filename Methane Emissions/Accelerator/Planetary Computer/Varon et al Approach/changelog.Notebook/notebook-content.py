@@ -976,19 +976,133 @@
 
 # ### 2026-09-28 -- Day 13 (In Progress)
 #
+# The single-column striping hole in 04, closed in two steps, a false alarm in 03's row
+# count, and the first enterprise fact generator: 03a, the hidden emission episodes.
+#
+# #### Fixed: 04's single-column rejection keys on the physical column
+# - The test rejected a cluster whose pixels all shared one (stac_id, ground_pixel). stac_id
+#   names a granule, not a detector column, and the NRTI and OFFL granules of one orbit carry
+#   the same column. A stripe drawn from both granules had two pairs and escaped. That is how
+#   PL-059118a52421 became the catalogue's top emitter at 131,498 kg/h, on ground_pixel 65 of
+#   orbit 45136, from two granules.
+# - Now keyed on (orbit, ground_pixel). orbit is sat:absolute_orbit, so it identifies the
+#   overpass. Destriping stays on (stac_id, ground_pixel): the stripe median is a per-granule
+#   bias estimate, scanline is granule-relative, and NRTI and OFFL are separate retrievals.
+#   Both sites say why the keys differ. The old step 2b comment claimed the same ground_pixel
+#   in two granules is two physical columns; the evidence contradicts that, so it was
+#   corrected.
+# - The collinearity variance test did not need the same change. Duplicating a point leaves
+#   variance-explained unchanged. Duplicates only inflate the location count, which can
+#   make a tiny cluster get tested and rejected as collinear -- it errs toward rejecting
+#   too much.
+# - 07c Cell 0 counted pairs, so it reported "rejection did its job" on this very case. It
+#   now reports physical columns and pairs side by side.
+#
+# #### Fixed: single-column rejection by dominance, not unanimity (detection v3)
+# - PL-059118a52421 still survived: 14 of its 15 pixels sit on (45136, 65), stepping
+#   0.049 deg in latitude over 33 km, and one stray pixel from the adjacent column defeated a
+#   test that required every pixel on one column.
+# - 04 now rejects when the largest (orbit, ground_pixel) group holds at least
+#   single_column_dominance (0.80) of the pixels, and at least
+#   single_column_min_group_pixels (3) of them. Both are new CONFIG keys in 00_config. The
+#   group minimum cannot bind today, since 80% of 3 or more pixels is always 3 or more.
+# - dominant_column_share is on gold_rejected_collinear. 04's accepted-plume assertion
+#   applies the same rule. 04 prints the share distribution over the plumes the old rule
+#   would have accepted, so the 0.80 cut can be checked against real data.
+# - DETECTION_VERSION goes 2 -> 3. DETECTION_VERSION itself had been pasted into the
+#   Fabric copy of 04 only; it was synced into the repo first (3997882), then built on. Four
+#   scratch query cells from that Fabric session were removed. One looked up
+#   PL-059118a52421 with .collect()[0] and would have raised once the fix worked.
+#
+# #### Fixed: 03's nearest-station count
+# - 03 printed "Should match original methane count: 70,126" against 34,604.
+#   bronze_ch4_pixels is cumulative across ingests while weather and ERA5 cover only
+#   CONFIG's window, so the two could never match.
+# - 03 now counts bronze pixels inside start_date 00:00Z .. end_date + 1 day, and asserts
+#   the nearest-station count equals distinct (latitude, longitude, datetime) in that window
+#   -- the key the nearest-station window partitions on, so a pixel duplicated across two
+#   overlapping granules is not counted as a loss. The expansion factor now divides by the
+#   in-window count too; it had understated stations per pixel by about half.
+#
+# #### Added: 03a_gen_emission_episodes
+# Writes fact_emission_episode: one row per leak episode, the hidden ground truth that plumes
+# and telemetry observe. Reads dim_equipment, dim_facility, dim_area and fact_asset_state
+# only. Every read goes through read_input(), which refuses the 17 observation tables. An
+# episode generator reading its own observations would make every downstream agreement
+# circular.
+# - Hazard: V1's Weibull (k 1.8, lambda 0.9 x life) at the condition-equivalent age, times
+#   leak_propensity and criticality. It uses V1's equipment_condition_index, now in
+#   01_topology_config beside mtbf_days so the maintenance generator shares it. The hazard
+#   uses leak_propensity (leaking), never STATE_DUTY_FACTOR (stopping).
+# - State: no onset during Maintenance or Down; such an onset is dropped, not moved. An
+#   episode under way when its asset stops is truncated there and does not resume. Standby,
+#   Startup and Shutdown still emit.
+# - Root cause is weighted by equipment type, limited to causes whose 02b signature touches a
+#   tag that type has. Valve and Pipeline Segment carry no tags, so their episodes can never
+#   be corroborated by telemetry.
+# - Rates: a single log-normal cannot give a narrow above-floor subset at a 20 t/h median, so
+#   rates are a two-component log-normal mixture. The body is median 25 kg/h, sigma 1.3.
+#   Super-emitters are median 20 t/h, sigma 0.7, with a root-cause-dependent probability.
+# - Source position is the asset's dim_area position plus ~55 m noise. Assets carry no
+#   coordinates, by 01b's design.
+# - Idempotency: a day's onsets are a pure function of (asset, day, seed). The 02a-style
+#   widened replaceWhere fits, but carrying rows does not apply: every run regenerates onset
+#   days back through a 30-day lookback (the duration cap), so an earlier episode's
+#   truncation catches up with state written after it. Incremental mode follows
+#   fact_asset_state's last day, not a high-water mark of its own; with a few dozen
+#   episodes a day, a mark could land on an empty day and stop advancing.
+# - harness_episodes.py runs the notebook's model cell verbatim. It checks the static
+#   guards, the root causes against 02b and TAG_TEMPLATES, the invariants, two identical
+#   runs, and a backfill bitwise equal to 89 incremental days. Its negative control:
+#   without the lookback, 10 episode ends differ.
+#
+# #### Changed: 03a's super-emitter frequency
+# The first Fabric run passed every validation. The above-floor median was 18.4 t/h and the
+# top 5% held 61.8% of mass. But only 2 episodes cleared 3 t/h in 90 days, and none was
+# active during 2026-08-16..09-15: nothing for TROPOMI to have seen.
+# - Target: 50-100 above-floor episodes active in the window. 42 of 49 plumes attribute to
+#   the estate, but at a median 21 km inside a 50 km search -- attribution geometry, not
+#   origin. The estate is perhaps 5-15% of the basin's super-emitter-capable
+#   infrastructure, so the target is 10-20 estate-origin detections. Detection per
+#   above-floor episode is ~0.2: 14 scene days in 31, one overpass a day, and 45 of 47
+#   emission sites detected once, which bounds per-overpass detection at ~0.15-0.3.
+# - Super-emitter probabilities are raised 35-70x: unlit flare 0.70, tank flashing 0.42,
+#   compressor blowby 0.24, the rest 0.035-0.10. ACTIVE_IN_WINDOW_TARGET records the target,
+#   and the calibration report prints the count against it.
+# - Harness, synthetic estate: 75 active in the window, on all 31 days (was 0). Above-floor
+#   median 19.4 t/h (model 20.0). Top 5% by mass 86.5%. 1,533 episodes, unchanged, because
+#   the probability only decides which episodes are super-emitters.
+#
 # #### Flagged, not changed
-# - 02e and 03a disagree on whether an asset in Down is leaking. 03a_gen_emission_episodes
-#   suppresses episodes during Down and Maintenance: an asset that is not running is not
-#   leaking process gas. An episode under way when its asset enters either state is
-#   truncated there. 02e_gen_ch4_telemetry suppresses its leak term during Maintenance
-#   only (CH4_SUPPRESSED_STATES = ("Maintenance",)) and gives Down a leak multiplier of 1.0
-#   (CH4_STATE_LEAK_MULT), so it treats Down as leaking. 03a is right.
-# - Not fixed now. Changing 02e means regenerating sensor_telemetry and re-running 02d on
-#   top of it. Fix it the next time 02e is touched: add "Down" to CH4_SUPPRESSED_STATES in
-#   01_topology_config and re-check harness_ch4.py's exceedance and autocorrelation bands.
-#   Until then, a CH4 detector can show an exceedance while its asset is Down, and no
-#   episode exists at that moment to explain it.
+# - About 14% of episodes are now above 3 t/h. That is far from rare and far above any real
+#   leak population. It is the price of an estate that has to account for a share of a
+#   basin's detections. The alternative, many more small episodes, would leave 02b's
+#   overlay on almost constantly.
+# - The model's upper tail is heavier than observed: the typical max of 49 above-floor draws
+#   is ~90 t/h against 71.8.
+# - Plume-episode agreement will be coincidental. Plumes are real observations and episodes
+#   are synthetic, independent of them by construction.
+# - 02e and 03a disagree on whether an asset in Down is leaking. 03a suppresses episodes
+#   during Down and Maintenance. 02e suppresses its leak term during Maintenance only
+#   (CH4_SUPPRESSED_STATES = ("Maintenance",)) and gives Down a multiplier of 1.0. 03a is
+#   right: a stopped asset is not venting process gas. Not fixed now, because it means
+#   regenerating sensor_telemetry and re-running 02d. Until then a CH4 detector can show an
+#   exceedance while its asset is Down, with no episode to explain it.
+# - The 0.80 dominance threshold is provisional until 04's distribution printout shows a clean
+#   gap between stripes and plumes.
+# - The unanimity rule's collinearity test should have rejected PL-059118a52421 by itself: a
+#   synthetic 14 + 1 stripe scores 0.988 against the 0.98 limit. Its variance_explained in
+#   gold_rejected_collinear will show why it did not.
+# - 02d's alarm-band diagnosis still says the episode generator "does not exist yet".
+# - 07c's header still quotes the 75-plume catalogue.
 #
 # #### Remaining
+# - [ ] Run 03, then 04 twice. Check the dominance distribution printout and the
+#       single-column rejection counts. Look up PL-059118a52421's variance_explained in
+#       gold_rejected_collinear.
+# - [ ] 03a backfill with the new super-emitter probabilities. Confirm the in-window
+#       active count lands in 50-100, then run 02b so the episode overlay switches on,
+#       then 02c and 02d.
 # - [ ] 02e: suppress the leak term during Down to match 03a, then regenerate
 #       sensor_telemetry and re-run 02d.
+# - [ ] Refresh 07c's header and 02d's "does not exist yet" note.
