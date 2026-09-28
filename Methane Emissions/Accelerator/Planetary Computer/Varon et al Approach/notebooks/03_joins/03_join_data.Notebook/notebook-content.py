@@ -195,6 +195,21 @@ weather.select("time", "time_hour").show(3, truncate=False)
 
 # CELL ********************
 
+# bronze_ch4_pixels is cumulative across every ingest, but bronze_weather and ERA5 cover
+# only CONFIG's window, so pixels from earlier windows correctly drop out at this join.
+# Every in-window count below -- the expansion factor here and the nearest-station check
+# in the next cell -- is against the pixels inside that window, not the all-ingests total.
+# The window is whole UTC days, start_date 00:00Z up to end_date + 1 day 00:00Z: the STAC
+# search and Open-Meteo (no timezone parameter, so GMT) both read the two dates that way.
+# The bounds carry an explicit Z so the session time zone cannot shift them.
+from datetime import date, timedelta
+
+_win_start = lit(f"{CONFIG['start_date']}T00:00:00Z").cast("timestamp")
+_win_end_day = date.fromisoformat(CONFIG["end_date"]) + timedelta(days=1)
+_win_end = lit(f"{_win_end_day.isoformat()}T00:00:00Z").cast("timestamp")
+methane_in_window = methane.filter((col("datetime") >= _win_start) & (col("datetime") < _win_end))
+in_window_count = methane_in_window.count()
+
 # Join methane pixels to weather on matching hour
 # Weather table is small (45K rows), so broadcast it
 joined = methane.join(
@@ -205,7 +220,9 @@ joined = methane.join(
 
 joined_count = joined.count()
 print(f"After temporal join: {joined_count:,} rows")
-print(f"Expansion factor: {joined_count / methane_count:.1f}x (each pixel matched to {weather.select('weather_lat', 'weather_lon').distinct().count()} weather stations)")
+print(f"Expansion factor: {joined_count / in_window_count:.1f}x over {in_window_count:,} "
+      f"in-window pixels (each pixel matched to "
+      f"{weather.select('weather_lat', 'weather_lon').distinct().count()} weather stations)")
 
 # METADATA ********************
 
@@ -278,7 +295,26 @@ nearest = joined.withColumn(
 
 nearest_count = nearest.count()
 print(f"After nearest-station selection: {nearest_count:,} rows")
-print(f"Should match original methane count: {methane_count:,}")
+
+# Expected count: distinct (latitude, longitude, datetime) in the window defined in the
+# temporal-join cell -- the key the nearest-station window partitions on. Two bronze rows
+# identical on all three (the same pixel delivered in two overlapping granules) collapse
+# to one here by construction, and the orbit dedup below would remove one of them anyway,
+# so that is not a loss.
+in_window_keys = methane_in_window.select("latitude", "longitude", "datetime").distinct().count()
+
+print(f"bronze_ch4_pixels in Permian BBOX, all ingests:            {methane_count:,}")
+print(f"  of which inside {CONFIG['start_date']}..{CONFIG['end_date']} (UTC):  {in_window_count:,}")
+print(f"  distinct (latitude, longitude, datetime) in window:      {in_window_keys:,}")
+print(f"  outside the window, dropped at the temporal join:        "
+      f"{methane_count - in_window_count:,} (expected -- other ingest windows)")
+assert nearest_count == in_window_keys, (
+    f"nearest-station selection kept {nearest_count:,} pixels but "
+    f"{in_window_keys:,} distinct in-window bronze pixels exist -- "
+    f"{in_window_keys - nearest_count:,} lost. A pixel only drops here if no weather row "
+    "shares its rounded hour: check bronze_weather covers the whole window with no "
+    "missing hours.")
+print(f"OK  every in-window pixel has a nearest station ({nearest_count:,})")
 
 # METADATA ********************
 
