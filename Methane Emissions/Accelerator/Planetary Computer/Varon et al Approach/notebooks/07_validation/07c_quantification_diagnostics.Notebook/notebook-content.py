@@ -244,9 +244,12 @@ print(f"Both backgrounds estimated for {len(enhanced_diag):,} pixels across "
 # should be ~zero, so a systematic offset is the stripe and is subtracted. The median is
 # robust: a few genuine plume pixels in a column cannot move it.
 #
-# Grouped on the (stac_id, ground_pixel) PAIR, never ground_pixel alone — ground_pixel is
-# granule-relative, not orbit-relative, so the same number in two granules is two different
-# physical detector columns. Must stay in sync with 04_derive_emissions Step 2b.
+# Grouped on the (stac_id, ground_pixel) PAIR, never ground_pixel alone: the stripe median
+# is a per-granule bias estimate (scanline is granule-relative, and NRTI and OFFL are
+# separate retrievals). ground_pixel itself is the physical column, the same in both
+# granules of an orbit. That is why the single-column rejection below keys on
+# (orbit, ground_pixel) instead. The two keys differ on purpose. Must stay in sync with
+# 04_derive_emissions Step 2b.
 #
 # Both backgrounds are destriped, not just the kNN one, so that Cell 3's sweep varies only
 # the background definition and not whether destriping was applied. The kNN output keeps
@@ -418,15 +421,17 @@ for scene_id, scene_candidates in candidates_only.groupby("scene_id"):
         # 04_derive_emissions Step 4. Applied before the shape filter, as it is there.
         # Without this the reconstruction would register clusters that 04 rejected;
         # those would simply fail to match a gold row, but reproducing 04's filter chain
-        # keeps n_reconstructed meaningful. Keyed on the (stac_id, ground_pixel) pair. ──
+        # keeps n_reconstructed meaningful. Keyed on (orbit, ground_pixel), the physical
+        # column, as in 04. Not (stac_id, ground_pixel): that let a stripe drawn from both
+        # the NRTI and the OFFL granule of one orbit through. ──
         n_unique_locations = len(set(zip(lats, lons)))
-        n_column_pairs = len(set(zip(cluster_data["stac_id"].values,
-                                     cluster_data["ground_pixel"].values)))
+        n_physical_columns = len(set(zip(cluster_data["orbit"].values,
+                                         cluster_data["ground_pixel"].values)))
         variance_explained = float("nan")
         if n_unique_locations >= collinearity_min_pixels:
             _axis, variance_explained = principal_axis(lats, lons)
 
-        if n_column_pairs == 1:
+        if n_physical_columns == 1:
             n_rejected_single_column += 1
             continue
         if (n_unique_locations >= collinearity_min_pixels
@@ -475,13 +480,16 @@ if unmatched_plume_ids:
 # ### Cell 0 — Did destriping work? Detector-column and granule composition
 #
 # `04_derive_emissions` now destripes per `(stac_id, ground_pixel)` and rejects clusters
-# whose pixels fit a line too well or come from a single detector column. This cell checks
-# what survived.
+# whose pixels fit a line too well or come from a single physical detector column,
+# `(orbit, ground_pixel)`. This cell checks what survived.
 #
 # **Detector columns per plume.** A real plume is a patch of air and should span several
 # across-track detector columns. A stripe is one column by construction. Any accepted plume
-# with exactly one distinct `(stac_id, ground_pixel)` pair is an artifact that got through
-# rejection, and is flagged explicitly below.
+# with exactly one distinct `(orbit, ground_pixel)` pair is an artifact that got through
+# rejection, and is flagged explicitly below. The `(stac_id, ground_pixel)` count is shown
+# next to it. It is not a column count: the NRTI and OFFL granules of one orbit carry the
+# same column under two stac_ids. Counting pairs is how PL-059118a52421, a single
+# column seen in two granules, was once reported here as a clean pass.
 #
 # **Granules per plume.** `03_join_data` deduplicates on `(orbit, latitude, longitude)`, so
 # there are no exact coordinate duplicates. But NRTI and OFFL geolocate the same ground
@@ -497,6 +505,7 @@ for plume_id, pix in plume_pixel_map.items():
     composition_rows.append({
         "plume_id": plume_id,
         "n_pixels": len(pix),
+        "n_physical_columns": len(set(zip(pix["orbit"].values, pix["ground_pixel"].values))),
         "n_column_pairs": len(set(zip(pix["stac_id"].values, pix["ground_pixel"].values))),
         "n_granules": int(pix["stac_id"].nunique()),
         "n_ground_pixel_values": int(pix["ground_pixel"].nunique()),
@@ -516,33 +525,43 @@ print(f"Composition reconstructed for {len(composition_df)} of {len(plumes_pdf)}
 print()
 
 # ── Detector columns per plume ──
-print("=== Distinct (stac_id, ground_pixel) pairs per plume ===")
-print(composition_df["n_column_pairs"].describe().to_string())
+# Physical columns are (orbit, ground_pixel). (stac_id, ground_pixel) is also printed
+# because it is what this cell used to count: it overcounts whenever a plume draws the
+# same column from both granules of an orbit, and the gap between the two is that overlap.
+print("=== Distinct (orbit, ground_pixel) physical columns per plume ===")
+print(composition_df["n_physical_columns"].describe().to_string())
 print()
 print("Distribution:")
-col_dist = composition_df["n_column_pairs"].value_counts().sort_index()
+col_dist = composition_df["n_physical_columns"].value_counts().sort_index()
 for n_cols, n_plumes in col_dist.items():
     print(f"  {n_cols:2d} column(s): {n_plumes:3d} plume(s)"
           f"   {'#' * int(n_plumes)}")
+print()
+print("=== Distinct (stac_id, ground_pixel) pairs per plume (not a column count) ===")
+print(composition_df["n_column_pairs"].describe().to_string())
 
-single_column_plumes = composition_df[composition_df["n_column_pairs"] == 1]
+single_column_plumes = composition_df[composition_df["n_physical_columns"] == 1]
 print()
 if len(single_column_plumes) > 0:
     print(f"*** FLAG: {len(single_column_plumes)} accepted plume(s) occupy a SINGLE "
-          f"detector column. These are striping artifacts that survived rejection: ***")
+          f"(orbit, ground_pixel) detector column. These are striping artifacts that "
+          f"survived rejection: ***")
     print(single_column_plumes.to_string(index=False))
 else:
-    print("No accepted plume occupies a single detector column — rejection did its job.")
+    print("No accepted plume occupies a single (orbit, ground_pixel) detector column — "
+          "rejection did its job.")
 
-# A plume spanning two granules can show more column pairs than distinct ground_pixel
-# values, because ground_pixel numbering restarts per granule. Where the two differ, the
-# plume is drawing on more than one granule.
-mismatched = composition_df[
-    composition_df["n_column_pairs"] != composition_df["n_ground_pixel_values"]
+# Where the pair count exceeds the physical count, the plume holds the same physical
+# column under more than one stac_id, i.e. from both granules of one orbit.
+overcounted = composition_df[
+    composition_df["n_column_pairs"] != composition_df["n_physical_columns"]
 ]
 print()
-print(f"Plumes where distinct column pairs != distinct ground_pixel values: "
-      f"{len(mismatched)} (these necessarily span >1 granule)")
+print(f"Plumes where (stac_id, ground_pixel) pairs != (orbit, ground_pixel) columns: "
+      f"{len(overcounted)} (same column drawn from >1 granule of an orbit)")
+if len(overcounted) > 0:
+    print(overcounted[["plume_id", "n_pixels", "n_physical_columns", "n_column_pairs",
+                       "n_granules", "emission_rate_kg_h"]].to_string(index=False))
 
 # ── Granules per plume ──
 print()
@@ -575,12 +594,12 @@ if len(multi_granule_df) > 0:
         print(f"  plume {plume_id}: {parts}")
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 4.5))
-axes[0].hist(composition_df["n_column_pairs"],
-             bins=range(1, int(composition_df["n_column_pairs"].max()) + 2),
+axes[0].hist(composition_df["n_physical_columns"],
+             bins=range(1, int(composition_df["n_physical_columns"].max()) + 2),
              color="#4c72b0", edgecolor="white", align="left")
 axes[0].axvline(1.5, color="red", linestyle="--",
                 label="single detector column (artifact)")
-axes[0].set_xlabel("Distinct (stac_id, ground_pixel) pairs in plume")
+axes[0].set_xlabel("Distinct (orbit, ground_pixel) columns in plume")
 axes[0].set_ylabel("Number of plumes")
 axes[0].set_title("Detector columns spanned per accepted plume")
 axes[0].legend()
@@ -1334,7 +1353,7 @@ else:
 # the draws changed once, when the seed was introduced.
 #
 # 1. **Destriping (Cell 0).** How many detector columns does a typical accepted plume
-#    span? Did any plume survive with a single `(stac_id, ground_pixel)` pair — i.e. did a
+#    span? Did any plume survive with a single `(orbit, ground_pixel)` column — i.e. did a
 #    striping artifact get through rejection? If so, is the collinearity threshold too
 #    loose, or did the cluster pick up one stray pixel from a neighbouring column and so
 #    dodge the single-column test?

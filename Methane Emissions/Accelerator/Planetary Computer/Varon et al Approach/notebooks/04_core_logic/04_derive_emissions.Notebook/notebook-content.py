@@ -244,13 +244,20 @@ print(f"Enhancement range: {enhanced_pdf['ch4_enhancement'].min():.1f} to {enhan
 # before the median moved at all. That is why a real plume survives destriping and a
 # stripe does not.
 #
-# GROUPING KEY -- (stac_id, ground_pixel), NEVER ground_pixel alone.
-# scanline and ground_pixel are granule-relative, not orbit-relative: two granules
-# from the same orbit each number their pixels from zero, so ground_pixel = 200 in an
-# NRTI granule and ground_pixel = 200 in an OFFL granule are different physical
-# detector columns. This is the same reason the dedup key in 03_join_data had to move
-# to (orbit, latitude, longitude). Grouping by ground_pixel across a whole scene would
-# pool unrelated columns together and smear every correction toward zero.
+# GROUPING KEY -- (stac_id, ground_pixel), NEVER ground_pixel alone, and deliberately
+# NOT the (orbit, ground_pixel) key that step 4's single-column rejection uses.
+# The stripe median has to be computed within one granule. scanline is
+# granule-relative (every granule numbers its scanlines from zero), so the
+# destripe_min_scanlines guard only means something per granule. The two granules of
+# one orbit are also separate retrievals (NRTI and OFFL), so each carries its own
+# column bias. They overlap on the same ground, so pooling them would count the
+# overlap pixels twice in the median.
+# ground_pixel itself is the physical across-track detector index, the same column in
+# every granule of an orbit (07c: PL-059118a52421 sits on ground_pixel 65 in both the
+# OFFL and the NRTI granule of orbit 45136). That is why step 4 asks "is this one
+# physical column?" with (orbit, ground_pixel). This step asks "what is this granule's
+# bias on this column?", which needs (stac_id, ground_pixel). The two keys differ on
+# purpose. Do not unify them.
 
 for _required in ("stac_id", "ground_pixel", "scanline"):
     if _required not in enhanced_pdf.columns:
@@ -603,9 +610,18 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
             #      more than collinearity_max_r2 of the variance), or
             #   2. every pixel comes from one detector column, at any cluster size.
             #
-            # Test 2 is keyed on the (stac_id, ground_pixel) PAIR, never ground_pixel
-            # alone: ground_pixel is granule-relative, so the same number in two
-            # granules is two different physical columns (see the note in step 2b).
+            # Test 2 is keyed on (orbit, ground_pixel): one physical detector column
+            # on one overpass. It is deliberately NOT keyed on step 2b's
+            # (stac_id, ground_pixel). stac_id names a product, not a column, and the
+            # NRTI and OFFL granules of one orbit both carry the same column. Keyed on
+            # stac_id, a stripe drawn from both granules had two "pairs" and escaped.
+            # That is how PL-059118a52421 (15 pixels, every one on ground_pixel 65,
+            # orbit 45136, two granules) reached the catalogue as its highest rate.
+            # orbit is sat:absolute_orbit (02_ingest_tropomi_ch4), so it identifies
+            # the physical overpass. Destriping stays per granule for the reasons given
+            # in step 2b. The two keys differ on purpose. Do not unify them.
+            # n_column_pairs, the (stac_id, ground_pixel) count, is still recorded so
+            # the rejected table shows which clusters only the physical key caught.
             #
             # These run before the aspect-ratio filter purely for bookkeeping. The
             # accepted set is identical either way, but going first means striping
@@ -616,6 +632,10 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                 cluster_data["stac_id"].values,
                 cluster_data["ground_pixel"].values,
             )))
+            n_physical_columns = len(set(zip(
+                cluster_data["orbit"].values,
+                cluster_data["ground_pixel"].values,
+            )))
 
             if n_unique_locations >= collinearity_min_pixels:
                 _axis, variance_explained = principal_axis(lats, lons)
@@ -624,7 +644,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
 
             reject_reason = None
             if apply_collinearity:
-                if n_column_pairs == 1:
+                if n_physical_columns == 1:
                     reject_reason = "single_column"
                 elif (n_unique_locations >= collinearity_min_pixels
                       and variance_explained > collinearity_max_r2):
@@ -637,6 +657,7 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                 cluster_data["aspect_ratio"] = aspect_ratio
                 cluster_data["variance_explained"] = variance_explained
                 cluster_data["n_column_pairs"] = n_column_pairs
+                cluster_data["n_physical_columns"] = n_physical_columns
                 # Would this cluster have become a valid plume without the new
                 # filters? Recorded so the summary can count the pre-rejection stage
                 # on the same size + shape basis as every other stage.
@@ -649,7 +670,8 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
                     print(f"  Scene {scene_id}: REJECTED {reject_reason} cluster "
                           f"({cluster_size} pixels, "
                           f"var_explained={variance_explained:.4f}, "
-                          f"distinct (stac_id, ground_pixel)={n_column_pairs})")
+                          f"distinct (orbit, ground_pixel)={n_physical_columns}, "
+                          f"(stac_id, ground_pixel)={n_column_pairs})")
                 continue
 
             # Shape filter
@@ -678,6 +700,15 @@ def cluster_plumes(candidates, apply_collinearity=True, verbose=True):
     return valid, flagged, rejected, counter
 
 
+# The single-column test keys on orbit. A null orbit would make every pixel its own
+# "column" (NaN never equals NaN in a set), and the test would pass silently.
+if "orbit" not in detected_pdf.columns:
+    raise KeyError("Single-column rejection needs 'orbit' in silver_plume_ready_pixels. "
+                   "Re-run 03_join_data -- it carries orbit through from bronze_ch4_pixels.")
+assert detected_pdf["orbit"].notna().all(), (
+    f"{int(detected_pdf['orbit'].isna().sum())} pixel(s) have a null orbit; "
+    "single-column rejection cannot key on it")
+
 # Work only with candidate pixels
 candidates_only = detected_pdf[detected_pdf["is_candidate"]].copy()
 print(f"Clustering {len(candidates_only)} candidate pixels...")
@@ -692,13 +723,37 @@ n_rejected_collinear = sum(
 n_rejected_single_column = sum(
     1 for c in rejected_collinear if c["plume_flag"].iloc[0] == "single_column"
 )
+# Single-column rejections the old (stac_id, ground_pixel) key would have missed: one
+# physical column, but drawn from more than one granule of the orbit.
+n_single_column_multi_granule = sum(
+    1 for c in rejected_collinear
+    if c["plume_flag"].iloc[0] == "single_column" and c["n_column_pairs"].iloc[0] > 1
+)
 
 print(f"\nValid plumes: {len(all_plumes)}")
 print(f"Flagged large clusters: {len(flagged_large)}")
 print(f"Rejected, pixels fit a line (var explained > {collinearity_max_r2}): "
       f"{n_rejected_collinear}")
-print(f"Rejected, single (stac_id, ground_pixel) column: {n_rejected_single_column}")
+print(f"Rejected, single (orbit, ground_pixel) column: {n_rejected_single_column}")
+print(f"    of which span >1 granule (missed by the old (stac_id, ground_pixel) key): "
+      f"{n_single_column_multi_granule}")
 print(f"Clusters indexed this run (cluster_idx, not plume_id): {plume_counter}")
+
+# No accepted plume may sit on a single physical detector column. Checked on the
+# accepted frames directly, independently of the filter above, so that if the key ever
+# drifts back to stac_id this fails rather than passing the stripe through.
+_single = [
+    (c["scene_id"].iloc[0], int(c["orbit"].iloc[0]), int(c["ground_pixel"].iloc[0]),
+     len(c), int(c["stac_id"].nunique()))
+    for c in all_plumes
+    if len(set(zip(c["orbit"].values, c["ground_pixel"].values))) == 1
+]
+assert not _single, (
+    f"{len(_single)} accepted plume(s) lie on a single (orbit, ground_pixel) detector "
+    f"column -- striping artefacts past rejection. (scene_id, orbit, ground_pixel, "
+    f"n_pixels, n_granules): {_single[:5]}")
+print(f"OK  no accepted plume lies on a single (orbit, ground_pixel) column "
+      f"({len(all_plumes)} checked)")
 
 if all_plumes:
     plumes_pdf = pd.concat(all_plumes, ignore_index=True)
@@ -1268,9 +1323,10 @@ if rejected_collinear:
     rejected_spark = spark.createDataFrame(
         rejected_pdf[["plume_id", "scene_id", "latitude", "longitude",
                       "ch4", "ch4_enhancement", "ch4_enhancement_destriped",
-                      "stac_id", "ground_pixel", "scanline",
+                      "stac_id", "orbit", "ground_pixel", "scanline",
                       "plume_flag", "aspect_ratio",
-                      "variance_explained", "n_column_pairs", "would_be_valid"]]
+                      "variance_explained", "n_column_pairs", "n_physical_columns",
+                      "would_be_valid"]]
     )
     rejected_spark.write \
         .format("delta") \
