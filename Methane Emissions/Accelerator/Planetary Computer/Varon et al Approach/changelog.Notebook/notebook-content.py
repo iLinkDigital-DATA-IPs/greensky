@@ -970,3 +970,25 @@
 # - [ ] Then 04b, 05, 06 and 07c. 07c's match count should stay 75 of 75.
 # - [ ] Enterprise fact layer next, starting with gen_financial, which consumes the now
 #       reproducible emission_rate_p5/p50/p95.
+
+
+# MARKDOWN ********************
+
+# ### 2026-09-28 -- Day 13 (In Progress)
+#
+# #### Flagged, not changed
+# - 02e and 03a disagree on whether an asset in Down is leaking. 03a_gen_emission_episodes
+#   suppresses episodes during Down and Maintenance: an asset that is not running is not
+#   leaking process gas. An episode under way when its asset enters either state is
+#   truncated there. 02e_gen_ch4_telemetry suppresses its leak term during Maintenance
+#   only (CH4_SUPPRESSED_STATES = ("Maintenance",)) and gives Down a leak multiplier of 1.0
+#   (CH4_STATE_LEAK_MULT), so it treats Down as leaking. 03a is right.
+# - Not fixed now. Changing 02e means regenerating sensor_telemetry and re-running 02d on
+#   top of it. Fix it the next time 02e is touched: add "Down" to CH4_SUPPRESSED_STATES in
+#   01_topology_config and re-check harness_ch4.py's exceedance and autocorrelation bands.
+#   Until then, a CH4 detector can show an exceedance while its asset is Down, and no
+#   episode exists at that moment to explain it.
+#
+# #### Remaining
+# - [ ] 02e: suppress the leak term during Down to match 03a, then regenerate
+#       sensor_telemetry and re-run 02d.

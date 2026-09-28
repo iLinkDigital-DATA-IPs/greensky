@@ -1390,6 +1390,22 @@ def mtbf_days(equipment_type, age_years):
     return BASE_MTBF_DAYS / max(scale, 1e-6)
 
 
+# Shared equipment-condition model, carried over from V1's config_and_seeds unchanged. It
+# lives here, beside mtbf_days, so the episode generator (03a) and the maintenance generator
+# that follows it read ONE definition: an asset that maintenance treats as degraded is the
+# same asset the episode hazard treats as likely to leak. Built from age, service interval,
+# manufacturer reliability and leak_propensity only -- never from emissions or observations.
+# Note it takes leak_propensity, not STATE_DUTY_FACTOR: this index is about leaking, and
+# mtbf_days above is about stopping.
+def equipment_condition_index(age_years, life_years, days_since_service,
+                              insp_days, reliability_index, leak_propensity):
+    """0 (pristine) -> 1 (degraded). Drives Weibull hazard scaling. No labels used."""
+    wear = np.clip(age_years / max(life_years, 1), 0, 1.4)
+    service_gap = np.clip(days_since_service / (insp_days * 2.0), 0, 1.5)
+    cond = (0.55 * wear + 0.30 * service_gap) * reliability_index * (0.6 + 0.4 * leak_propensity)
+    return float(np.clip(cond, 0, 1))
+
+
 print("asset state model:")
 print(f"  history window     {STATE_HISTORY_DAYS} days")
 print(f"  states             {', '.join(STATES)}")
