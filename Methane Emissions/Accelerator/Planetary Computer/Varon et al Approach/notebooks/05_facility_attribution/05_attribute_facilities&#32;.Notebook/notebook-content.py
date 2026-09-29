@@ -48,7 +48,11 @@
 import pandas as pd
 import numpy as np
 
-plumes = spark.table("gold_plume_catalog").toPandas()
+_catalog = spark.table("gold_plume_catalog")
+# The catalog's own Spark schema, kept so the write below reuses it rather than letting Spark
+# re-infer every column from pandas values.
+CATALOG_SCHEMA = _catalog.schema
+plumes = _catalog.toPandas()
 print(f"Loaded {len(plumes)} plumes from gold_plume_catalog")
 print(f"Columns: {list(plumes.columns)}")
 
@@ -240,13 +244,19 @@ for _, plume in plumes.iterrows():
             "second_facility_probability": candidates[1]["probability"] if len(candidates) > 1 else None,
         })
     else:
+        # No facility in range: every attribute of the attribution is NULL, not a sentinel
+        # and not 0. Only attribution_method ('no_match') and facilities_in_range (0) carry
+        # values, because they are facts about the search rather than about a facility.
+        # attributed_facility_name used to be the string "NO_FACILITY_IN_RANGE" and
+        # attribution_probability 0.0; both read as real values downstream. 06 took the
+        # sentinel as a facility name for gold_emission_sites.
         attribution_results.append({
             "plume_id": plume_id,
             "attributed_facility_id": None,
-            "attributed_facility_name": "NO_FACILITY_IN_RANGE",
+            "attributed_facility_name": None,
             "attributed_facility_lat": None,
             "attributed_facility_lon": None,
-            "attribution_probability": 0.0,
+            "attribution_probability": None,
             "attribution_distance_km": None,
             "attribution_angular_offset_deg": None,
             "attribution_method": "no_match",
@@ -337,8 +347,67 @@ if dupes:
 else:
     print("No duplicate columns")
 
-# Write updated gold table
-plumes_spark = spark.createDataFrame(plumes_attributed)
+# Write updated gold table -- typed explicitly, never inferred.
+#
+# A missing value in a pandas object column is float('nan'), and Spark's pandas conversion
+# turns that into the STRING "NaN" in a string column. For the 7 no-match plumes this put
+# 'NaN' into attributed_facility_id, which passes IS NOT NULL and then fails to join to
+# dim_facility; 03c's referential-integrity check caught it. A NaN in a double column is
+# just as invisible, since Spark keeps NaN as a value and IS NOT NULL passes it. So the frame
+# is built from Python rows against an explicit schema. Every attribution column is typed
+# here, and a missing value becomes a real NULL. The catalog's other columns keep the schema
+# they were read with.
+from pyspark.sql import types as T
+
+ATTRIBUTION_FIELDS = [
+    T.StructField("attributed_facility_id", T.StringType()),
+    T.StructField("attributed_facility_name", T.StringType()),
+    T.StructField("attributed_facility_lat", T.DoubleType()),
+    T.StructField("attributed_facility_lon", T.DoubleType()),
+    T.StructField("attribution_probability", T.DoubleType()),
+    T.StructField("attribution_distance_km", T.DoubleType()),
+    T.StructField("attribution_angular_offset_deg", T.DoubleType()),
+    T.StructField("attribution_method", T.StringType()),
+    T.StructField("facilities_in_range", T.LongType()),
+    T.StructField("second_facility_id", T.StringType()),
+    T.StructField("second_facility_probability", T.DoubleType()),
+]
+ATTRIBUTION_COLS = [f.name for f in ATTRIBUTION_FIELDS]
+assert set(ATTRIBUTION_COLS) == set(attribution_df.columns) - {"plume_id"}, (
+    "attribution_df and ATTRIBUTION_FIELDS disagree: "
+    f"{sorted(set(attribution_df.columns) - {'plume_id'} ^ set(ATTRIBUTION_COLS))}")
+_base = [f for f in CATALOG_SCHEMA.fields if f.name not in attribution_cols]
+OUT_SCHEMA = T.StructType(_base + ATTRIBUTION_FIELDS)
+plumes_attributed = plumes_attributed[[f.name for f in OUT_SCHEMA.fields]]
+
+
+def _cell(v, field, attribution):
+    """A value Spark's verifier accepts for this field; a missing value becomes None."""
+    missing = v is None or v is pd.NA or v is pd.NaT
+    if not missing and isinstance(v, float) and np.isnan(v):
+        # NaN is "missing" in a string column always, and in an attribution double too.
+        # A catalog double keeps its NaN: 04 wrote it, and this notebook does not reinterpret it.
+        missing = attribution or not isinstance(field.dataType, (T.DoubleType, T.FloatType))
+    if missing:
+        return None
+    if isinstance(v, pd.Timestamp):
+        return v.to_pydatetime()
+    if isinstance(v, np.generic):
+        v = v.item()
+    if isinstance(field.dataType, T.StringType) and not isinstance(v, str):
+        raise TypeError(f"{field.name}: non-string {v!r} ({type(v).__name__}) for a string "
+                        "column -- this is how 'NaN' strings get written")
+    if isinstance(field.dataType, (T.LongType, T.IntegerType)):
+        return int(v)
+    if isinstance(field.dataType, (T.DoubleType, T.FloatType)):
+        return float(v)
+    return v
+
+
+_is_attr = [f.name in ATTRIBUTION_COLS for f in OUT_SCHEMA.fields]
+_rows = [tuple(_cell(v, f, a) for v, f, a in zip(r, OUT_SCHEMA.fields, _is_attr))
+         for r in plumes_attributed.itertuples(index=False, name=None)]
+plumes_spark = spark.createDataFrame(_rows, OUT_SCHEMA)
 plumes_spark.write \
     .format("delta") \
     .mode("overwrite") \
@@ -347,6 +416,70 @@ plumes_spark.write \
 
 print(f"Updated gold_plume_catalog with attribution ({len(plumes_attributed)} plumes)")
 print(f"Columns ({len(plumes_attributed.columns)}): {list(plumes_attributed.columns)}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Validation: no attribution column holds a null that is not NULL
+#
+# The string "NaN", "nan", "None" or "null" in a string column, or a NaN in a double column,
+# passes an `IS NOT NULL` filter. It is invisible to every null check downstream, and it only
+# surfaces when a join fails. So it is asserted directly, on the table as written, along with
+# the consistency the no-match path promises.
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+
+_gpc = spark.table("gold_plume_catalog")
+_types = {f.name: f.dataType for f in _gpc.schema.fields}
+for f in ATTRIBUTION_FIELDS:
+    assert f.name in _types, f"gold_plume_catalog lacks {f.name}"
+    assert type(_types[f.name]) is type(f.dataType), (
+        f"{f.name} is {_types[f.name].simpleString()}, expected {f.dataType.simpleString()}")
+
+NULL_LIKE = ("nan", "none", "null")
+_bad = {}
+for f in ATTRIBUTION_FIELDS:
+    c = F.col(f.name)
+    if isinstance(f.dataType, T.StringType):
+        n = _gpc.filter(F.lower(F.trim(c)).isin(*NULL_LIKE)).count()
+    elif isinstance(f.dataType, T.DoubleType):
+        n = _gpc.filter(F.isnan(c)).count()
+    else:
+        n = 0
+    if n:
+        _bad[f.name] = n
+assert not _bad, (f"attribution column(s) holding a null-like string or NaN instead of NULL: "
+                  f"{_bad}. This passes IS NOT NULL and breaks every join downstream.")
+
+_nm = _gpc.filter("attribution_method = 'no_match'")
+_n_nm = _nm.count()
+assert _n_nm == _gpc.filter("facilities_in_range = 0").count() \
+    == _gpc.filter("attributed_facility_id IS NULL").count(), (
+    "attribution_method = 'no_match', facilities_in_range = 0 and a NULL attributed_facility_id "
+    "must pick out the same plumes")
+_leaky = [f.name for f in ATTRIBUTION_FIELDS
+          if f.name not in ("attribution_method", "facilities_in_range")
+          and _nm.filter(F.col(f.name).isNotNull()).count()]
+assert not _leaky, f"no-match plumes carry values in {_leaky}; every attribute must be NULL"
+_ids = {r["facility_id"] for r in spark.table("ref_facilities").select("facility_id").collect()}
+_att = {r["attributed_facility_id"] for r in
+        _gpc.filter("attributed_facility_id IS NOT NULL").select("attributed_facility_id").collect()}
+assert _att <= _ids, f"attributed_facility_id not in ref_facilities: {sorted(_att - _ids)[:5]}"
+assert _gpc.filter("attribution_probability IS NOT NULL AND "
+                   "(attribution_probability <= 0 OR attribution_probability > 1)").count() == 0
+
+print(f"OK  no attribution column holds 'NaN' / 'nan' / 'None' / 'null' or a double NaN "
+      f"({len(ATTRIBUTION_FIELDS)} columns checked)")
+print(f"OK  {_n_nm} no-match plume(s): facilities_in_range = 0, every attribute NULL")
+print(f"OK  every attributed_facility_id resolves to ref_facilities; probabilities in (0, 1]")
 
 # METADATA ********************
 
