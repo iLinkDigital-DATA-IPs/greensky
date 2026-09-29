@@ -1106,3 +1106,157 @@
 # - [ ] 02e: suppress the leak term during Down to match 03a, then regenerate
 #       sensor_telemetry and re-run 02d.
 # - [ ] Refresh 07c's header and 02d's "does not exist yet" note.
+
+# MARKDOWN ********************
+
+# ### 2026-09-29 -- Day 14 (In Progress)
+#
+# The instrumentation cap raised to 12; the first backlog generator, 03b work orders; and 03c
+# compliance events, where most of the work was correcting the regulatory framing V1 carried.
+# Every figure below is from the offline harnesses or a whole-notebook run against a pandas
+# Spark stub. Nothing here has run in Fabric yet.
+#
+# #### Changed: MAX_INSTRUMENTED_ASSETS_PER_FACILITY 6 -> 12 (01_topology_config)
+# - 662 -> 861 instrumented assets (21.1% -> 27.5%), 3,965 -> 5,042 tags. The target was
+#   1,100-1,300; it cannot be reached, because only 898 assets are both instrumentable and
+#   Critical/High. The criticality bar is now the limiting factor: 130 of 150 facilities
+#   hold fewer than 12 eligible assets, and only 14 are still cut by the cap (37 assets).
+# - Projected 30-day raw telemetry 21.8M rows (73% of 01d's 30M guard); 02b's steady-state
+#   projection 21.5M against its 25M cap. Neither guard changed.
+#
+# #### Added: 03b_gen_work_orders
+# fact_work_order and fact_work_order_event. Four observable sources: alarms, sustained CH4
+# exceedance runs, offline tags, and compliance violations. fact_emission_episode is refused
+# at read time and checked statically in the harness.
+# - Arrival rate measured before choosing anything. 1,043 P1 + 3,099 P2 alarms is 138
+#   candidates a day. One open ticket per asset brings it to ~53 a day, still far above the
+#   10-20 target, and P2 alone accounts for ~39 of them. P2 is therefore gated:
+#   ALARM_P2_MODE = "gated", so a P2 alarm raises a ticket only on its 3rd raise in 24 h on
+#   the tag, or once it has stood for 4 h. The offline stream then gives 18 a day and ~60 open.
+#   "direct" stays switchable, with both modes' measured figures in the comment. Fabric
+#   reports 30.6 a day, because the offline stream lacks 02b's episode-driven P1 trips.
+# - Two passes (design note §2.3). Resolution, response, stall and cost are drawn once from
+#   get_rng("work_order", work_order_id). Pass 1 reads open tickets on timestamps, not on
+#   status != 'Closed': after a rerun the stored rows are as of a later horizon, and the
+#   status filter loses the rerun day's closures. The harness carries it as a negative
+#   control, and it loses 42 transitions.
+# - Stalled exit: WO_CANCEL_AFTER_DAYS = 60 -> Cancelled, with a note. Without it the
+#   stalled pool grows without bound (~2.7 a day), which is the V1 defect.
+# - The dashboard KPI splits on SLA, which an operator can observe, not on is_stalled, which
+#   is fixed at creation and invisible. Active open = within SLA; stalled backlog = past
+#   SLA. The expected "backlog > stalled count" did NOT hold: the backlog counts ticket-time
+#   past SLA, and a normal breach overshoots by hours. Offline: backlog 22 against 24
+#   stalled open.
+# - Bugs the whole-notebook stub found, all of which would have hit Fabric: 63-bit keys
+#   upcast to float64 by an empty part in a concat, and by DataFrame(dicts) on a nullable
+#   column; Spark's toPandas() turning nullable long tag_sk into float64, which would have
+#   corrupted every carried row; numpy scalars reaching createDataFrame, which PySpark's
+#   verifier rejects. Also a design fault: a stalled ticket absorbing every later alarm on
+#   its asset, which made the open count drift down 30% over 60 days.
+#
+# #### Added: 03c_gen_compliance
+# dim_regulation (4 rows) and fact_compliance_event. Status progresses Reported -> Under
+# Review -> Closed | Violation, drawn once from get_rng("compliance", compliance_id), with a
+# 120-day Cancelled exit for stalled cases. fact_emission_episode is refused.
+#
+# **Regulatory corrections.** Checked against public sources on 2026-09-29. These three are
+# the ones most likely to be repeated as fact by someone reading the tables:
+#
+# 1. **OLRE is a GHGRP Subpart W reporting requirement, not an NSPS OOOOb provision.** The
+#    2024 Subpart W revisions (40 CFR Part 98) require "other large release events" at an
+#    instantaneous methane rate of 100 kg/h or more to be REPORTED. EPA dropped the proposed
+#    250 tCO2e per-event alternative. An OLRE is a report, never a fine in itself. V1 called
+#    the 100 kg/h threshold "NSPS OOOOb OLRE" and treated every crossing as a federal
+#    violation. EPA proposed (Sept 2025) suspending Subpart W to RY2034; as of the
+#    February 2026 deadline-extension rule that was not final.
+# 2. **The NSPS OOOOb super-emitter programme is postponed to 2027-01-22, and could not apply
+#    to these plumes anyway.** It is the OOOOb provision that does use 100 kg/h (40 CFR
+#    60.5371b: investigate within 5 days, report within 15). An interim final rule (effective
+#    2025-07-31, finalised 2025-11-26) postponed it to 2027-01-22, so it is not in force in
+#    this window. It also ties a notification to a well site or compressor station within
+#    50 m of the reported location. A TROPOMI pixel is ~5.5 km, and 05 attributes at a
+#    median of 21 km, so no TROPOMI detection can meet that test. dim_regulation carries it
+#    with is_active = false, and no event is written against it.
+# 3. **The $5,000-$75,000 fine range carried from V1 has no source, and is labelled
+#    synthetic.** V1's FINE_SCENARIOS comment said "sources cited inline", but no source
+#    appears anywhere in V1. No assessed-penalty figure was verified for either programme.
+#    Statutory maxima (CAA civil penalties under 40 CFR Part 19; Tex. Nat. Res. Code
+#    81.0531) are ceilings, not typical penalties, and deliberately are not used.
+#    dim_regulation's fine_basis column says so on every row.
+#
+# Also confirmed: the Waste Emissions Charge rule was disapproved under the CRA (2025), and
+# the One Big Beautiful Bill Act (2025-07-04) delayed the statutory charge to 2034. So the
+# default scenario is reporting_only, with no federal per-tonne fee, and wec_hypothetical and
+# social_cost stay switchable but off. Not verified, and not relied on: V1's statement that
+# EPA "revoked" the rule in May 2025. Texas RRC Statewide Rule 32 (16 TAC 3.32) is real, but
+# no kg/h or duration trigger in it was verified, so every state threshold is labelled a
+# modelling choice. dim_regulation records, per row, whether each threshold is a rule or a
+# modelling choice, with a status note.
+#
+# **Design.**
+# - Every attributed plume >= 100 kg/h is a Subpart W report. TROPOMI's floor is ~3 t/h, so
+#   every detection crosses any rule threshold. A rate cut inside the detected range would
+#   sit inside the IME uncertainty (p95/p5 ~4.8x). The notebook prints the distribution and
+#   the breach share at 0.1 / 1 / 3 / 10 / 25 / 50 t/h first.
+# - A plume escalates to a Texas RRC case only on repetition or on-site persistence.
+#   Repetition means an earlier detection within 5 km of the same location (06's radius),
+#   at the same facility, in the trailing 30 days. It is judged on location, not facility:
+#   nearest-facility attribution put 38 plumes on 25 facilities, so a same-facility rule would
+#   have escalated geometry. Persistence means the facility's detectors had been in a
+#   continuous run for 24 h at the moment of detection.
+# - A flare alarm standing 24 h also opens a case: stack temperature LoLo is Venting, flow
+#   HiHi is Flaring. Facility runs of 24 h or more are operator-programme events, never
+#   violations.
+# - "Violation" means a notice of violation, 7-35 days after the report. The formal penalty
+#   process takes months and would leave nothing decided inside a 30-day retention.
+# - Unattributed plumes raise nothing, because there is no operator to cite. They are counted.
+# - Offline, on the real facility geometry: 69 events (38 OLRE, 29 Exceedance, 2 Venting),
+#   1 violation ($9,727), 11 unattributed plumes skipped, 0 repetition escalations. That is
+#   consistent with 45 of 47 gold_emission_sites being single-detection.
+#
+# **Wired into 03b.** Only a Violation raises a ticket, at the finding: P1 for Critical, P2
+# for Major. A plume-derived case names no asset, so its ticket goes to the facility's
+# highest-leak-propensity asset, labelled a modelling choice. The effect on 03b's arrival
+# rate is ~+0.03-0.2 a day. The pipeline order is 03c before 03b.
+#
+# #### Harness
+# - harness_work_orders.py: backfill = 29 incremental days, bitwise; rerun idempotent;
+#   negative controls for the status-based pass-1 read and for a re-drawn plan. Over 120
+#   days the stalled pool levels off after the 60-day exit, and the compliance mapping is
+#   checked.
+# - harness_compliance.py: the same determinism checks, repeated with a 10-day exit. A
+#   negative control shows a repetition rule with hindsight breaks backfill = incremental.
+#   Over 300 days, open cases sit in the lambda x T band, and the stalled pool stays bounded
+#   at stall rate x 120 (12 at most, against 20 without the exit).
+#
+# #### Flagged, not changed: 02d cannot raise a pilot-out alarm
+# - 02d raises a low alarm only when the value is strictly below the limit
+#   (`breach_dn = F.col("value_num") < F.col("limit_value")`). pilot_flame's alarm_lolo is 0.0,
+#   and a pilot-out reading is exactly 0, which is not below 0. So LoLo never fires on a flare
+#   pilot, however long it stays out.
+# - This is the unlit-flare signature, the case 01d's combustion tags exist for: pilot_flame,
+#   stack_temperature, air_fuel_ratio, so the enterprise layer can corroborate 04b's
+#   Incomplete Combustion class. Its most direct indicator is undetectable. 02b's "Unlit
+#   flare" signature does drive the pilot to 0; 02d just cannot see it.
+# - 03c works around it for now. It detects an unlit flare as Venting from a standing
+#   stack_temperature LoLo, the indirect indicator, not from the pilot.
+# - Fix when 02d is next touched: `<=` rather than `<` for boolean-valued tags
+#   (measurement_type pilot_flame), then re-run 02d. Expect new LoLo alarms on flares during
+#   unlit-flare episodes. 03c can then add the pilot alarm as a Venting source, and 03b will
+#   see new P1 tickets.
+#
+# #### Flagged, not changed
+# - No dim_team exists. 03b's assigned_team_sk is checked against a 16-team roster defined in
+#   the notebook.
+# - Work-order and compliance costs are modelling choices. The mean work order is ~$2.5k.
+# - When the sources' 30-day retention rolls, older tickets and cases can no longer be traced
+#   to their sources. Validation counts them rather than failing.
+# - 00_config's CONFIG start_date / end_date (2026-06-10..07-09) do not match the real window.
+#   03b and 03c take their window from the source tables, not from CONFIG.
+#
+# #### Remaining
+# - [ ] Run 03c then 03b in Fabric. Check 03c's rate-distribution printout, the escalation
+#       counts (repetition / persistence), and 03b's arrival rate with compliance wired.
+# - [ ] 02d: `<=` for boolean-valued tags so pilot-out raises LoLo; re-run 02d, then 03c, 03b.
+# - [ ] Re-verify the regulatory status notes in dim_regulation before any customer demo;
+#       they are dated 2026-09-29.

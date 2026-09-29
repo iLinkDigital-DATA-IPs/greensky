@@ -40,7 +40,7 @@
 # |---|---|---|
 # | `Alarm` | P1 alarms, directly. P2 when it **recurs** (3 raises in 24 h on the tag) or **stands** 4 h, since a single warning does not dispatch a crew (`ALARM_P2_MODE`). P3 only when it recurs on the same tag (see the rule below). P4 never | the alarm's own |
 # | `Exceedance` | a CH₄ detector's `exceedance_flag` holds for `EXCEEDANCE_MIN_READINGS` consecutive readings. A single flagged reading does not | P2 |
-# | `Compliance` | once `fact_compliance_event` exists. **Wired but empty until then**, and the run says so | — |
+# | `Compliance` | a compliance case reaching **Violation** in `fact_compliance_event` (03c), at the instant of the finding. Reports and undecided cases raise nothing | P1 Critical, P2 Major |
 # | `SensorStatus` | a SCADA tag stays offline for `OFFLINE_TICKET_HOURS` with no Maintenance on its asset | P3 |
 #
 # **`fact_emission_episode` is never read.** It is the hidden ground truth. A ticket sourced
@@ -102,8 +102,8 @@
 #
 # Every table read goes through `read_input()`. It refuses `fact_emission_episode` outright
 # and anything not in `INPUT_TABLES`. The validation cell fails the run if anything outside
-# the declared inputs was read. `fact_compliance_event` is a declared input that does not yet
-# exist; it is probed with `table_exists()`, never read blind.
+# the declared inputs was read. `fact_compliance_event` is written by 03c, which must run
+# before 03b in the daily pipeline so its statuses are as of the same horizon.
 
 # CELL ********************
 
@@ -495,6 +495,33 @@ def offline_sources(leaves, ongoing, maint, horizon):
                         for t, s in zip(o["tag_id"], o["off_ts"])],
                        SENSOR_STATUS_PRIORITY, o["equipment_sk"], o["tag_sk"],
                        [f"tag {t} offline {OFFLINE_TICKET_HOURS:.0f} h" for t in o["tag_id"]])
+
+
+# Compliance: a VIOLATION raises a ticket; a report, an operator event or an undecided case
+# does not. The ticket is the regulatory response -- corrective action and the filing -- at
+# the finding. The field response to the release itself is already raised by the Alarm and
+# Exceedance sources. Severity maps to priority; Minor never reaches Violation in 03c, and
+# the mapping says so rather than guessing a priority for it.
+COMPLIANCE_PRIORITY = {"Critical": "P1", "Major": "P2"}
+
+
+def compliance_sources(ce, responsible_asset, horizon):
+    """Candidates from fact_compliance_event rows (compliance_sk, compliance_id, facility_sk,
+    equipment_sk, event_type, severity, status, status_ts).
+
+    A plume-derived case carries no equipment_sk: a satellite plume cannot resolve an asset.
+    The ticket still needs one, so it goes to responsible_asset[facility_sk], a MODELLING
+    CHOICE made in the notebook and labelled there, never to an asset the plume implicates.
+    """
+    v = ce[(ce["status"] == "Violation") & (ce["status_ts"] < horizon)]
+    bad = set(v["severity"]) - set(COMPLIANCE_PRIORITY)
+    assert not bad, f"a violation of severity {bad} has no work-order priority"
+    eq = [int(e) if pd.notna(e) else int(responsible_asset[int(f)])
+          for e, f in zip(v["equipment_sk"], v["facility_sk"])]
+    return _candidates(v["status_ts"], "Compliance", v["compliance_sk"],
+                       v["severity"].map(COMPLIANCE_PRIORITY), eq, [pd.NA] * len(v),
+                       [f"{t} violation {c} ({sv})" for t, c, sv in
+                        zip(v["event_type"], v["compliance_id"], v["severity"])])
 
 
 def build_sources(alarms, flags, sensors, ch4_cadence_s, leaves, ongoing, maint, horizon,
@@ -1112,15 +1139,31 @@ for _k, _g in stop_pdf.groupby("equipment_sk"):
     STOPS[int(_k)] = (_g["start_ts"].values.astype("datetime64[ns]").astype("int64"),
                       np.where(np.isnat(_e), _OPEN_NS, _e.astype("int64")))
 
-# --- compliance: wired, empty until the table exists ----------------------------------------------
+# --- compliance: violations from 03c ----------------------------------------------------------------
+# Responsible asset for a case with no equipment_sk (a plume cannot name one): the facility's
+# asset with the highest leak_propensity, then the most critical, then the lowest key. A
+# MODELLING CHOICE -- the asset a compliance team would open the job against, not a claim
+# about which asset leaked.
+_crit = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+_resp = (eq_pdf.assign(_c=eq_pdf["criticality"].map(_crit))
+         .sort_values(["facility_sk", "leak_propensity", "_c", "equipment_sk"],
+                      ascending=[True, False, True, True], kind="mergesort")
+         .drop_duplicates("facility_sk"))
+RESPONSIBLE_ASSET = dict(zip(_resp["facility_sk"].astype(int), _resp["equipment_sk"].astype(int)))
 if table_exists(COMPLIANCE_TABLE):
-    raise AssertionError(
-        f"{COMPLIANCE_TABLE} now exists, but 03b has no mapping from compliance events to "
-        "tickets yet. Write it in build_sources() (candidate columns SOURCE_COLS: trigger at "
-        "the event's report time, priority from severity, source_ref = its event key) rather "
-        "than letting the source stay silently empty.")
-compliance_pdf = pd.DataFrame(columns=SOURCE_COLS)
-COMPLIANCE_NOTE = f"{COMPLIANCE_TABLE} does not exist yet -- source wired, 0 candidates"
+    ce_pdf = (read_input(COMPLIANCE_TABLE).fillna({"equipment_sk": -1})
+              .select("compliance_sk", "compliance_id", "facility_sk", "equipment_sk",
+                      "event_type", "severity", "status", "status_ts").toPandas())
+    ce_pdf["equipment_sk"] = pd.array([None if v < 0 else int(v) for v in ce_pdf["equipment_sk"]],
+                                      dtype="Int64")
+    ce_pdf["status_ts"] = pd.to_datetime(ce_pdf["status_ts"])
+    compliance_pdf = compliance_sources(ce_pdf, RESPONSIBLE_ASSET, SOURCE_END)
+    COMPLIANCE_NOTE = (f"{len(compliance_pdf)} violation(s) of {len(ce_pdf):,} compliance events; "
+                       "reports and undecided cases raise nothing")
+else:
+    ce_pdf = pd.DataFrame(columns=["compliance_sk", "status", "status_ts"])
+    compliance_pdf = pd.DataFrame(columns=SOURCE_COLS)
+    COMPLIANCE_NOTE = f"{COMPLIANCE_TABLE} does not exist yet (run 03c first) -- 0 candidates"
 
 for _c in ("raised_ts", "cleared_ts"):
     alarm_pdf[_c] = pd.to_datetime(alarm_pdf[_c])
@@ -1141,7 +1184,7 @@ if len(_silent):
 print(f"candidates over the retention: {len(sources):,}")
 for (_s, _p), _n in sources.groupby(["source", "priority"]).size().items():
     print(f"  {_s:<14}{_p}  {_n:>6,}   ({_n / max((SOURCE_END - SOURCE_START).days, 1):.1f}/day)")
-print(f"  {'Compliance':<14}--  {0:>6,}   {COMPLIANCE_NOTE}")
+print(f"  Compliance: {COMPLIANCE_NOTE}")
 
 # METADATA ********************
 
@@ -1360,6 +1403,16 @@ _seen |= {stable_key("tag_offline", t, s.isoformat())
 _miss = set(_x["source_ref"]) - _seen
 assert not _miss, (f"{len(_miss)} SensorStatus ticket(s) matching neither a status event nor an "
                    "ongoing gap in scada_telemetry")
+
+_x = wo[_in_ret & (wo["source"] == "Compliance")]
+if len(_x):
+    _cev = ce_pdf.set_index("compliance_sk")
+    _miss = set(_x["source_ref"]) - set(_cev.index)
+    assert not _miss, f"{len(_miss)} Compliance ticket(s) with no event in {COMPLIANCE_TABLE}"
+    _cx = _cev.loc[_x["source_ref"]]
+    assert (_cx["status"] == "Violation").all(), "a Compliance ticket from a case that is not a violation"
+    assert (_cx["status_ts"].values == _x["created_ts"].values).all(), \
+        "a Compliance ticket not raised at its violation finding"
 
 # ...and each ticket is exactly what the rules derive from those rows, at the same instant
 _d = sources.set_index(["source", "source_ref"])

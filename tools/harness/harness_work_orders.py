@@ -389,12 +389,32 @@ def check_steady_state(g, U, start, n_days):
           f"trajectories; backlog levels off (rise {b_rise:+.1f}); Cancelled in neither")
 
 
+def check_compliance_mapping(g):
+    """Violations raise a ticket at the finding, P1 Critical / P2 Major; everything else raises
+    nothing; a case with no asset goes to the facility's responsible asset."""
+    ce = pd.DataFrame({
+        "compliance_sk": [11, 12, 13, 14], "compliance_id": [f"CE-00000{i}" for i in range(1, 5)],
+        "facility_sk": [1, 2, 3, 4], "equipment_sk": pd.array([None, 7, None, None], dtype="Int64"),
+        "event_type": ["Venting", "Flaring", "OLRE", "Venting"],
+        "severity": ["Critical", "Major", "Minor", "Major"],
+        "status": ["Violation", "Violation", "Under Review", "Closed"],
+        "status_ts": pd.to_datetime(["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"])})
+    c = g["compliance_sources"](ce, {1: 101, 2: 102, 3: 103, 4: 104}, pd.Timestamp("2026-09-15"))
+    assert list(c["source_ref"]) == [11, 12] and list(c["priority"]) == ["P1", "P2"]
+    assert list(c["equipment_sk"]) == [101, 7] and (c["trigger_ts"] == ce["status_ts"][:2]).all()
+    later = g["compliance_sources"](ce, {1: 101, 2: 102}, pd.Timestamp("2026-09-02"))
+    assert list(later["source_ref"]) == [11], "a violation found after the horizon raised a ticket"
+    print("OK  compliance mapping: violations only, at the finding, P1 Critical / P2 Major; "
+          "reports, closed and undecided cases raise nothing")
+
+
 if __name__ == "__main__":
     print("=" * 84)
     print("03b WORK ORDERS")
     print("=" * 84)
     g = load_model()
     check_static(g)
+    check_compliance_mapping(g)
     START = pd.Timestamp("2026-08-16")
     U = upstream(g, START, START + 120 * DAY)
     print(f"  synthetic upstream: {len(U['alarms']):,} alarms over 120 days "
