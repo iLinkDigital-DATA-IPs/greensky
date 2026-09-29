@@ -135,6 +135,33 @@ print(f"Max detections at a single site: {max(len(s['plume_ids']) for s in sites
 
 # CELL ********************
 
+# Values that mean "missing" whatever type they arrived as. A NULL read through toPandas can
+# come back as None or as float('nan'); the mode of a column of them is NaN, and NaN written
+# to a string column is the string "NaN" -- which passes IS NOT NULL. 05 had exactly this in
+# attributed_facility_id; 06 had it one layer down, in attributed_facility for sites whose
+# plumes are all unattributed (site 27, in the top-10 priority list). "NO_FACILITY_IN_RANGE"
+# is 05's retired no-match sentinel, excluded so a catalog written before 05's fix cannot
+# promote it to a facility name.
+NULL_LIKE = ("nan", "none", "null")
+LEGACY_SENTINELS = ("NO_FACILITY_IN_RANGE",)
+
+
+def _real_strings(series):
+    """The non-missing, non-sentinel string values of a column."""
+    return [v for v in series.tolist()
+            if isinstance(v, str) and v.strip() and v.strip().lower() not in NULL_LIKE
+            and v not in LEGACY_SENTINELS]
+
+
+def _mode(values):
+    """Most common value, ties broken alphabetically so reruns agree; None if there is none."""
+    if not values:
+        return None
+    counts = pd.Series(values).value_counts()
+    top = counts[counts == counts.max()].index
+    return sorted(top)[0]
+
+
 site_records = []
 
 for site in sites:
@@ -161,18 +188,20 @@ for site in sites:
     max_rate = site_plumes["emission_rate_kg_h"].max()
     total_ime = site_plumes["ime_kg"].sum()
 
-    # Dominant confidence
-    conf_counts = site_plumes["confidence"].value_counts()
-    dominant_confidence = conf_counts.index[0] if len(conf_counts) > 0 else "unknown"
+    # Dominant confidence: NULL, not "unknown", when no plume carries one
+    dominant_confidence = _mode(_real_strings(site_plumes["confidence"]))
 
-    # Attributed facility (most common)
+    # Attributed facility (most common real facility name); NULL when no plume at the site is
+    # attributed. value_counts() on a column of NaNs is where the "NaN" came from.
     if "attributed_facility_name" in site_plumes.columns:
-        fac_counts = site_plumes["attributed_facility_name"].value_counts()
-        top_facility = fac_counts.index[0] if len(fac_counts) > 0 else None
+        top_facility = _mode(_real_strings(site_plumes["attributed_facility_name"]))
     else:
         top_facility = None
 
-    # List of detection dates for temporal analysis
+    # List of detection dates for temporal analysis. A missing date would render as "nan"
+    # inside the string, so it is refused rather than written.
+    assert site_plumes["detection_date"].notna().all(), (
+        f"site {site['site_id']}: a plume with no detection_date")
     detection_dates = sorted(site_plumes["detection_date"].dt.strftime("%Y-%m-%d").tolist())
 
     site_records.append({
@@ -271,11 +300,66 @@ else:
 
 # CELL ********************
 
+# Written from Python rows against an explicit schema, never inferred from pandas. A missing
+# value becomes a real NULL; a non-string headed for a string column is refused rather than
+# written as "NaN".
+from pyspark.sql import types as T
+
+SITES_SCHEMA = T.StructType([
+    T.StructField("site_id", T.LongType()),
+    T.StructField("site_lat", T.DoubleType()),
+    T.StructField("site_lon", T.DoubleType()),
+    T.StructField("detection_count", T.LongType()),
+    T.StructField("first_detection", T.TimestampType()),
+    T.StructField("last_detection", T.TimestampType()),
+    T.StructField("observation_span_days", T.DoubleType()),
+    T.StructField("persistence", T.StringType()),
+    T.StructField("avg_emission_rate_kg_h", T.DoubleType()),
+    T.StructField("max_emission_rate_kg_h", T.DoubleType()),
+    T.StructField("total_ime_kg", T.DoubleType()),
+    T.StructField("dominant_confidence", T.StringType()),
+    T.StructField("attributed_facility", T.StringType()),
+    T.StructField("detection_dates", T.StringType()),
+    T.StructField("plume_ids", T.StringType()),
+])
+MAP_SCHEMA = T.StructType([T.StructField("plume_id", T.StringType()),
+                           T.StructField("site_id", T.LongType())])
+
+
+def _cell(v, field):
+    """A value Spark's verifier accepts for this field; every missing value becomes None."""
+    if v is None or v is pd.NA or v is pd.NaT or (isinstance(v, float) and np.isnan(v)):
+        return None
+    if isinstance(v, pd.Timestamp):
+        return v.to_pydatetime()
+    if isinstance(v, np.generic):
+        v = v.item()
+    if isinstance(field.dataType, T.StringType):
+        if not isinstance(v, str):
+            raise TypeError(f"{field.name}: non-string {v!r} ({type(v).__name__}) for a "
+                            "string column -- this is how 'NaN' strings get written")
+        return v
+    if isinstance(field.dataType, T.LongType):
+        return int(v)
+    if isinstance(field.dataType, T.DoubleType):
+        return float(v)
+    return v
+
+
+def typed_frame(pdf, schema):
+    assert list(pdf.columns) == [f.name for f in schema.fields], (
+        f"frame columns {list(pdf.columns)} != schema {[f.name for f in schema.fields]}")
+    rows = [tuple(_cell(v, f) for v, f in zip(r, schema.fields))
+            for r in pdf.itertuples(index=False, name=None)]
+    return spark.createDataFrame(rows, schema)
+
+
 # Write emission sites
-sites_spark = spark.createDataFrame(sites_df)
+sites_spark = typed_frame(sites_df, SITES_SCHEMA)
 sites_spark.write \
     .format("delta") \
     .mode("overwrite") \
+    .option("overwriteSchema", "true") \
     .saveAsTable("gold_emission_sites")
 print(f"Written {len(sites_df)} sites to gold_emission_sites")
 
@@ -288,8 +372,9 @@ for site in sites:
             "site_id": site["site_id"],
         })
 
-map_df = pd.DataFrame(plume_site_map)
-map_spark = spark.createDataFrame(map_df)
+map_df = pd.DataFrame(plume_site_map, columns=["plume_id", "site_id"])
+map_df["plume_id"] = map_df["plume_id"].astype(str)
+map_spark = typed_frame(map_df, MAP_SCHEMA)
 # overwriteSchema: plume_id is a string now (content-derived in 04), and Delta rejects the
 # bigint -> string change on a plain overwrite.
 map_spark.write \
@@ -298,6 +383,71 @@ map_spark.write \
     .option("overwriteSchema", "true") \
     .saveAsTable("gold_plume_site_mapping")
 print(f"Written {len(map_df)} plume-to-site mappings")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ### Validation: no column holds a null that is not NULL
+#
+# Run directly after the write, and before the lineage summary below, because that cell still
+# references bronze_methane_pixels (a tracked known issue) and would stop the notebook first.
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+
+
+def assert_no_fake_nulls(table):
+    """No string column holds 'NaN' / 'nan' / 'None' / 'null', and no double column holds NaN.
+    Both pass IS NOT NULL and surface only when a join or a filter downstream misbehaves."""
+    df = spark.table(table)
+    bad = {}
+    for f in df.schema.fields:
+        if isinstance(f.dataType, T.StringType):
+            n = df.filter(F.lower(F.trim(F.col(f.name))).isin(*NULL_LIKE)).count()
+        elif isinstance(f.dataType, (T.DoubleType, T.FloatType)):
+            n = df.filter(F.isnan(F.col(f.name))).count()
+        else:
+            n = 0
+        if n:
+            bad[f.name] = n
+    assert not bad, f"{table}: column(s) holding a null-like string or NaN instead of NULL: {bad}"
+    return len(df.schema.fields)
+
+
+_n1 = assert_no_fake_nulls("gold_emission_sites")
+_n2 = assert_no_fake_nulls("gold_plume_site_mapping")
+
+# attributed_facility is NULL exactly where no plume at the site is attributed, and otherwise
+# a real facility name
+_es = spark.table("gold_emission_sites")
+_sent = _es.filter(F.col("attributed_facility").isin(*LEGACY_SENTINELS)).count()
+assert _sent == 0, f"{_sent} site(s) carry a retired sentinel as attributed_facility"
+_names = {r["facility_name"] for r in spark.table("ref_facilities").select("facility_name").collect()}
+_got = {r["attributed_facility"] for r in
+        _es.filter("attributed_facility IS NOT NULL").select("attributed_facility").collect()}
+assert _got <= _names, f"attributed_facility not a ref_facilities name: {sorted(_got - _names)[:5]}"
+# Expected from the plume ids, independently of the name-mode logic above: a site with no
+# plume carrying a real attributed_facility_id should have a NULL attributed_facility.
+_att_ids = (set(plumes_sorted.loc[[isinstance(v, str) and v.strip().lower() not in NULL_LIKE
+                                   for v in plumes_sorted["attributed_facility_id"]], "plume_id"])
+            if "attributed_facility_id" in plumes_sorted.columns else set())
+_expect_null = sum(1 for s_ in sites if not set(s_["plume_ids"]) & _att_ids)
+_null = _es.filter("attributed_facility IS NULL").count()
+assert _null == _expect_null, (f"{_null} site(s) with NULL attributed_facility, expected "
+                               f"{_expect_null} -- the sites with no attributed plume")
+assert spark.table("gold_plume_site_mapping").filter("plume_id IS NULL OR site_id IS NULL").count() == 0
+
+print(f"OK  gold_emission_sites ({_n1} columns) and gold_plume_site_mapping ({_n2}) hold no "
+      "'NaN' / 'nan' / 'None' / 'null' string and no double NaN")
+print(f"OK  attributed_facility is NULL for exactly the {_null} site(s) with no attributed "
+      "plume, and a ref_facilities name everywhere else")
 
 # METADATA ********************
 
