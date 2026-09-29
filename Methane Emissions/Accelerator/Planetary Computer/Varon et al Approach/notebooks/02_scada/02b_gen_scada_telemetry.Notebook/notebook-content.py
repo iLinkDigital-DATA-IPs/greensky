@@ -28,7 +28,7 @@
 
 # # 02b — Generate SCADA Telemetry
 #
-# Writes **`scada_telemetry`**: one row per tag per sample slot, ~17.1M rows for a 30-day
+# Writes **`scada_telemetry`**: one row per tag per sample slot, ~21.8M rows for a 30-day
 # window across both cadence tiers. This is the only generator in the estate that is large
 # enough to matter, so it is **Spark-native throughout** — the telemetry is never pulled
 # into pandas, and it is generated and written **one day at a time**.
@@ -515,7 +515,7 @@ for _r in ("suction", "discharge", "seal", "line", "differential", "vapour"):
 # Per-series values (spectral amplitudes and phases, drift signs, outage arrivals) are drawn
 # with `get_rng` in pandas — there are only a few thousand series. Per-**row** values (noise,
 # dropout, quality) come from one `sha2` call per row, sliced into six independent 32-bit
-# chunks, so 17M rows cost one hash each rather than six.
+# chunks, so 22M rows cost one hash each rather than six.
 #
 # The golden vectors below are digests computed offline in Python and asserted against
 # Spark's `sha2`. If the two ever disagree — a `concat_ws` null, an integer rendered
@@ -616,7 +616,7 @@ print(f"OK  spectral helpers defined ({len(TELEMETRY_HARMONICS)} harmonics, "
 
 # ### Read the dimensions and build the enriched tag registry
 #
-# `dim_scada_tag` is 3,965 rows, `dim_equipment` 3,135, `dim_area` 558, `dim_facility` 150.
+# `dim_scada_tag` is 5,042 rows, `dim_equipment` 3,135, `dim_area` 558, `dim_facility` 150.
 # All four are small enough to enrich in pandas and broadcast. **The telemetry itself never
 # touches pandas** — that is the line this notebook does not cross.
 #
@@ -1079,7 +1079,7 @@ freeze_dim_pdf = freeze_pdf
 
 HOUR_S = 3600
 
-# Only instrumented assets can produce a reading, so the other ~2,470 assets' intervals are
+# Only instrumented assets can produce a reading, so the other ~2,270 assets' intervals are
 # dropped before anything is exploded.
 INSTRUMENTED_SKS = sorted(int(e) for e in live["equipment_sk"].unique())
 
@@ -1574,7 +1574,7 @@ freeze_dim = F.broadcast(spark.createDataFrame(_frz_out))
 
 # ### Generate and write, one day at a time
 #
-# Not as one 17M-row DataFrame. Each day is built, validated into a counter row, written
+# Not as one 22M-row DataFrame. Each day is built, validated into a counter row, written
 # with `replaceWhere` scoped to that single `date_sk`, and released. Re-running any day
 # replaces exactly that day and nothing else, which is §2.2 of
 # `DESIGN_NOTE_incremental_facts.md`.

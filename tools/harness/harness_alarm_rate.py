@@ -149,10 +149,10 @@ if __name__ == "__main__":
 
     # --- weight by the instrumented mix ---------------------------------------------------------
     # INSTRUMENT_PRIORITY orders Compressor, Separator, Storage Tank, Metering, Flare, Pump and
-    # caps 6 per facility, so the instrumented population skews hard to the first few.
+    # caps 12 per facility, so the instrumented population skews to the first few.
     MIX = {"Compressor": 0.34, "Separator": 0.26, "Storage Tank": 0.17,
            "Metering Station": 0.12, "Flare": 0.07, "Pump": 0.04}
-    INSTRUMENTED, FACILITIES = 662, 150
+    INSTRUMENTED, FACILITIES = 861, 150
     weighted = sum(by_type[k] * v for k, v in MIX.items())
     per_fac = weighted * INSTRUMENTED / FACILITIES
     print("  " + "-" * 94)

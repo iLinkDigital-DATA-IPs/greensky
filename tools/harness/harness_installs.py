@@ -19,11 +19,12 @@ rng = np.random.default_rng(TOPOLOGY_SEED)
 commission = AS_OF - pd.to_timedelta(rng.integers(0, 365 * HISTORY_YEARS, N_FACILITIES), "D")
 
 # --- 01b: asset age, legacy vs newer cohort -----------------------------------------------
-# instrumentation caps at 6 assets per facility, and selection is on criticality, which is
+# instrumentation averages ~6 assets per facility (861 / 150 at a cap of 12, the criticality
+# bar binding first), and selection is on criticality, which is
 # drawn independently of age -- so the age distribution of instrumented assets matches the
 # population and 6 per facility is the right number to simulate.
 ASSETS_PER_FAC = 6
-TAGS_PER_ASSET = 6          # estate mean: 3,965 tags / 662 instrumented assets
+TAGS_PER_ASSET = 6          # estate mean: 5,042 tags / 861 instrumented assets = 5.9
 
 asset_install = []
 for c in commission:

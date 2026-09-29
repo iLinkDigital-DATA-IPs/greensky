@@ -66,7 +66,7 @@ def duration_over_cadence(install_date, cadence_s, out_start, out_end):
 
 # --- build a realistic outage population ---------------------------------------------------
 rng = np.random.default_rng(20260915)
-N_TAGS = 3965
+N_TAGS = 5042
 status = rng.choice(["Active", "Faulty", "Decommissioned"], N_TAGS, p=[.97, .02, .01])
 cadence = np.where(rng.random(N_TAGS) < 0.25, 300, 900)
 # install dates: 12% land inside the window (matching the estate's age profile)

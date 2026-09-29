@@ -157,7 +157,7 @@ if __name__ == "__main__":
     print("  " + "-" * 92)
     print(f"  one compressor, 30 days: {tot_alarms} debounced alarms")
     print()
-    inst_assets, facilities = 662, 150
+    inst_assets, facilities = 861, 150
     per_fac_month = tot_alarms * inst_assets / facilities
     print(f"  state mix: " + "  ".join(f"{k} {v/len(st):.1%}"
                                        for k, v in pd.Series(st).value_counts().items()))

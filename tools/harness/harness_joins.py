@@ -17,7 +17,7 @@ AS_OF = pd.Timestamp("2026-09-15")
 WIN_START, WIN_END = AS_OF - pd.Timedelta(days=30), AS_OF
 EPOCH = pd.Timestamp("1970-01-01")
 
-N_TAGS = 3965
+N_TAGS = 5042
 rng = np.random.default_rng(20260915)
 status = rng.choice(["Active", "Faulty", "Decommissioned"], size=N_TAGS, p=[0.97, 0.02, 0.01])
 cadence = np.where(rng.random(N_TAGS) < 0.25, 300, 900)

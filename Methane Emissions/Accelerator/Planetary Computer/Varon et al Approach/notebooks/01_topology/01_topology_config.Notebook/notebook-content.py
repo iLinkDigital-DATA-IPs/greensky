@@ -909,8 +909,16 @@ print(f"  {len(AREA_TYPE_NAMES)} distinct area types: {', '.join(AREA_TYPE_NAMES
 # (1000 * 96 * 30), so the cap below is a volume decision as much as a realism one.
 
 # An asset is instrumented if its type is instrumentable AND it clears the criticality
-# bar, capped per facility. The cap is what bounds telemetry volume.
-MAX_INSTRUMENTED_ASSETS_PER_FACILITY = 6
+# bar, capped per facility.
+#
+# Raised from 6 to 12. At 6 the estate had 662 instrumented assets (21% of 3,135), and both
+# above-floor episodes that coincided with an attributed plume sat on uninstrumented assets,
+# so the leaking asset had no telemetry to corroborate against. At 12 it is 861 (27.5%).
+# The criticality bar, not the cap, is now what binds: only 898 assets estate-wide are of
+# instrumentable type AND Critical/High, and 130 of 150 facilities have fewer than 12 of
+# them. Only 14 facilities are still cut by the cap (37 assets dropped). Raising the cap
+# further buys at most those 37; more coverage has to come from INSTRUMENTABLE_CRITICALITY.
+MAX_INSTRUMENTED_ASSETS_PER_FACILITY = 12
 INSTRUMENTABLE_CRITICALITY = {"Critical", "High"}
 
 # Rank order for selecting which eligible assets get instrumented, once the criticality bar
@@ -956,8 +964,8 @@ assert 0.0 < TELEMETRY_PROCESS_SD_FRACTION < 1.0
 # window from the table's own watermark instead. It lives here rather than in 02b because it
 # is a VOLUME knob, and the three others that set volume -- HOT_TAG_SHARE, the two cadences
 # and MAX_INSTRUMENTED_ASSETS_PER_FACILITY -- are already here. At the current estate that is
-#   991 hot x 288 slots/day + 2,974 standard x 96 slots/day = 570,912 rows/day
-# so 30 days is ~17.1M rows across both tiers.
+#   1,260 hot x 288 slots/day + 3,782 standard x 96 slots/day = 725,952 rows/day
+# so 30 days is ~21.8M rows across both tiers (was ~17.1M at a cap of 6).
 #
 # It must not exceed STATE_HISTORY_DAYS: every reading has to fall inside an interval of
 # fact_asset_state, and none exist before that anchor.
@@ -966,7 +974,7 @@ TELEMETRY_RAW_DAYS = 30
 # Volume guard for 02b, the sibling of MAX_STATE_ROWS_PER_30D below. 02b projects its row
 # count from the tag tiers and the cadences BEFORE generating anything and fails against
 # this, so an over-scaled estate refuses to start rather than falling over part way through
-# a 17M-row write on a demo capacity.
+# a 22M-row write on a demo capacity.
 MAX_TELEMETRY_ROWS_PER_RUN = 25_000_000
 
 # Rollup window, consumed by 02c_rollup_telemetry. The hourly and daily rollups cover EXACTLY

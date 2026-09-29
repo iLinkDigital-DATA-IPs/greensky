@@ -42,7 +42,7 @@ WIN_START, WIN_END = AS_OF - pd.Timedelta(days=30), AS_OF
 DEBOUNCE, FROZEN_SAMPLES = 3, 8
 SUPPRESS = {"Down", "Maintenance", "Startup", "Shutdown"}
 N_PER_TYPE, HOT_SHARE = 10, 0.25
-INSTRUMENTED, FACILITIES, N_TAGS = 662, 150, 3965
+INSTRUMENTED, FACILITIES, N_TAGS = 861, 150, 5042
 MIX = {"Compressor": 0.34, "Separator": 0.26, "Storage Tank": 0.17,
        "Metering Station": 0.12, "Flare": 0.07, "Pump": 0.04}
 TRIP_KINDS = {"HiHi", "LoLo"}
