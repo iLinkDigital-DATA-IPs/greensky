@@ -1229,6 +1229,24 @@
 #   Over 300 days, open cases sit in the lambda x T band, and the stalled pool stays bounded
 #   at stall rate x 120 (12 at most, against 20 without the exit).
 #
+# #### Changed: 03b gains a Trip source, scoped to instrumented assets
+# - A transition into Down with cause 'Trip' in fact_asset_state raises a ticket at the trip
+#   instant, priority by asset criticality (P1 Critical, P2 High, P3 Medium, P4 Low). No
+#   dependency loop: fact_asset_state comes from 02a.
+# - TRIP_SCOPE = "instrumented": only trips on assets that carry SCADA tags. A control room
+#   sees those machines stop; a trip on an untagged asset is learned from a field visit or a
+#   production shortfall, not at the instant, and every other 03b source is an observable
+#   signal. "all" stays switchable. Measured on the offline stream, tickets/day including
+#   stalled: no Trip source 17.6, "instrumented" 23.9 (196 of 533 trips, all Critical/High),
+#   "all" 34.6.
+# - **Residual, stated rather than hidden: 574 of 690 corrective Maintenance stops in 03d's
+#   window still have no work order under this setting.** These are stops 02a starts with
+#   cause Corrective rather than a trip, trips on untagged assets, and trips whose ticket was
+#   absorbed into one already open or has not closed yet. The 391 quoted when the setting was
+#   chosen was measured with TRIP_SCOPE = "all"; restricting to instrumented assets leaves
+#   the other 183 uncovered too. Not every piece of corrective work in a real operation has a
+#   ticket raised at the moment it starts either.
+#
 # #### Flagged, not changed: 02d cannot raise a pilot-out alarm
 # - 02d raises a low alarm only when the value is strictly below the limit
 #   (`breach_dn = F.col("value_num") < F.col("limit_value")`). pilot_flame's alarm_lolo is 0.0,

@@ -14,7 +14,8 @@
    Negative control: a PM completion re-drawn per run instead of keyed on the calendar index
    does not reproduce the backfill.
 
-3. Backlogs over 180 days: overdue PMs not trending; PM visit completion near its target;
+3. Backlogs over 180 days: established overdue PMs pass the net-rise, monotonicity and
+   share-ceiling checks, with negative controls that each one fires; PM visit completion near its target;
    LDAR cumulative repaired >= 70% of cumulative detected 30 days earlier, outstanding not
    trending; Leak Found rate rising with condition; every preventive record sitting exactly
    on a Maintenance interval.
@@ -109,14 +110,15 @@ def upstream(g, history_start, end):
         c = history_start + pd.Timedelta(seconds=int(wr.integers(0, int(days * 86400))))
         life = pd.Timedelta(hours=float(wr.lognormal(np.log(40), 0.8)))
         wos.append({"work_order_id": f"WO-{i + 1:06d}", "equipment_sk": int(e.equipment_sk),
-                    "source": ["Alarm", "Exceedance", "SensorStatus", "Compliance"][int(wr.integers(0, 4))],
+                    "source": ["Alarm", "Exceedance", "SensorStatus", "Compliance", "Trip"][int(wr.integers(0, 5))],
                     "created_ts": c, "close_at": c + life, "cost_usd": round(float(wr.lognormal(7.5, 0.8)), 2),
                     "assigned_team_sk": g["team_sk"]("Midland Basin", "Mechanical")})
     wo = pd.DataFrame(wos)
     si_full = g["state_index"](st)
     wo["downtime_full"] = [down(si_full, e, c, x) for e, c, x in
                            zip(wo["equipment_sk"], wo["created_ts"], wo["close_at"])]
-    return dict(eq=eq, fac=fr, state=st, wo=wo)
+    calib = g["seed_calibration"](g["asset_views"](eq, fr), st, history_start)
+    return dict(eq=eq, fac=fr, state=st, wo=wo, calib=calib)
 
 
 def down(si, esk, lo, hi):
@@ -144,10 +146,11 @@ def run(g, U, lo, hi, history_start, stored=None):
     assets = g["asset_views"](U["eq"], U["fac"])
     si = g["state_index"](st)
     if stored is None:
-        prior = {"last_completed": {k: g["pm_seed"](a, history_start) for k, a in assets.items()},
+        prior = {"last_completed": {k: g["pm_seed"](a, history_start, U["calib"]) for k, a in assets.items()},
                  "parents": [], "surveys": []}
     else:
-        prior = g["prior_state"](assets, U["fac"], si, stored["maint"], stored["insp"], lo, history_start)
+        prior = g["prior_state"](assets, U["fac"], si, stored["maint"], stored["insp"], lo, history_start,
+                                 U["calib"])
     m, i, l, last = g["run_window"](assets, U["fac"], si, st, wo, set(), prior, lo, hi, history_start)
     pm = g["pm_snapshot"](assets, last, hi)
     return (g["to_frame"](m, g["MAINT_COLS"], nullable_int=("contractor_sk",)),
@@ -229,6 +232,19 @@ def check_determinism(g, U, history_start, start, n_days):
     assert differs, "negative control failed: a per-run PM completion matched the backfill"
     print("OK  negative control: a PM completion re-drawn per run does not reproduce the backfill")
 
+    # the Fabric unit bug: Spark's toPandas yields datetime64[us]. The rebuild must give the
+    # same series from microsecond-unit records as from nanosecond ones, and end at the snapshot.
+    days = pd.date_range(history_start, end - DAY, freq="D")
+    assets = g["asset_views"](U["eq"], U["fac"])
+    m_ns = full["maint"]
+    m_us = m_ns.assign(maintenance_ts=pd.to_datetime(m_ns["maintenance_ts"]).astype("datetime64[us]"))
+    a_ns = g["overdue_trajectory"](assets, m_ns, days, history_start, U["calib"])
+    a_us = g["overdue_trajectory"](assets, m_us, days, history_start, U["calib"])
+    assert (a_ns == a_us).all(), "the overdue rebuild depends on the timestamp unit"
+    assert int(a_us[-1]) == int(full["pm"]["is_overdue"].sum()), "the rebuild does not end at the snapshot"
+    print(f"OK  the overdue rebuild is unit-proof: microsecond and nanosecond records give the same series, "
+          f"ending at the snapshot's {int(a_us[-1])}")
+
 
 def check_backlogs(g, U, history_start, n_days):
     end = history_start + n_days * DAY
@@ -237,7 +253,46 @@ def check_backlogs(g, U, history_start, n_days):
     assets = g["asset_views"](U["eq"], U["fac"])
     si = g["state_index"](st)
     days = pd.date_range(history_start, end - DAY, freq="D")
-    od = g["overdue_trajectory"](assets, m, days, history_start)
+    od = g["overdue_trajectory"](assets, m, days, history_start, U["calib"])
+    assert int(od[-1]) == int(pm["is_overdue"].sum()), "the daily rebuild does not end at the snapshot"
+    est, young = g["split_cohorts"](assets, history_start)
+    fe = g["overdue_flags"](est, m, days, history_start, U["calib"])
+    oe, ee = fe.sum(axis=0), g["overdue_entries"](fe)
+    oy = g["overdue_trajectory"](young, m, days, history_start, U["calib"])
+    assert (oe + oy == od).all()
+    fmt = lambda v: " ".join(f"{x:.0f}" for x in g["weekly_means"](v))   # noqa: E731
+    share, net, ent = g["net_rise_share"](oe, ee)
+    print(f"  overdue PMs weekly, all:            {fmt(od)}")
+    print(f"  established ({len(est)}):          {fmt(oe)}")
+    print(f"  first PM in window ({len(young)}):  {fmt(oy)}")
+    print(f"  established, last {g['NET_WINDOW_DAYS']} d: net {net:+d} against {ent} entries "
+          f"= {share:+.3f} (max {g['NET_RISE_MAX_SHARE']}); peak share {oe.max() / len(est):.2%} "
+          f"(ceiling {g['OVERDUE_SHARE_MAX']:.0%})")
+    assert share < g["NET_RISE_MAX_SHARE"], "established overdue PMs: net rise over half the entries"
+    assert not g["strictly_rising"](g["weekly_means"](oe[-g["NET_WINDOW_DAYS"]:])), "monotonic rise"
+    assert oe.max() / len(est) <= g["OVERDUE_SHARE_MAX"] and od.max() / len(assets) <= g["OVERDUE_SHARE_MAX"]
+    assert (oy <= g["young_bound"](young, days)).all(), "first-PM cohort above its bound"
+
+    # negative controls, one per check, each on the real series with a real defect put in:
+    # (1) a leak: from day 90 half the established assets never complete a PM again, so
+    #     they enter overdue and stay. The net rise must reach half the entries.
+    ks = sorted(est)[::2]
+    cut = history_start + 90 * DAY
+    leak = m[~(m["equipment_sk"].isin(ks) & (m["maintenance_type"] == "Preventive")
+               & (pd.to_datetime(m["maintenance_ts"]) >= cut))]
+    fl = g["overdue_flags"](est, leak, days, history_start, U["calib"])
+    lsh, lnet, lent = g["net_rise_share"](fl.sum(axis=0), g["overdue_entries"](fl))
+    assert lsh >= g["NET_RISE_MAX_SHARE"], f"net-rise check misses a leak ({lsh:+.3f})"
+    # (2) a slow steady climb of 0.3/day with noise: every weekly mean above the last
+    climb = np.arange(91) * 0.3 + 300 + 2 * np.sin(np.arange(91) * 0.9)
+    assert g["strictly_rising"](g["weekly_means"](climb)), "monotonicity check cannot fire"
+    assert not g["strictly_rising"]([1.0, 2.0, 2.0, 3.0]) and not g["strictly_rising"]([1.0]),         "strictly_rising is not strict"
+    # (3) every PM visit fails: the share passes the ceiling
+    fz = g["overdue_flags"](est, m[m["maintenance_type"] != "Preventive"], days, history_start, U["calib"])
+    assert fz.sum(axis=0).max() / len(est) > g["OVERDUE_SHARE_MAX"], "share ceiling cannot fire"
+    print(f"OK  negative controls: half the estate stops completing PMs from day 90 -> net {lnet:+d} "
+          f"against {lent} entries = {lsh:+.3f}, fails; a 0.3/day noisy climb is strictly rising, fails; "
+          f"no PM ever completed -> share {fz.sum(axis=0).max() / len(est):.0%}, fails")
     by_fac = {}
     for a in assets.values():
         by_fac.setdefault(a["facility_sk"], []).append(a)
@@ -257,11 +312,16 @@ def check_backlogs(g, U, history_start, n_days):
     print("  LDAR outstanding by 15 days: " + "  ".join(str(int(out[k:k + 15].mean())) for k in range(0, len(out), 15)))
     print(f"  cumulative detected {det[-1]}, repaired {rep[-1]}")
     assert abs(comp - g["PM_ON_TIME_COMPLETION"]) < 0.05, f"PM completion {comp:.1%}"
-    assert rise(od) <= g["TREND_MAX_RISE"] * max(od[-14:].mean(), 1), "overdue PMs trending"
+    assert rise(oe) <= g["TREND_MAX_RISE"] * max(oe[-14:].mean(), 1), "established overdue PMs trending"
     lag, lo = g["LDAR_REPAIR_LAG_DAYS"], g["LDAR_REPAIR_BAND"][0]
     assert all(rep[k] >= lo * det[k - lag] for k in range(g["WARMUP_DAYS"], len(days))), "repairs lag"
     assert (rep <= det).all()
     assert rise(out) <= g["TREND_MAX_RISE"] * max(out[-14:].mean(), 1), "LDAR outstanding trending"
+    w0 = g["WARMUP_DAYS"]
+    ls, ln, le = g["net_rise_share"](out[w0:], np.diff(det, prepend=0)[w0:])
+    print(f"  LDAR outstanding after warm-up: net {ln:+d} against {le} detected = {ls:+.3f}")
+    assert ls < g["NET_RISE_MAX_SHARE"], "LDAR outstanding: net rise over half the detections"
+    assert not g["strictly_rising"](g["weekly_means"](out[w0:][-g["NET_WINDOW_DAYS"]:])), "LDAR monotonic"
     ins = pd.DataFrame(i if isinstance(i, list) else [])
     ii = g["inspections_in"](si, assets, history_start, end, end, history_start, set(), [])
     c = np.array([e["_cond"] for e in ii])

@@ -195,6 +195,11 @@ PM_ON_TIME_COMPLETION = 0.85    # share of calendar PM visits that complete the 
 PM_CATCHUP_SHARE = 0.70         # an overdue PM completed during the next Maintenance stop
 PM_GRACE_DAYS = 7               # a PM completed within this of its due date is on time
 PM_SEED_CYCLES = 12             # how far back the pre-history seed looks for a completion
+# The seed is calibrated on the first SEED_CALIBRATION_DAYS of the state history: per equipment
+# type, the share of calendar PMs 02a skipped (asset down at the due instant) and the rate of
+# non-PM Maintenance stops (the catch-up opportunities). That span is fixed and long final by
+# the time any run reads it, so the seed is the same in every run mode.
+SEED_CALIBRATION_DAYS = 60
 PM_LABOR_H = (2.0, 9.0)         # V1's range
 PM_PARTS_GAMMA = (2.0, 220.0)   # V1's gamma(shape, scale), USD
 LABOR_RATE_USD_H = 120.0        # blended crew rate, modelling choice
@@ -204,7 +209,7 @@ CONTRACTOR_SK = {stable_key("contractor", c): c for c in CONTRACTORS}
 
 # ---- corrective: from closed work orders ----------------------------------------------------------
 # Root cause from the source that raised the ticket -- what the crew was sent to fix.
-WO_ROOT_CAUSE = {"Alarm": "Process excursion", "Exceedance": "Methane leak",
+WO_ROOT_CAUSE = {"Alarm": "Process excursion", "Exceedance": "Methane leak", "Trip": "Equipment trip",
                  "SensorStatus": "Instrument fault", "Compliance": "Regulatory corrective action"}
 WO_PARTS_SHARE = (0.25, 0.65)   # share of the work order's cost that was parts
 
@@ -238,6 +243,51 @@ FEDERAL_FROM = pd.Timestamp("2015-09-18")
 
 # ---- steady state ---------------------------------------------------------------------------------------
 TREND_WINDOW_DAYS, TREND_MAX_RISE = 14, 0.25
+# The 14-day slope alone lets a slow, steady climb through: 1,527 -> 1,773 over thirteen weeks
+# passed the 25% bound at +42.7 over 14 days. Three checks over NET_WINDOW_DAYS catch that.
+#
+# WHY NOT "AT MOST N CONSECUTIVE WEEKLY RISES". That was the previous check (MAX_RISING_WEEKS
+# = 5: six or more rises in a row failed). It looks stricter than what replaced it, and it is
+# not usable. Its "1% by chance over 13 weeks" assumed independent weeks. The weekly means are
+# not independent: an asset stays overdue for weeks, so the lag-1 autocorrelation of the
+# weekly mean is 0.89 (mean of 8 detrended seeds, range 0.81-0.94; the first single run gave
+# 0.94). A 13-week window then carries 13 * (1 - phi) / (1 + phi) = 0.8 independent
+# observations (0.4 at 0.94), less than one, so a stationary pool drifts in long runs.
+# Across the 8 seeds, 12% of stationary 13-week windows held six or more consecutive rises,
+# and 33% of 25-week windows, against 0.1% for iid weeks: the rule failed healthy runs by
+# chance, and more often the longer the history it looked at. Loosening N until it stops
+# doing that leaves it firing on nothing. Before tightening this back, rerun the multi-seed
+# null and measure the false-alarm rate on those series, not on iid noise:
+# tools/harness/drift_run.py (one process per seed, 540 days, ~7 min each), then
+# drift_analyse.py and thresh_analyse.py over its pickles. tools/README.md has the usage and
+# the matched-seed trap: move 03d's seed without the harness copy of 02a's and the overdue
+# share reads 35-43%, which looks like drift and is a desync.
+#
+# What replaced it asks about the mechanism rather than the shape:
+# - NET RISE against ENTRIES. Over the window, the net change in the overdue count must stay
+#   below NET_RISE_MAX_SHARE of the assets that ENTERED overdue in it. A stationary pool
+#   turns over, so exits cancel entries and the net stays near zero; a leak (assets that
+#   enter and never leave) drives it toward 1. The denominator is the flow, not the level.
+# - STRICT MONOTONICITY over the whole window: every weekly mean above the last, 12 of 12.
+#   It is the shape a slow climb makes that a stationary pool did not make in any seed.
+# - An absolute CEILING on the overdue share of assets, for a pool that is flat but at the
+#   wrong level (PM completion broken from day one), which neither trend check can see.
+# Thresholds are set from 8 independent 540-day seeds, not from one run:
+# - NET_RISE_MAX_SHARE 0.5. Every 13-week window of established overdue PMs in every seed
+#   (~450 per seed, overlapping): net / entries at most +0.119 (p99.9 +0.112, sd 0.040;
+#   ~500 entries a window, net between -53 and +62). 0.5 is 4.2x the worst window, ~9 sd.
+#   LDAR outstanding after warm-up: at most +0.087, 5.7x. On the other side, the harness's
+#   leak (half the estate stops completing PMs at day 90) reaches +0.641, only 1.3x over
+#   0.5: raising the threshold much would stop it catching a leak that size.
+# - Strict monotonicity: 0 monotonic 13-week windows in any seed, overdue or LDAR.
+# - OVERDUE_SHARE_MAX 0.15. Daily overdue share over 8 x 540 seed-days: mean 11.4% (sd of
+#   seed means 0.3 pt, pooled daily sd 0.6 pt), highest day 13.2% of established assets and
+#   13.0% of all assets. 15% is 1.8 pt, ~3 daily sd, above the worst day, and ~5.7 sd above
+#   the mean. It is the least margin of the three, so it is the one that could flake
+#   first; measure before lowering it.
+NET_WINDOW_DAYS = 91            # 13 weeks
+NET_RISE_MAX_SHARE = 0.5
+OVERDUE_SHARE_MAX = 0.15
 WARMUP_DAYS = 45                # LDAR repairs run to 45 days; the overdue pool is seeded stationary
 LDAR_REPAIR_LAG_DAYS = 30       # cumulative repaired must reach ...
 LDAR_REPAIR_BAND = (0.70, 1.00) # ... this share of cumulative detected LAG days earlier
@@ -252,7 +302,7 @@ PM_DISCIPLINE = {"Compressor": "Mechanical", "Pump": "Mechanical", "Separator": 
 TEAM_ROSTER = {stable_key("team", b, d): f"{b} {d}" for b in ANCHORS for d in TEAM_DISCIPLINES}
 
 assert set(PM_DISCIPLINE) == set(EQUIPMENT_TYPES) == set(COMPONENTS_BY_TYPE) == set(METHOD_BY_TYPE)
-assert set(WO_ROOT_CAUSE) == {"Alarm", "Exceedance", "SensorStatus", "Compliance"}
+assert set(WO_ROOT_CAUSE) == {"Alarm", "Exceedance", "SensorStatus", "Compliance", "Trip"}
 assert 0 < PM_ON_TIME_COMPLETION < 1 and 0 <= PM_CATCHUP_SHARE <= 1
 assert abs(sum(LDAR_METHODS.values()) - 1) < 1e-9
 
@@ -362,19 +412,117 @@ def pm_completes(a, k):
     return bool(get_rng("pm_complete", a["equipment_id"], k).random() < PM_ON_TIME_COMPLETION)
 
 
-def pm_seed(a, history_start):
-    """last_completed at the history start: the latest calendar PM before it that completed,
-    drawn with the same completion model, so the overdue pool starts stationary rather than
-    at zero. None for an asset whose calendar starts inside the history."""
+def seed_calibration(assets, state, history_start):
+    """Per equipment type, measured on [history_start, + SEED_CALIBRATION_DAYS):
+    skip_share -- calendar PMs with no Scheduled PM stop starting within 2 h of the due
+    instant (02a skips a PM when the asset is down then); stop_rate -- non-PM Maintenance
+    stops per asset-day. Both feed pm_seed, so the pre-history pool matches what the history
+    itself then does. The first version of the seed modelled incomplete visits only, and the
+    overdue pool climbed ~13% over four months as skips accumulated that the seed never had."""
+    hi = history_start + pd.Timedelta(days=SEED_CALIBRATION_DAYS)
+    m = state[(state["state"] == "Maintenance") & (state["start_ts"] >= history_start)
+              & (state["start_ts"] < hi)]
+    pm_starts = {}
+    for k, g in m[m["cause"] == "Scheduled PM"].groupby("equipment_sk"):
+        pm_starts[int(k)] = np.sort(g["start_ts"].values.astype("datetime64[ns]").astype("int64"))
+    other = m[m["cause"] != "Scheduled PM"].groupby("equipment_sk").size()
+    due, skipped, stops, days = {}, {}, {}, {}
+    for k, a in assets.items():
+        t = a["equipment_type"]
+        lo = max(history_start, a["install"])
+        if lo >= hi:
+            continue
+        days[t] = days.get(t, 0.0) + (hi - lo) / _DAY
+        stops[t] = stops.get(t, 0) + int(other.get(k, 0))
+        span = pd.Timedelta(days=a["freq"])
+        k_lo = int(np.ceil((lo - a["pm_anchor"]) / span))
+        for j in range(max(k_lo, 0), int(np.floor((hi - a["pm_anchor"]) / span)) + 1):
+            g = a["pm_anchor"] + span * j
+            if not (lo <= g < hi - pd.Timedelta(hours=2)):
+                continue
+            due[t] = due.get(t, 0) + 1
+            st = pm_starts.get(k)
+            hit = st is not None and bool(((st >= g.value) & (st <= (g + pd.Timedelta(hours=2)).value)).any())
+            skipped[t] = skipped.get(t, 0) + int(not hit)
+    return {t: {"skip_share": skipped.get(t, 0) / due[t] if due.get(t) else 0.0,
+                "stop_rate": stops.get(t, 0) / days[t] if days.get(t) else 0.0}
+            for t in set(due) | set(days)}
+
+
+def pm_seed(a, history_start, calib):
+    """last_completed at the history start, drawn from the same process the history then
+    runs, so the overdue pool starts at its steady level rather than drifting to it.
+
+    Walking back over calendar PMs k0, k0-1, ...: visit j happened with probability
+    1 - skip_share and completed with PM_ON_TIME_COMPLETION (the completion drawn with the
+    history's own pm_completes key). If it did not, a catch-up in the gap after it (to the
+    next visit, or to the history start) happened with probability
+    1 - exp(-PM_CATCHUP_SHARE x stop_rate x gap_days), at a drawn point in that gap. The
+    first of these found is the last completion. None for an asset whose calendar starts
+    inside the history."""
     if a["pm_anchor"] >= history_start:
         return None
-    k0 = int(np.floor((history_start - a["pm_anchor"]) / pd.Timedelta(days=a["freq"])))
+    c = calib.get(a["equipment_type"], {"skip_share": 0.0, "stop_rate": 0.0})
+    span = pd.Timedelta(days=a["freq"])
+    k0 = int(np.floor((history_start - a["pm_anchor"]) / span))
     for k in range(k0, k0 - PM_SEED_CYCLES, -1):
         if k < 0:
-            break
-        if pm_completes(a, k):
-            return a["pm_anchor"] + pd.Timedelta(days=a["freq"] * k)
-    return a["pm_anchor"] + pd.Timedelta(days=a["freq"] * max(k0 - PM_SEED_CYCLES + 1, 0))
+            # Every calendar PM since install failed or was skipped: the asset has never had a
+            # PM, so it is due at its first calendar point (None). The first version fell
+            # through to the fallback below and treated that first visit as COMPLETED, which
+            # started young-but-established assets not overdue when they were. The overdue
+            # pool then climbed for weeks as the history "discovered" them.
+            return None
+        g = a["pm_anchor"] + span * k
+        r = get_rng("pm_seed", a["equipment_id"], k)
+        if r.random() >= c["skip_share"] and pm_completes(a, k):
+            return g
+        gap = min(g + span, history_start) - g
+        if r.random() < 1.0 - np.exp(-PM_CATCHUP_SHARE * c["stop_rate"] * (gap / _DAY)):
+            return (g + gap * float(r.random())).floor("s")
+    return a["pm_anchor"] + span * max(k0 - PM_SEED_CYCLES + 1, 0)
+
+
+def net_rise_share(count, entries, n=NET_WINDOW_DAYS):
+    """(net / entries, net, entries) over the last n days of a daily backlog count: the count's
+    change from the window's first day to its last, against the arrivals into the backlog
+    after that first day. entries[t] is what arrived on day t (overdue_entries(), or new LDAR
+    detections)."""
+    c, e = np.asarray(count[-n:]), np.asarray(entries[-n:])
+    net, ent = int(c[-1]) - int(c[0]), int(e[1:].sum())
+    return net / max(ent, 1), net, ent
+
+
+def strictly_rising(weekly):
+    """Every weekly mean strictly above the one before it (needs at least two weeks)."""
+    return len(weekly) >= 2 and bool(np.all(np.diff(np.asarray(weekly, dtype=float)) > 0))
+
+
+def split_cohorts(assets, history_start):
+    """(established, young): assets whose PM calendar starts before the history, and so were
+    seeded, and assets whose FIRST PM falls inside it. Only the first can be stationary from
+    day one. The young cohort starts at zero overdue and fills as its members reach their
+    first due date, and about 1 - PM_ON_TIME_COMPLETION of those first visits fail. 01b
+    freezes installs at TOPOLOGY_AS_OF, so no newer cohort replaces it; the transient runs
+    until the youngest calendar has passed once, up to a year. It is bounded, not a leak."""
+    est = {k: a for k, a in assets.items() if a["pm_anchor"] < history_start}
+    young = {k: a for k, a in assets.items() if a["pm_anchor"] >= history_start}
+    return est, young
+
+
+def young_bound(young, days):
+    """Upper bound on the young cohort's overdue count at each day end: twice the expected
+    failure share of the members already past their first due date, plus 10 for the scatter
+    of small numbers early on (and for first visits still in progress at midnight)."""
+    return np.array([10.0 + (2.0 * (1.0 - PM_ON_TIME_COMPLETION)
+                                 * sum(1 for a in young.values() if a["pm_anchor"] < d + _DAY))
+                     for d in days])
+
+
+def weekly_means(daily):
+    """Means of whole weeks only; a trailing partial week is dropped."""
+    n = len(daily) // 7
+    return [float(np.mean(daily[7 * i:7 * i + 7])) for i in range(n)]
 
 
 def next_due(a, last_completed):
@@ -571,7 +719,7 @@ LDAR_LOOKBACK = pd.Timedelta(days=LDAR_DELAY_DAYS[1] + 1)   # a survey's repairs
 
 
 # ---- pass 1's read -----------------------------------------------------------------------------------------
-def prior_state(assets, fac, si, maint_rows, insp_rows, window_start, history_start):
+def prior_state(assets, fac, si, maint_rows, insp_rows, window_start, history_start, calib):
     """What pass 1 carries in at window_start, selected on timestamps (03b's lesson: after a
     rerun the stored rows are as of a later horizon, so status or snapshot columns would
     describe the wrong instant).
@@ -583,7 +731,7 @@ def prior_state(assets, fac, si, maint_rows, insp_rows, window_start, history_st
     - surveys: plans of surveys dated in the LDAR lookback, regenerated from the calendar,
       so their repairs can keep completing. Their stored rows are checked against these.
     """
-    last = {k: pm_seed(a, history_start) for k, a in assets.items()}
+    last = {k: pm_seed(a, history_start, calib) for k, a in assets.items()}
     if len(maint_rows):
         done = maint_rows[(maint_rows["maintenance_type"] == "Preventive")
                           & maint_rows["is_completed"].astype(bool)
@@ -689,29 +837,48 @@ def pm_snapshot(assets, last, horizon):
     return rows
 
 
-def overdue_trajectory(assets, maint_rows, days, history_start):
-    """Overdue PMs at the end of each day, from completed preventive records plus the seed --
-    the same answer in either run mode, because it reads the records, not a snapshot."""
+def overdue_flags(assets, maint_rows, days, history_start, calib):
+    """(assets x days) booleans: whether each asset's PM was overdue at the end of each day,
+    from completed preventive records plus the seed -- the same answer in either run mode,
+    because it reads the records, not a snapshot."""
     comp = {}
     if len(maint_rows):
         d = maint_rows[(maint_rows["maintenance_type"] == "Preventive")
                        & maint_rows["is_completed"].astype(bool)]
         for k, g in d.groupby("equipment_sk"):
-            comp[int(k)] = np.sort(pd.to_datetime(g["maintenance_ts"]).values.astype("int64"))
-    seed = {k: pm_seed(a, history_start) for k, a in assets.items()}
-    out = []
-    for day in days:
+            # datetime64[ns] explicitly. Spark's toPandas gives datetime64[us] in Fabric, and
+            # .astype("int64") on that yields MICROSECONDS, compared below against a
+            # nanosecond day boundary. Every completion then read as "before" every day and
+            # came back as a 1970 date, so every asset with a completed PM counted as overdue
+            # on every day: a series climbing 1,527 -> 1,773 beside a correct snapshot of 299.
+            comp[int(k)] = np.sort(pd.to_datetime(g["maintenance_ts"]).values
+                                   .astype("datetime64[ns]").astype("int64"))
+    seed = {k: pm_seed(a, history_start, calib) for k, a in assets.items()}
+    out = np.zeros((len(assets), len(days)), dtype=bool)
+    for t, day in enumerate(days):
         h = day + _DAY
-        n = 0
-        for k, a in assets.items():
+        for r, (k, a) in enumerate(assets.items()):
             if a["install"] >= h:
                 continue
             c = comp.get(k)
             j = int(np.searchsorted(c, h.value, "left")) if c is not None else 0
             lc = pd.Timestamp(int(c[j - 1])) if j else seed[k]
-            n += int(next_due(a, lc) < h)
-        out.append(n)
-    return np.array(out)
+            out[r, t] = next_due(a, lc) < h
+    return out
+
+
+def overdue_trajectory(assets, maint_rows, days, history_start, calib):
+    """Overdue PMs at the end of each day. Its last value must equal fact_pm_schedule's
+    overdue count; the notebook asserts it."""
+    return overdue_flags(assets, maint_rows, days, history_start, calib).sum(axis=0)
+
+
+def overdue_entries(flags):
+    """Assets that BECAME overdue on each day (not overdue at the previous day's end, overdue
+    at this one's); 0 on the first day, which has no previous day in the window."""
+    e = np.zeros(flags.shape[1], dtype=int)
+    e[1:] = (flags[:, 1:] & ~flags[:, :-1]).sum(axis=0)
+    return e
 
 
 def ldar_cumulative(surveys, days):
@@ -839,6 +1006,10 @@ for _c in ("start_ts", "end_ts"):
     state_pdf[_c] = pd.to_datetime(state_pdf[_c])
 state_pdf["cause"] = state_pdf["cause"].where(state_pdf["cause"].notna(), None)
 SI = state_index(state_pdf)
+assert STATE_HORIZON >= HISTORY_START + pd.Timedelta(days=SEED_CALIBRATION_DAYS), (
+    f"the seed calibrates on the first {SEED_CALIBRATION_DAYS} days of state history, which "
+    "do not exist yet -- run 02a's backfill first")
+CALIB = seed_calibration(ASSETS, state_pdf, HISTORY_START)
 
 wo_pdf = (read_input("fact_work_order")
           .select("work_order_id", "equipment_sk", "source", "status", "created_ts", "closed_ts",
@@ -853,6 +1024,9 @@ print(f"{len(state_pdf):,} state intervals; "
       f"Scheduled PM and "
       f"{int(((state_pdf['state'] == 'Maintenance') & (state_pdf['cause'] != 'Scheduled PM')).sum()):,} "
       "other Maintenance intervals")
+print("PM seed calibration (first " + str(SEED_CALIBRATION_DAYS) + " days of state): "
+      + "; ".join(f"{t} skip {v['skip_share']:.1%}, stops {v['stop_rate'] * 30:.2f}/30d"
+                  for t, v in sorted(CALIB.items())))
 print(f"{len(wo_pdf):,} work orders from {WO_START.date()} ({int((wo_pdf['status'] == 'Closed').sum()):,} "
       "closed); corrective records exist only from there")
 
@@ -888,7 +1062,8 @@ stored_maint = _read(MAINT_TABLE, ["maintenance_ts"])
 stored_insp = _read(INSP_TABLE, ["inspection_ts"])
 stored_ldar = _read(LDAR_TABLE, ["survey_ts"])
 if RUN_MODE == "incremental":
-    prior = prior_state(ASSETS, fac_pdf, SI, stored_maint, stored_insp, WINDOW_START, HISTORY_START)
+    prior = prior_state(ASSETS, fac_pdf, SI, stored_maint, stored_insp, WINDOW_START, HISTORY_START,
+                        CALIB)
     if len(stored_ldar):
         _chk = stored_ldar.set_index("survey_sk")
         for _s in prior["surveys"]:
@@ -897,7 +1072,7 @@ if RUN_MODE == "incremental":
                     f"survey {_s['survey_sk']}: stored leaks_detected disagrees with its plan -- a "
                     "survey's plan must never change. Run a backfill.")
 else:
-    prior = {"last_completed": {k: pm_seed(a, HISTORY_START) for k, a in ASSETS.items()},
+    prior = {"last_completed": {k: pm_seed(a, HISTORY_START, CALIB) for k, a in ASSETS.items()},
              "parents": [], "surveys": []}
 
 m_rows, i_rows, l_rows, last_completed = run_window(
@@ -1198,16 +1373,38 @@ print("OK  inspection results consistent; LDAR repaired + outstanding = detected
 
 # ### Backlogs — the trajectory, not a day
 #
-# Two backlogs. **Overdue PMs**: the pre-history seed starts the pool stationary, so the
-# trend is judged over the last `TREND_WINDOW_DAYS`. **Outstanding LDAR leaks**: they start
-# from zero at the first survey, so both checks wait out `WARMUP_DAYS`. Cumulative repaired
-# must reach `LDAR_REPAIR_BAND[0]` of cumulative detected `LDAR_REPAIR_LAG_DAYS` earlier,
-# the design note's "≥70% with lag".
+# Two backlogs, and one number for each that a dashboard should bind to.
+#
+# - **Overdue PMs now** is `fact_pm_schedule`, as of the horizon: the count of `is_overdue`.
+#   It is **the dashboard figure**.
+# - **Overdue PMs by day** is rebuilt from `fact_maintenance`, to judge the trajectory. It is
+#   the same quantity, the assets whose `next_due_ts` had passed at each day's end, so its
+#   last day **must equal** the snapshot, and the run asserts it. They once disagreed by a
+#   factor of five, 1,773 against 299, because of a unit bug in the rebuild, not because
+#   they measure different things.
+# - **Outstanding LDAR leaks** start from zero at the first survey, so their checks wait out
+#   `WARMUP_DAYS`. Cumulative repaired must reach `LDAR_REPAIR_BAND[0]` of cumulative
+#   detected `LDAR_REPAIR_LAG_DAYS` earlier, the design note's "≥70% with lag".
+#
+# A backlog fails on any of: a slope over 25% of the level in the last 14 days; a net rise
+# over the last `NET_WINDOW_DAYS` of `NET_RISE_MAX_SHARE` or more of the entries into it; every
+# weekly mean in that window above the last; or (overdue PMs only) an overdue share of assets
+# above `OVERDUE_SHARE_MAX`. The constants cell records why this replaced a count of
+# consecutive weekly rises, and the multi-seed margin behind each threshold.
 
 # CELL ********************
 
 DAYS = pd.date_range(HISTORY_START, HORIZON - _DAY, freq="D")
-overdue_traj = overdue_trajectory(ASSETS, maint, DAYS, HISTORY_START)
+overdue_traj = overdue_trajectory(ASSETS, maint, DAYS, HISTORY_START, CALIB)
+_EST, _YOUNG = split_cohorts(ASSETS, HISTORY_START)
+_flags_est = overdue_flags(_EST, maint, DAYS, HISTORY_START, CALIB)
+overdue_est = _flags_est.sum(axis=0)
+overdue_young = overdue_trajectory(_YOUNG, maint, DAYS, HISTORY_START, CALIB)
+assert (overdue_est + overdue_young == overdue_traj).all(), "the cohorts do not partition the count"
+_od_now = int(pm["is_overdue"].sum())
+assert int(overdue_traj[-1]) == _od_now, (
+    f"the daily overdue rebuild ends at {int(overdue_traj[-1])} but fact_pm_schedule says "
+    f"{_od_now} -- the two must be the same count, so one of them is wrong")
 _by_fac = {}
 for _a in ASSETS.values():
     _by_fac.setdefault(_a["facility_sk"], []).append(_a)
@@ -1231,20 +1428,49 @@ PM_COMPLETION = float(_sched_w["is_completed"].mean()) if len(_sched_w) else flo
 print(f"PM visits (02a Scheduled PM intervals): {len(_sched_w):,}; completed {PM_COMPLETION:.1%} "
       f"(target {PM_ON_TIME_COMPLETION:.0%}); catch-ups in other stops "
       f"{int((_p['maintenance_ts'].isin(_mi.loc[_mi['cause'] != 'Scheduled PM', 'end_ts'])).sum())}")
-print(f"overdue PMs now: {len(_od):,} of {len(pm):,} ({len(_od) / max(len(pm), 1):.1%}); days overdue "
+print(f"OVERDUE PMs NOW (fact_pm_schedule, as of {HORIZON:%Y-%m-%d %H:%M} UTC = end of "
+      f"{(HORIZON - _DAY).date()}; the dashboard figure): {len(_od):,} of {len(pm):,} "
+      f"({len(_od) / max(len(pm), 1):.1%}); days overdue "
       + ("  ".join(f"p{q} {np.percentile(_od['days_overdue'], q):.0f}" for q in (25, 50, 75, 90))
          + f"  max {_od['days_overdue'].max():.0f}" if len(_od) else "-"))
-print("overdue PMs by week: " + "  ".join(str(int(overdue_traj[i:i + 7].mean()))
-                                          for i in range(0, len(overdue_traj), 7)))
+OVERDUE_WEEKLY = weekly_means(overdue_est)
+_YB = young_bound(_YOUNG, DAYS)
+print(f"overdue PMs by day, rebuilt from {MAINT_TABLE}, weekly means (last day "
+      f"{int(overdue_traj[-1])} = the snapshot):")
+print("  all assets              " + "  ".join(f"{v:.0f}" for v in weekly_means(overdue_traj)))
+print(f"  established ({len(_EST):,})       " + "  ".join(f"{v:.0f}" for v in OVERDUE_WEEKLY)
+      + "   <- must be stationary")
+print(f"  first PM in window ({len(_YOUNG):,})  "
+      + "  ".join(f"{v:.0f}" for v in weekly_means(overdue_young))
+      + f"   <- fills as the cohort reaches first due; bound now {_YB[-1]:.0f}")
 print(f"LDAR: {len(ALL_SURVEYS)} surveys, cumulative detected {cum_det[-1]:,}, repaired "
       f"{cum_rep[-1]:,}, outstanding {outstanding[-1]:,}")
 print("LDAR outstanding by week: " + "  ".join(str(int(outstanding[i:i + 7].mean()))
                                                for i in range(0, len(outstanding), 7)))
 if _enough:
-    _r = _rise(overdue_traj)
-    assert _r <= TREND_MAX_RISE * max(overdue_traj[-TREND_WINDOW_DAYS:].mean(), 1.0), (
+    _r = _rise(overdue_est)
+    assert _r <= TREND_MAX_RISE * max(overdue_est[-TREND_WINDOW_DAYS:].mean(), 1.0), (
         f"overdue PMs rose {_r:+.1f} over the last {TREND_WINDOW_DAYS} days -- the overdue "
         "population is growing, which is the V1 defect")
+    _share, _net, _ent = net_rise_share(overdue_est, overdue_entries(_flags_est))
+    assert _share < NET_RISE_MAX_SHARE, (
+        f"established overdue PMs rose {_net:+d} over the last {NET_WINDOW_DAYS} days against "
+        f"{_ent} entries ({_share:+.2f}, max {NET_RISE_MAX_SHARE}): assets enter the backlog and "
+        "do not leave it")
+    _wk_tail = weekly_means(overdue_est[-NET_WINDOW_DAYS:])
+    assert not strictly_rising(_wk_tail), (
+        f"established overdue PMs rose every week for {len(_wk_tail)} weeks "
+        f"({', '.join(f'{v:.0f}' for v in _wk_tail)}). A steady climb is a growing backlog "
+        "whatever its slope.")
+    _peak_e = float(overdue_est.max()) / max(len(_EST), 1)
+    _peak_a = float(overdue_traj.max()) / max(len(ASSETS), 1)
+    assert max(_peak_e, _peak_a) <= OVERDUE_SHARE_MAX, (
+        f"overdue share peaked at {_peak_e:.1%} of established assets, {_peak_a:.1%} of all "
+        f"(ceiling {OVERDUE_SHARE_MAX:.0%})")
+    _over = int((overdue_young > _YB).sum())
+    assert _over == 0, (f"the first-PM cohort's overdue count exceeded its bound on {_over} day(s) "
+                        f"(max {int(overdue_young.max())} against {_YB.max():.0f}): more than twice "
+                        "the failures its first visits should produce")
     _lag = LDAR_REPAIR_LAG_DAYS
     _ok = [cum_rep[i] >= LDAR_REPAIR_BAND[0] * cum_det[i - _lag] for i in range(WARMUP_DAYS, len(DAYS))]
     assert all(_ok) and (cum_rep <= cum_det).all(), (
@@ -1253,8 +1479,17 @@ if _enough:
     _ro = _rise(outstanding)
     assert _ro <= TREND_MAX_RISE * max(outstanding[-TREND_WINDOW_DAYS:].mean(), 1.0), (
         f"LDAR outstanding rose {_ro:+.1f} over the last {TREND_WINDOW_DAYS} days")
-    print(f"OK  overdue PMs not trending ({_r:+.1f}); LDAR repaired >= {LDAR_REPAIR_BAND[0]:.0%} of "
-          f"detected {_lag} d earlier on every day; outstanding not trending ({_ro:+.1f})")
+    _ls, _ln, _le = net_rise_share(outstanding[WARMUP_DAYS:], np.diff(cum_det, prepend=0)[WARMUP_DAYS:])
+    assert _ls < NET_RISE_MAX_SHARE, (
+        f"LDAR outstanding rose {_ln:+d} against {_le} detections after warm-up ({_ls:+.2f})")
+    assert not strictly_rising(weekly_means(outstanding[WARMUP_DAYS:][-NET_WINDOW_DAYS:])), \
+        "LDAR outstanding rose every week after warm-up"
+    print(f"OK  established assets' overdue PMs not trending (slope {_r:+.1f} over 14 d; net "
+          f"{_net:+d} against {_ent} entries = {_share:+.2f} of max {NET_RISE_MAX_SHARE}; not "
+          f"monotonic; peak share {max(_peak_e, _peak_a):.1%} of max {OVERDUE_SHARE_MAX:.0%}); "
+          f"first-PM cohort inside its bound; the rebuild ends at the snapshot's {_od_now}")
+    print(f"OK  LDAR repaired >= {LDAR_REPAIR_BAND[0]:.0%} of detected {_lag} d earlier on every day; "
+          f"outstanding not trending (slope {_ro:+.1f}; net {_ln:+d} against {_le} detected = {_ls:+.2f})")
 else:
     print(f"NOTE  {len(DAYS)} days of history; the backlog checks need "
           f"{WARMUP_DAYS + TREND_WINDOW_DAYS}. NOT asserted this run.")
@@ -1320,7 +1555,8 @@ print("=" * 76)
 print("MAINTENANCE, INSPECTIONS AND LDAR GENERATED")
 print("=" * 76)
 print(f"  run mode          {RUN_MODE}   window {WINDOW_START.date()} .. {WINDOW_END.date()}")
-print(f"  PM schedule       {len(pm):,} assets, {len(_od):,} overdue as of {HORIZON.date()}")
+print(f"  PM schedule       {len(pm):,} assets; overdue now {len(_od):,} (fact_pm_schedule, as of "
+      f"end of {(HORIZON - _DAY).date()} -- the dashboard figure)")
 print(f"  maintenance       {len(maint):,} records ({len(_p):,} preventive, {len(_c):,} corrective)")
 print(f"  inspections       {len(insp):,}; Leak Found {int((insp['result'] == 'Leak Found').sum()):,}")
 print(f"  LDAR              {len(ldar):,} surveys; outstanding leaks {outstanding[-1]:,}")

@@ -156,7 +156,9 @@ def upstream(g, start, end):
                                                 "sub_basin": r.sub_basin}
                          for r in ax.itertuples()},
            "team_name": g["TEAM_ROSTER"]}
-    return dict(alarms=al, outages=out, sensors=sen, flags=fl, state=st, ctx=ctx,
+    # 02a's Down intervals are all trips (cause 'Trip'); keyed as 02a keys state_sk
+    crit = dict(zip(assets["equipment_sk"].astype(int), assets["criticality"]))
+    return dict(alarms=al, outages=out, sensors=sen, flags=fl, state=st, ctx=ctx, crit=crit,
                 tags=pd.DataFrame(tags, columns=["tag_sk", "tag_id", "equipment_sk", "cad"]))
 
 
@@ -176,8 +178,11 @@ def as_of(g, U, horizon, source_start):
               .dt.total_seconds() > g["SENSOR_OFFLINE_MULTIPLE"] * run["cad"]]
     st = HE.cut_state(U["state"], horizon)
     maint = st[st["state"] == "Maintenance"][["equipment_sk", "start_ts", "end_ts"]]
+    trips = st[st["state"] == "Down"][["equipment_sk", "start_ts"]].copy()
+    trips["state_sk"] = [g["stable_key"]("state", int(e), t.isoformat())
+                         for e, t in zip(trips["equipment_sk"], trips["start_ts"])]
     src = g["build_sources"](al, fl, U["sensors"], 3600, leaves, run[["tag_sk", "tag_id",
-                             "equipment_sk", "off_ts"]], maint, horizon)
+                             "equipment_sk", "off_ts"]], maint, horizon, None, trips, U["crit"])
     src = src[src["trigger_ts"] >= source_start].reset_index(drop=True)
     stops = {}
     for k, gg in st[st["state"].isin(["Down", "Maintenance"])].groupby("equipment_sk"):
@@ -406,6 +411,12 @@ def check_compliance_mapping(g):
     assert list(later["source_ref"]) == [11], "a violation found after the horizon raised a ticket"
     print("OK  compliance mapping: violations only, at the finding, P1 Critical / P2 Major; "
           "reports, closed and undecided cases raise nothing")
+    tr = pd.DataFrame({"state_sk": [1, 2, 3, 4], "equipment_sk": [10, 11, 12, 13],
+                       "start_ts": pd.to_datetime(["2026-09-01"] * 4)})
+    t = g["trip_sources"](tr, {10: "Critical", 11: "High", 12: "Medium", 13: "Low"})
+    assert list(t["priority"]) == ["P1", "P2", "P3", "P4"] and (t["source"] == "Trip").all()
+    assert list(t["source_ref"]) == [1, 2, 3, 4] and (t["trigger_ts"] == tr["start_ts"]).all()
+    print("OK  trip mapping: a Down/Trip interval raises a ticket at the trip, P1-P4 by criticality")
 
 
 if __name__ == "__main__":

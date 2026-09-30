@@ -42,6 +42,7 @@
 # | `Exceedance` | a CH₄ detector's `exceedance_flag` holds for `EXCEEDANCE_MIN_READINGS` consecutive readings. A single flagged reading does not | P2 |
 # | `Compliance` | a compliance case reaching **Violation** in `fact_compliance_event` (03c), at the instant of the finding. Reports and undecided cases raise nothing | P1 Critical, P2 Major |
 # | `SensorStatus` | a SCADA tag stays offline for `OFFLINE_TICKET_HOURS` with no Maintenance on its asset | P3 |
+# | `Trip` | an asset trips: a transition into `Down` with cause `Trip` in `fact_asset_state`, at the trip instant | by criticality: P1 Critical, P2 High, P3 Medium, P4 Low |
 #
 # **`fact_emission_episode` is never read.** It is the hidden ground truth. A ticket sourced
 # from an episode would make every downstream claim that "the work order responded to the
@@ -224,7 +225,7 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 from collections import defaultdict
 from statistics import NormalDist
 
-WO_SOURCES = ("Alarm", "Exceedance", "Compliance", "SensorStatus")
+WO_SOURCES = ("Alarm", "Exceedance", "Compliance", "SensorStatus", "Trip")
 SOURCE_ORDER = {s: i for i, s in enumerate(WO_SOURCES)}      # tie-break at one instant
 WO_PRIORITIES = ("P1", "P2", "P3", "P4")
 PRIORITY_RANK = {p: i for i, p in enumerate(WO_PRIORITIES)}  # lower = more urgent
@@ -343,7 +344,7 @@ WO_HANDS_ON_SHARE = (0.05, 0.20)         # share of the elapsed resolution a cre
 PARTS_MEDIAN_USD = {"Compressor": 1200.0, "Pump": 600.0, "Separator": 450.0,
                     "Storage Tank": 400.0, "Flare": 500.0, "Metering Station": 300.0,
                     "Valve": 200.0, "Pipeline Segment": 800.0}
-SOURCE_PARTS_FACTOR = {"Alarm": 1.0, "Exceedance": 0.8, "Compliance": 1.0,
+SOURCE_PARTS_FACTOR = {"Alarm": 1.0, "Exceedance": 0.8, "Compliance": 1.0, "Trip": 1.0,
                        "SensorStatus": 0.25}  # a transmitter or radio, not the machine
 PARTS_SIGMA = 1.1
 
@@ -356,7 +357,7 @@ for _p in WO_PRIORITIES:
 assert set(ALARM_DIRECT_PRIORITIES) <= {"P1", "P2"}, "P3 and P4 never raise directly"
 assert ALARM_P2_MODE in ("direct", "gated")
 assert set(ALARM_DISCIPLINE) == set(EQUIPMENT_TYPES) == set(PARTS_MEDIAN_USD)
-assert set(SOURCE_DISCIPLINE) | {"Alarm"} == set(WO_SOURCES) == set(SOURCE_PARTS_FACTOR)
+assert set(SOURCE_DISCIPLINE) | {"Alarm", "Trip"} == set(WO_SOURCES) == set(SOURCE_PARTS_FACTOR)
 assert set(CREW_RATE_USD_H) == set(TEAM_DISCIPLINES)
 # The exit must sit well beyond any real resolution, so it only ever catches stalled work:
 # 1.5x the slowest priority's p99.9 (P4, ~733 h, so ~1,100 h against 1,440 h) leaves a
@@ -391,7 +392,10 @@ def _candidates(trigger_ts, source, source_ref, priority, equipment_sk, tag_sk, 
 
 
 def discipline_for(source, equipment_type):
-    return ALARM_DISCIPLINE[equipment_type] if source == "Alarm" else SOURCE_DISCIPLINE[source]
+    """Alarms and trips go to the discipline that owns the equipment; the rest by source."""
+    if source in ("Alarm", "Trip"):
+        return ALARM_DISCIPLINE[equipment_type]
+    return SOURCE_DISCIPLINE[source]
 
 
 def _recurring(al, count, hours):
@@ -524,13 +528,48 @@ def compliance_sources(ce, responsible_asset, horizon):
                         zip(v["event_type"], v["compliance_id"], v["severity"])])
 
 
+# Trip: 02a takes an asset straight from Running to Down with cause 'Trip' on an unplanned
+# stop. Alarms are suppressed while an asset is Down, so a trip raised no ticket, and most of
+# 02a's corrective Maintenance stops had no work order behind them: 670 of 690 in 03d's
+# first run. The trip itself is the observable: SCADA sees the machine stop. Priority is
+# by the asset's criticality, a modelling choice. P4 means a low-criticality trip still gets
+# a ticket, on the slowest SLA.
+TRIP_PRIORITY = {"Critical": "P1", "High": "P2", "Medium": "P3", "Low": "P4"}
+# Which trips raise a ticket.
+# "instrumented" (chosen): only trips on assets that carry SCADA tags. A control room sees
+# those machines stop, so the trip is an observable signal at its instant, like every other
+# source here. A trip on an asset with no tags is learned about from a field visit or a
+# production shortfall, not at the trip, so it raises no automatic ticket.
+# "all": every Down/Trip interval in fact_asset_state, kept switchable.
+# Measured on the offline stream (30 days; tickets/day including stalled, active open at the
+# horizon):
+#   no Trip source   17.6/day,  58 active open
+#   "instrumented"   23.9/day,  76 active open   196 of 533 trips (37%), all Critical/High
+#   "all"            34.6/day, 152 active open   adds 337 trips on untagged, mostly Medium/Low assets
+TRIP_SCOPE = "instrumented"
+assert TRIP_SCOPE in ("all", "instrumented")
+
+
+def trip_sources(trips, criticality_of):
+    """Candidates from fact_asset_state rows with state = 'Down' and cause = 'Trip'
+    (state_sk, equipment_sk, start_ts). The trigger is the trip instant, knowable as soon as
+    02a writes the interval; source_ref is the interval's state_sk."""
+    if trips is None or not len(trips):
+        return _candidates([], "Trip", [], [], [], [], [])
+    pr = [TRIP_PRIORITY[criticality_of[int(e)]] for e in trips["equipment_sk"]]
+    return _candidates(trips["start_ts"], "Trip", trips["state_sk"], pr, trips["equipment_sk"],
+                       [pd.NA] * len(trips), ["asset tripped to Down"] * len(trips))
+
+
 def build_sources(alarms, flags, sensors, ch4_cadence_s, leaves, ongoing, maint, horizon,
-                  compliance=None):
+                  compliance=None, trips=None, criticality_of=None):
     """Every candidate ticket knowable by the horizon, in one deterministic order."""
     parts = [alarm_sources(alarms), exceedance_sources(flags, sensors, ch4_cadence_s),
              offline_sources(leaves, ongoing, maint, horizon)]
     if compliance is not None and len(compliance):
         parts.append(compliance[SOURCE_COLS])
+    if trips is not None and len(trips):
+        parts.append(trip_sources(trips, criticality_of))
     s = pd.concat([p for p in parts if len(p)] or [parts[0]], ignore_index=True)
     assert s["source_ref"].dtype == "int64" and s["equipment_sk"].dtype == "int64",         "a candidate key lost its int64 dtype -- 63-bit keys do not survive float64"
     s = s[s["trigger_ts"] < horizon]
@@ -1130,6 +1169,12 @@ ongoing_pdf = _og[["tag_sk", "tag_id", "equipment_sk", "off_ts"]].reset_index(dr
 
 maint_pdf = (read_input("fact_asset_state").filter("state = 'Maintenance'")
              .select("equipment_sk", "start_ts", "end_ts").toPandas())
+trip_pdf = (read_input("fact_asset_state").filter("state = 'Down' AND cause = 'Trip'")
+            .select("state_sk", "equipment_sk", "start_ts").toPandas())
+trip_pdf["start_ts"] = pd.to_datetime(trip_pdf["start_ts"])
+if TRIP_SCOPE == "instrumented":
+    trip_pdf = trip_pdf[trip_pdf["equipment_sk"].isin(set(tag_pdf["equipment_sk"]))].reset_index(drop=True)
+CRITICALITY_OF = dict(zip(eq_pdf["equipment_sk"].astype(int), eq_pdf["criticality"]))
 stop_pdf = (read_input("fact_asset_state").filter("state IN ('Down', 'Maintenance')")
             .select("equipment_sk", "start_ts", "end_ts").toPandas())
 _OPEN_NS = np.iinfo("int64").max
@@ -1173,7 +1218,7 @@ for _f in (maint_pdf,):
     _f["start_ts"], _f["end_ts"] = pd.to_datetime(_f["start_ts"]), pd.to_datetime(_f["end_ts"])
 
 sources = build_sources(alarm_pdf, flag_pdf, sen_pdf, CH4_CADENCE_S, leave_pdf, ongoing_pdf,
-                        maint_pdf, SOURCE_END, compliance_pdf)
+                        maint_pdf, SOURCE_END, compliance_pdf, trip_pdf, CRITICALITY_OF)
 sources = sources[sources["trigger_ts"] >= SOURCE_START].reset_index(drop=True)
 
 print(f"alarms {len(alarm_pdf):,}   flagged CH4 readings {len(flag_pdf):,}   "
@@ -1403,6 +1448,17 @@ _seen |= {stable_key("tag_offline", t, s.isoformat())
 _miss = set(_x["source_ref"]) - _seen
 assert not _miss, (f"{len(_miss)} SensorStatus ticket(s) matching neither a status event nor an "
                    "ongoing gap in scada_telemetry")
+
+_x = wo[_in_ret & (wo["source"] == "Trip")]
+if len(_x):
+    _tr = trip_pdf.set_index("state_sk")
+    _miss = set(_x["source_ref"]) - set(_tr.index)
+    assert not _miss, f"{len(_miss)} Trip ticket(s) with no Down/Trip interval in fact_asset_state"
+    _tx = _tr.loc[_x["source_ref"]]
+    assert (_tx["equipment_sk"].values == _x["equipment_sk"].values).all(), "Trip ticket on the wrong asset"
+    assert (_tx["start_ts"].values == _x["created_ts"].values).all(), "Trip ticket not raised at the trip"
+    assert (_x["priority"].values == _x["equipment_sk"].map(
+        lambda e: TRIP_PRIORITY[CRITICALITY_OF[int(e)]]).values).all(), "Trip priority is not by criticality"
 
 _x = wo[_in_ret & (wo["source"] == "Compliance")]
 if len(_x):
