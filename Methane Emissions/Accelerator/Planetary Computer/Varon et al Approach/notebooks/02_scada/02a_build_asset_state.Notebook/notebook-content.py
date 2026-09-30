@@ -295,7 +295,18 @@ def simulate(asset, state, cause, start_ts, until_ts):
 
     Returns closed intervals plus the single open one. The open interval is the one whose
     start is before until_ts and whose end is at or after it.
+
+    The window is half-open, [start, until), like every other table's. An interval that would
+    START at or after until_ts belongs to the next window, so a seed at until_ts (an asset
+    installed exactly at the window end) returns nothing. That asset has no state until the
+    next window opens. The first version appended the seed's open interval regardless. Every
+    asset installed on TOPOLOGY_AS_OF then got an interval starting at 00:00 of that day,
+    filed under that date_sk, and consumers reading the horizon as max(date_sk) + 1 day saw
+    one day more state than exists. Three assets under the current seed; 03d's horizon read
+    09-16 against every other source's 09-15.
     """
+    if start_ts >= until_ts:
+        return []
     out = []
     while True:
         dur, nxt_state, nxt_cause = step(asset, state, cause, start_ts)
@@ -431,6 +442,9 @@ print(f"pass 2: {len(state_pdf):,} intervals generated "
 
 new_sks = set(state_pdf["state_sk"])
 affected_lo = int(state_pdf["date_sk"].min())
+# WINDOW_END's own partition is swept deliberately. Under the half-open window nothing can be
+# written there, and the validation asserts it, so the sweep empties it. That removes the rows
+# the inclusive boundary used to file there (the open intervals seeded at TOPOLOGY_AS_OF).
 affected_hi = int(WINDOW_END.strftime("%Y%m%d"))
 
 carried = 0
@@ -491,9 +505,19 @@ assert np.allclose(recomputed.values, closed["duration_hours"].values, atol=1e-9
     "duration_hours disagrees with the timestamps"
 assert sdf[sdf["is_open"]]["duration_hours"].isna().all(), "open intervals carry a duration"
 assert sdf[sdf["is_open"]]["end_ts"].isna().all(), "open intervals carry an end_ts"
-assert (sdf["start_ts"] <= AS_OF).all(), (
-    f"{int((sdf['start_ts'] > AS_OF).sum())} interval(s) start after the as-of date"
-)
+# The half-open boundary, enforced rather than assumed: no interval starts at or after the
+# window end, and so none at or after the as-of date. An interval starting exactly at the end
+# belongs to the next window, and filing it here makes max(date_sk) + 1 overstate the horizon.
+assert (sdf["start_ts"] < WINDOW_END).all(), (
+    f"{int((sdf['start_ts'] >= WINDOW_END).sum())} interval(s) start at or after the window end "
+    f"{WINDOW_END} -- the window is half-open; such an interval belongs to the next one")
+assert (sdf["start_ts"] < AS_OF).all(), (
+    f"{int((sdf['start_ts'] >= AS_OF).sum())} interval(s) start at or after the as-of date")
+# ... and exactly the assets installed before the window end have state
+_live = set(eq_pdf.loc[pd.to_datetime(eq_pdf["install_date"]) < WINDOW_END, "equipment_id"])
+assert set(sdf["equipment_id"]) == _live, (
+    f"{len(_live - set(sdf['equipment_id']))} asset(s) installed before the window end have no "
+    f"state, {len(set(sdf['equipment_id']) - _live)} installed at or after it have some")
 
 # --- tiling: no overlaps, no gaps ------------------------------------------------------------------
 gaps, overlaps, multi_open = [], [], []
@@ -556,7 +580,9 @@ assert rows_per_30d < MAX_STATE_ROWS_PER_30D, (
 print("OK  state_sk unique, no nulls in key columns, Running carries no cause")
 print("OK  every equipment_sk resolves to dim_equipment")
 print("OK  end_ts after start_ts; duration_hours agrees with the timestamps")
-print("OK  no start_ts after the as-of date")
+print(f"OK  no interval starts at or after the window end; state for exactly the "
+      f"{len(_live):,} assets installed before it "
+      f"({len(eq_pdf) - len(_live)} installed at or after it have none yet)")
 print(f"OK  intervals tile continuously for all {sdf['equipment_id'].nunique():,} assets "
       "-- no gaps, no overlaps")
 print("OK  exactly one open interval per asset")

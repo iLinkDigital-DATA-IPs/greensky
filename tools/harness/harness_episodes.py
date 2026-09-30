@@ -35,6 +35,7 @@ import harness_alarm_rate as AR
 from harness_alarm_rate import simulate
 
 NB_03A = S.NB / "03_enterprise/03a_gen_emission_episodes.Notebook/notebook-content.py"
+NB_02A = S.NB / "02_scada/02a_build_asset_state.Notebook/notebook-content.py"
 NB_00 = S.NB / "00_prereqs/00_config.Notebook/notebook-content.py"
 NB_01 = S.NB / "01_topology/01_topology_config.Notebook/notebook-content.py"
 MARK = re.compile(r"^# (CELL|MARKDOWN|METADATA) \*{20,}$")
@@ -196,6 +197,50 @@ def full_state(g, assets, history_start, until):
     return pd.concat(out, ignore_index=True)
 
 
+def check_state_machine_matches_02a(g, assets, history_start, until, n=120):
+    """harness_alarm_rate.simulate() against 02a's own state-machine cell, executed verbatim,
+    interval by interval. The copy was not checked against 02a until 2026-09-30, and it had
+    diverged at the boundary: 02a kept an interval seeded exactly at `until`, and the copy
+    dropped it. So no offline run reproduced Fabric's extra date_sk from three assets installed
+    on TOPOLOGY_AS_OF. 02a is now half-open too. This check keeps the two identical, the seed
+    at `until` included."""
+    cell = [c for c in code_cells(NB_02A) if "def simulate(" in c]
+    assert len(cell) == 1, f"expected one 02a state-machine cell, found {len(cell)}"
+    ns = load_config()
+    with contextlib.redirect_stdout(io.StringIO()):
+        exec(compile(cell[0], "02a_state_machine", "exec"), ns)
+    bind_state_machine(g)
+    as_of = pd.Timestamp(g["TOPOLOGY_AS_OF"])
+
+    class A:
+        pass
+
+    pick = assets.iloc[::max(1, len(assets) // n)].copy()
+    edge = pick.iloc[:3].copy()
+    edge["install_date"] = until                 # seeded exactly at the window end
+    compared = 0
+    for r in pd.concat([pick, edge], ignore_index=True).itertuples():
+        a = A()
+        a.equipment_id, a.equipment_type = r.equipment_id, r.equipment_type
+        a.install_date = pd.Timestamp(r.install_date)
+        a.inspection_frequency_days = int(r.inspection_frequency_days)
+        assert a.inspection_frequency_days == g["EQUIPMENT_TYPES"][r.equipment_type]["insp_days"],             "the harness copy takes insp_days from the type; this asset's differs"
+        a.age_years = (as_of - a.install_date).days / 365.25
+        a.pm_phase = ns["pm_phase_days"](a.equipment_id, a.inspection_frequency_days)
+        start = max(history_start, a.install_date)
+        mine = ns["simulate"](a, "Running", None, start, until)
+        theirs = simulate(r.equipment_type, r.equipment_id, a.age_years, a.install_date, start, until)
+        assert len(mine) == len(theirs), (f"{r.equipment_id}: 02a {len(mine)} intervals, harness "
+                                          f"{len(theirs)} (start {start}, until {until})")
+        for (st, _, s0, e0), (st2, s1, e1) in zip(mine, theirs.itertuples(index=False)):
+            assert (st, s0) == (st2, pd.Timestamp(s1)), f"{r.equipment_id}: interval differs at {s0}"
+            assert (e0 is None and pd.Timestamp(e1) >= until) or pd.Timestamp(e1) == e0,                 f"{r.equipment_id}: end differs at {s0}"
+        compared += len(mine)
+    assert all(not ns["simulate"](a, "Running", None, until, until) for _ in [0]),         "02a emits an interval for a seed at the window end"
+    print(f"OK  harness state machine == 02a's own simulate(), verbatim, on {len(pick)} assets "
+          f"({compared:,} intervals) and 3 seeded exactly at the window end (none emitted by either)")
+
+
 def cut_state(st, horizon):
     """fact_asset_state as 02a would have written it with its horizon at `horizon`."""
     s = st[st["start_ts"] < horizon].copy()
@@ -281,6 +326,7 @@ if __name__ == "__main__":
     check_static(g)
 
     assets = estate(g)
+    check_state_machine_matches_02a(g, assets, H0, AS_OF)
     st_full = full_state(g, assets, H0, AS_OF + pd.Timedelta(days=40))
     st_asof = cut_state(st_full, AS_OF)
     print(f"\nsynthetic estate: {len(assets):,} assets on 150 facilities; "

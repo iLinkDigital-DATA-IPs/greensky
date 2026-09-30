@@ -123,8 +123,8 @@ INSP_TABLE = "fact_inspection"
 LDAR_TABLE = "fact_ldar_survey"
 
 INPUT_TABLES = ("dim_facility", "dim_equipment", "dim_sensor", "fact_asset_state",
-                "fact_work_order", "fact_work_order_event", PM_TABLE, MAINT_TABLE,
-                INSP_TABLE, LDAR_TABLE)
+                "fact_work_order", "fact_work_order_event", "scada_telemetry",
+                "sensor_telemetry", PM_TABLE, MAINT_TABLE, INSP_TABLE, LDAR_TABLE)
 
 # The hidden ground truth. An inspector finds what condition makes likely, not what is there.
 GROUND_TRUTH_TABLES = ("fact_emission_episode",)
@@ -997,12 +997,26 @@ print("03d model defined -- PM visits are 02a's Scheduled PM intervals; completi
 
 # ### Run mode and window
 #
-# **The window follows `fact_asset_state`**, as in 03a, because PM visits are its
-# Maintenance intervals. A backfill covers the whole state history (`STATE_HISTORY_DAYS`)
-# and runs both passes day by day. An incremental run takes the last state day, and
-# rerunning it replaces that day. Corrective records need closed work orders, which exist
-# only over 03b's retention, so days before it carry preventive work only. That is stated,
-# not hidden. 03b must have run through the window's last day.
+# **The window ends where every input exists: `SOURCE_END = min(scada_telemetry,
+# sensor_telemetry, fact_asset_state)`**, 03b's rule and 03e's. Every end here is the exclusive
+# end of a half-open window, `max(date_sk) + 1 day`. PM visits are `fact_asset_state`'s
+# Maintenance intervals, but corrective records come from 03b's closed work orders, and 03b
+# stops where the telemetry stops. The window used to follow `fact_asset_state` alone, read as
+# `max(date_sk) + 1 day`. On Fabric that read 09-16 against every other input's 09-15. The
+# cause was in 02a, which is now fixed: it filed an interval STARTING exactly at the window
+# end, seeding each asset installed on `TOPOLOGY_AS_OF` (EQ-00241, EQ-00634 and EQ-00869
+# under the current seed) with an open interval at 00:00 of that day, under that day's date_sk.
+# 02a is half-open now and asserts it. The minimum over sources did not fix that; it is
+# defensive, and keeps 03d inside its inputs if any of them lags for any reason.
+# A day past the work orders is not harmless. Offline, with state genuinely a day ahead, that
+# day kept 12 of its 22 records and lost all 10 corrective ones, and a later run never revisits
+# it. A `>= end - 2 days` guard on the work-order events let it through, so that check is
+# now exact.
+#
+# A backfill covers the whole state history (`STATE_HISTORY_DAYS`) up to `SOURCE_END` and runs
+# both passes day by day. An incremental run takes the last day, and rerunning it replaces
+# that day. Corrective records need closed work orders, which exist only over 03b's retention,
+# so days before it carry preventive work only. That is stated, not hidden.
 
 # CELL ********************
 
@@ -1019,31 +1033,45 @@ try:
 except Exception:
     _start_override, _end_override = "", ""
 
-for _t in ("fact_asset_state", "fact_work_order", "fact_work_order_event"):
-    assert table_exists(_t), f"{_t} does not exist -- run 02a and 03b first"
+for _t in ("fact_asset_state", "fact_work_order", "fact_work_order_event", "scada_telemetry",
+           "sensor_telemetry"):
+    assert table_exists(_t), f"{_t} does not exist -- run 02a, 02b, 02e and 03b first"
+
+
+def _hi(name):
+    """The exclusive end of a table's days: max(date_sk) + 1 day."""
+    m = read_input(name).agg(F.max("date_sk").alias("m")).first()["m"]
+    assert m is not None, f"{name} is empty"
+    return pd.Timestamp(str(int(m))) + _DAY
+
 
 AS_OF = pd.Timestamp(TOPOLOGY_AS_OF)
 HISTORY_START = AS_OF - pd.Timedelta(days=STATE_HISTORY_DAYS)
-_st = read_input("fact_asset_state").agg(F.max("date_sk").alias("m")).first()["m"]
-assert _st is not None, "fact_asset_state is empty -- run 02a first"
-STATE_HORIZON = pd.Timestamp(str(int(_st))) + _DAY
+STATE_HORIZON = _hi("fact_asset_state")
+SOURCE_END = min(_hi("scada_telemetry"), _hi("sensor_telemetry"), STATE_HORIZON)
 
 if RUN_MODE == "backfill":
-    WINDOW_START, WINDOW_END = HISTORY_START, STATE_HORIZON
+    WINDOW_START, WINDOW_END = HISTORY_START, SOURCE_END
 else:
-    WINDOW_END = STATE_HORIZON
+    WINDOW_END = SOURCE_END
     WINDOW_START = WINDOW_END - _DAY
 if _start_override:
     WINDOW_START = pd.Timestamp(_start_override)
 if _end_override:
     WINDOW_END = pd.Timestamp(_end_override)
 WINDOW_START, WINDOW_END = WINDOW_START.normalize(), WINDOW_END.normalize()
-assert HISTORY_START <= WINDOW_START < WINDOW_END <= STATE_HORIZON
+assert HISTORY_START <= WINDOW_START < WINDOW_END <= SOURCE_END, (
+    f"window {WINDOW_START.date()}..{WINDOW_END.date()} is outside the sources' span "
+    f"{HISTORY_START.date()}..{SOURCE_END.date()}")
 
-_ev = read_input("fact_work_order_event").agg(F.max("date_sk").alias("m")).first()["m"]
-assert _ev is not None and pd.Timestamp(str(int(_ev))) >= WINDOW_END - 2 * _DAY, (
-    f"fact_work_order_event ends at date_sk {_ev}, before this window's end "
-    f"{WINDOW_END.date()} -- run 03b first; 03d reads its closed work orders")
+# Exact, not ">= end - 2 days": a tolerance on a horizon is a tolerance on completeness. 03b
+# writes ~70 work-order events a day (31 at the least, offline), so its table's last day is
+# a reliable sign of the horizon 03b ran to.
+_ev = _hi("fact_work_order_event")
+assert _ev == SOURCE_END, (
+    f"fact_work_order_event ends at {(_ev - _DAY).date()}, but the sources' last day is "
+    f"{(SOURCE_END - _DAY).date()} -- run 03b through the same horizon first; 03d reads its "
+    "closed work orders")
 if RUN_MODE == "incremental":
     assert table_exists(MAINT_TABLE), f"{MAINT_TABLE} does not exist -- run a backfill first"
     _mh = read_input(MAINT_TABLE).agg(F.max("maintenance_ts").alias("m")).first()["m"]
@@ -1052,7 +1080,7 @@ if RUN_MODE == "incremental":
         "latest day, or run a backfill.")
 
 print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()}  "
-      f"(state history {HISTORY_START.date()}..{STATE_HORIZON.date()})")
+      f"(sources end {SOURCE_END.date()}; fact_asset_state runs to {STATE_HORIZON.date()})")
 
 # METADATA ********************
 

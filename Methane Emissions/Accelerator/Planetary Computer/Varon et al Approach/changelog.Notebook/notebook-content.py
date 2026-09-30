@@ -1278,3 +1278,148 @@
 # - [ ] 02d: `<=` for boolean-valued tags so pilot-out raises LoLo; re-run 02d, then 03c, 03b.
 # - [ ] Re-verify the regulatory status notes in dim_regulation before any customer demo;
 #       they are dated 2026-09-29.
+
+# MARKDOWN ********************
+
+# ### 2026-09-30 -- Day 15 (In Progress)
+#
+# 03e added (financial impact and facility daily snapshots); the backlog checks reworked
+# around mechanism rather than shape; and a boundary bug in 02a, which made fact_asset_state
+# read one day too long, found and fixed. Underneath it, a structural limit on running the pipeline daily
+# at all: the first item below. Every figure is from the offline harnesses or whole-notebook
+# runs against the pandas Spark stub, except where Fabric is named.
+#
+# #### STRUCTURAL: the pipeline cannot advance past TOPOLOGY_AS_OF (2026-09-15)
+# Not a boundary bug. The daily job the two-pass design (design note §2.3) was built for
+# cannot run as a daily job past a fixed date, and nothing in the pipeline says so.
+# - **What pins it.** TOPOLOGY_AS_OF (01_topology_config) is a fixed date by design. It bounds
+#   commission_date and install_date, so a moving value would age the estate on every rerun.
+#   But the generators take their windows from it too. 02b backfills [AS_OF - 30 d, AS_OF) and
+#   asserts `WINDOW_END <= AS_OF`. 02e caps its window at RAW_END = AS_OF. 02a backfills to
+#   AS_OF and asserts no interval starts at or after it. 02c's raw window is TELEMETRY_RAW_DAYS back
+#   from it. Everything downstream ends where its inputs end.
+# - **What a daily run does after the backfill.** From the code, not yet observed in Fabric:
+#   - 02a incremental: resumes the day after its watermark, generates intervals starting after
+#     AS_OF, and fails its own `start_ts < AS_OF` check.
+#   - 02b incremental: its window 09-15..09-16 fails `WINDOW_END <= AS_OF`.
+#   - 02d incremental: its window starts 09-15 and is capped at the telemetry's 09-15, so it
+#     is empty and fails.
+#   - 02e silently regenerates its last day (09-14), and 03b, 03c, 03d and 03e rerun 09-14.
+#   So the scheduled pipeline either stops at 02a, or, if the failures are tolerated, rewrites
+#   the same day forever. **No table moves forward.** The replaceWhere / pass-1 / pass-2
+#   machinery is correct, but a backfill is the only thing it ever exercises.
+# - **Why simply moving the date does not work.** Design note §2.1: TOPOLOGY_AS_OF is setup,
+#   not a daily input. Bumping it while facts exist shifts every asset's age underneath them,
+#   and derived quantities such as equipment_condition_index move without any fact changing.
+#   Regenerating the topology re-keys equipment_sk and facility_sk (1..N sequences), orphaning
+#   every fact written against the old keys.
+# - **Options** (none attempted in this change):
+#   1. *Split the clocks.* Keep TOPOLOGY_AS_OF as the frozen date the estate was generated at,
+#      bounding install and commission dates only, and give the generators a separate
+#      pipeline run date that advances daily. Ages and conditions are then computed at each
+#      event's own timestamp, not at AS_OF: 02a's `age_years_at_asof` and 02e's `_age` are
+#      the known places. This is the option the two-pass design assumes. It needs an audit of
+#      every AS_OF use in 02a-03e, and each generator's raw-retention window becomes
+#      rolling rather than anchored.
+#   2. *Move TOPOLOGY_AS_OF deliberately, without regenerating the estate.* Possible only if
+#      01a/01b stop deriving anything from it except bounds, and every consumer computes age
+#      at event time (as in option 1). Otherwise every bump re-ages the estate.
+#   3. *Regenerate on a cadence with stable keys.* Make equipment_sk / facility_sk hashes of
+#      the business key (stable_key, as area_sk already is) so a regenerated estate keeps its
+#      keys, then bump AS_OF monthly and backfill every fact table. Honest, but a monthly full
+#      rebuild, not a daily job.
+#   4. *Declare the demo fixed-window.* Backfill only, pinned at AS_OF, and say so on the
+#      dashboard. Cheapest, but it abandons what the design note was written for.
+#   Whichever is chosen, the scheduled pipeline should fail loudly at its first step once the
+#   window would pass AS_OF, rather than rerunning the last day, until this is resolved.
+#
+# #### Found and fixed: fact_asset_state read one day too long (02a's boundary)
+# - **Correction.** I first diagnosed this, in this session, as two clocks disagreeing: 02a's
+#   incremental run walking past TOPOLOGY_AS_OF while 03d took its horizon from state alone.
+#   That was wrong. 02a cannot pass TOPOLOGY_AS_OF: it asserts no interval starts after it.
+#   The cause was three assets installed on 2026-09-15 (EQ-00241, EQ-00634 and EQ-00869 under
+#   the current seed) seeding open intervals exactly at the boundary. The 03d change below
+#   was made on the wrong diagnosis. It is kept, because it is right as defence, but it was
+#   not the fix.
+# - **Mechanism.** Every table is half-open, [start, end), with its horizon read as
+#   `max(date_sk) + 1 day`. 02a alone kept an interval that starts exactly at the window end:
+#   simulate() appended the seed's open interval even when the seed was at `until`, and the
+#   check was `start_ts <= AS_OF`. Each asset installed on TOPOLOGY_AS_OF therefore got an
+#   interval starting at 2026-09-15 00:00, filed under date_sk 20260915, confirmed by running
+#   02a's own simulate(). On Fabric, fact_asset_state's horizon read 09-16 against every other
+#   source's 09-15; 03d followed it, and 03e's strict fact_pm_schedule check failed.
+# - **Fixed in 02a.** simulate() returns nothing for a seed at or after `until`: an asset
+#   installed at the window end has no state until the next window opens, which is what every
+#   consumer already assumes (`install < h`). Validation now enforces the convention rather
+#   than assuming it: no interval starts at or after the window end (or at or after
+#   TOPOLOGY_AS_OF), and exactly the assets installed before the window end have state. A
+#   backfill's replaceWhere sweeps WINDOW_END's own partition, so it clears the stale 20260915
+#   rows.
+# - **The harness copy of 02a was not a faithful copy.** harness_alarm_rate.simulate() loops
+#   `while ts < until`, so it dropped an interval seeded at the window end where 02a kept one.
+#   Nothing had ever checked the copy against 02a, which is why no offline run reproduced
+#   Fabric's 09-16. The copy happened to be right about the boundary, and 02a now matches it.
+#   harness_episodes.py now runs 02a's own state-machine cell verbatim against the copy:
+#   interval by interval on 125 assets (757 intervals), and 3 seeds at the window end, none
+#   emitted by either. With the fix removed from 02a in memory, the check fails ("02a 1
+#   intervals, harness 0").
+# - **Kept as defence: 03d's horizon is min(scada_telemetry, sensor_telemetry,
+#   fact_asset_state)**, 03b's rule and 03e's, with its work-order check exact. It keeps 03d
+#   inside its inputs if any of them lags for any reason. Offline, with state genuinely a day
+#   ahead of the telemetry, the old rule kept 12 of that day's 22 maintenance records and lost
+#   all 10 corrective ones, and a later incremental run never revisits the day. With the new
+#   rule, 03d equals an aligned run on all four tables.
+# - **What Fabric probably holds.** From the code, not observed: 03d's run to 09-16 generated
+#   inspections and LDAR surveys for 09-15 against the three open intervals and every open
+#   interval carried past its end, and fact_pm_schedule was evaluated as of 09-16. Nothing
+#   was lost, since the state was not really a day ahead. See Remaining.
+# - 03a still takes its horizon from fact_asset_state alone. That is right: state is its only
+#   input, and 02b / 02e read its episodes, so it cannot wait for the telemetry. With 02a
+#   fixed, its `max(date_sk) + 1` is now the true horizon.
+
+# #### Changed: every tolerance on a horizon is now exact
+# - 03b's alarm check (`>= SOURCE_END - 2 d`), 03d's work-order check (same) and 03e's
+#   work-order check. A tolerance on a horizon is a tolerance on completeness. All three
+#   tables are dense enough for exact checks: alarms at least 141 a day, work-order events at
+#   least 31, offline. Compliance events are too sparse to prove 03c's horizon (27 of 30 days
+#   have one); that pair is unasserted, and agrees only by construction.
+#
+# #### Changed: 03d's backlog checks judge mechanism, not shape
+# - Removed the 14-day slope assertion on overdue PMs and on LDAR outstanding. On the offline
+#   pipeline, the LDAR slope check failed 13 of the 32 horizons where it is asserted, including
+#   2026-09-12 (+19.7 against a bound of 13.5). The expected fill curve trips it with no
+#   randomness at all: +25.4 against 13.7. It also missed half the estate stopping PMs, on all
+#   32 horizons.
+# - Added LDAR aged outstanding: of the leaks detected 30-91 days ago, the share still
+#   unrepaired must stay at or under 20%. Calibrated on the 8-seed, 540-day null: healthy mean
+#   4.1%, max 10.4% over 3,856 horizons; half never repaired, min 47.6%.
+# - Deliberately not caught: a uniformly slower drain that still converges (3x slower reads
+#   ~16%). Recorded beside AGED_OUTSTANDING_MAX.
+# - WARMUP_DAYS' comment corrected: the 5% shutdown tail (45-120 d) fills the pool to
+#   ~day 120.
+# - With the replacement checks, 0 of the 32 healthy horizons fire; every drain-loss defect
+#   planted at day 30 fires on all 32.
+#
+# #### Added: 03e_gen_financial_snapshots
+# - fact_production_daily, fact_financial_impact and fact_facility_daily_snapshot, partitioned
+#   by date_sk and written with replaceWhere in both run modes.
+# - Snapshots are point-in-time: a facility as it stood at the end of each day, built from
+#   event timestamps only, so recomputing a past day reproduces it exactly. Offline, a backfill
+#   followed by incremental days, with the upstream re-run as of each horizon, equals one
+#   backfill.
+# - The impact band is 04's Monte Carlo p5 / p50 / p95, not V1's band from a confidence
+#   string. The columns are named p5 / p95; the dashboard's P10 / P90 labels should change.
+# - Fines are dated at the notice of violation.
+#
+# #### Remaining
+# - [ ] Fabric, before anything: `SELECT count(*), min(start_ts) FROM fact_asset_state WHERE
+#       date_sk = 20260915` (expect 3 open intervals at 00:00), and the row counts of
+#       fact_inspection and fact_ldar_survey at date_sk 20260915.
+# - [ ] Fabric, in order: backfill 02a (its replaceWhere sweeps and empties 20260915), then
+#       backfill 03d (whole-table overwrite to the true horizon), then backfill 03e, whose
+#       fact_pm_schedule check should now pass. Re-count the 20260915 rows: none should remain
+#       in any of the three tables. 03a needs no rerun unless it was run incrementally since
+#       its backfill.
+# - [ ] Decide the TOPOLOGY_AS_OF ceiling (above) before scheduling any daily run.
+# - [ ] Dashboard: relabel the financial P10 / P90 tiles to P5 / P95; rebind the renamed 03e
+#       columns (violation_fine_usd, total_impact_usd_*).

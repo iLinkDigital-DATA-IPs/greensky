@@ -915,13 +915,26 @@ _state = _span("fact_asset_state")
 SOURCE_START = max(_ch4[0], _wev[0])
 SOURCE_END = min(_ch4[1], _state[1])
 assert SOURCE_START < SOURCE_END, f"the sources do not overlap: {_ch4}, {_wev}, {_state}"
-assert _wev[1] >= SOURCE_END - 2 * _DAY, (
-    f"fact_work_order_event ends at {(_wev[1] - _DAY).date()}, before the sources' last day "
-    f"{(SOURCE_END - _DAY).date()} -- run 03b first")
+# Every horizon here is the exclusive end of a half-open window, max(date_sk) + 1 day, as in
+# 02a-03d. On Fabric, fact_asset_state's max(date_sk) + 1 once read a day late. 02a filed an
+# interval starting exactly at the window end, for the three assets installed on
+# TOPOLOGY_AS_OF, and 03d's horizon read 09-16 against every other source's 09-15. 02a is
+# half-open now and asserts it. 03e's horizon is still the minimum over the sources it
+# aggregates, defensively, and the checks below are exact, with no tolerance. A tolerance of a
+# day or two is what let 03d run a day past 03b's work orders.
+# 03b writes ~70 work-order events a day (31 at the least, offline), so its table reaching the
+# sources' last day is a reliable sign that 03b ran through it.
+assert _wev[1] == SOURCE_END, (
+    f"fact_work_order_event ends at {(_wev[1] - _DAY).date()}, not the sources' last day "
+    f"{(SOURCE_END - _DAY).date()} -- 03b has not run through the same horizon as the telemetry")
 _pm_as_of = read_input("fact_pm_schedule").agg(F.max("as_of_ts").alias("m")).first()["m"]
 assert _pm_as_of is not None and pd.Timestamp(_pm_as_of) == SOURCE_END, (
-    f"fact_pm_schedule is as of {_pm_as_of}, not the sources' horizon {SOURCE_END} -- run 03d "
-    "through the last day first")
+    f"fact_pm_schedule is as of {_pm_as_of} (03d's horizon: the exclusive end of its last day), "
+    f"but every source 03e aggregates ends at {SOURCE_END} (sensor_telemetry "
+    f"{(_ch4[1] - _DAY).date()}, fact_asset_state {(_state[1] - _DAY).date()}, work-order events "
+    f"{(_wev[1] - _DAY).date()} as last days). Both are exclusive ends, so this is not an "
+    "off-by-one in 03e: the two notebooks read different clocks. If 03d is ahead, it has written "
+    "a day past 03b's work orders; align the horizons upstream rather than loosening this.")
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = SOURCE_START, SOURCE_END

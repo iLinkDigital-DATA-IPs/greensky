@@ -1045,14 +1045,15 @@ SOURCE_START = max(_tel[0], _ch4[0])
 SOURCE_END = min(_tel[1], _ch4[1], _state[1])
 assert SOURCE_START < SOURCE_END, f"the source tables do not overlap: {_tel}, {_ch4}, {_state}"
 
-# fact_scada_alarm and fact_sensor_status_event are sparse, so their own max(date_sk) cannot
-# prove they reach SOURCE_END. They are derived by 02d from the telemetry, so the check is that
-# 02d has run since the telemetry last grew: alarms are raised at ~250 a day, and a table that
-# stops more than two days short was not rebuilt.
+# fact_sensor_status_event is sparse, so its own max(date_sk) cannot prove it reaches
+# SOURCE_END. fact_scada_alarm can: 02d derives it from the telemetry and raises ~250 alarms a
+# day (~170 on the offline estate), so its last day IS the horizon 02d ran to. The check is
+# exact. It used to allow a table two days short, and a tolerance on a horizon is a tolerance
+# on completeness: the same slack in 03d let it write a day past these tickets.
 _al_hi = read_input("fact_scada_alarm").agg(F.max("date_sk").alias("m")).first()["m"]
-assert _al_hi is not None and pd.Timestamp(str(int(_al_hi))) >= SOURCE_END - 2 * _DAY, (
-    f"fact_scada_alarm ends at date_sk {_al_hi} but the telemetry runs to "
-    f"{(SOURCE_END - _DAY).date()} -- run 02d first")
+assert _al_hi is not None and pd.Timestamp(str(int(_al_hi))) + _DAY == SOURCE_END, (
+    f"fact_scada_alarm ends at date_sk {_al_hi} but the sources' last day is "
+    f"{(SOURCE_END - _DAY).date()} -- run 02d through the same horizon first")
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = SOURCE_START, SOURCE_END
