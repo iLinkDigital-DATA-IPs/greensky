@@ -218,11 +218,32 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 #
 # | component | weight | score in [0, 1] | why |
 # |---|---|---|---|
-# | condition | 30 | mean `equipment_condition_index` of the facility's assets | the shared degradation model: the asset 03a's hazard treats as likely to leak |
-# | emissions | 25 | attributed plumes in the trailing 30 days, saturating at 3 | 3 = one detection plus 03c's `CRITICAL_REPEATS` of 2 earlier ones: a repeat emitter |
+# | condition | 30 | mean `equipment_condition_index` of the facility's assets, saturating at 0.19 | the shared degradation model: the asset 03a's hazard treats as likely to leak |
+# | emissions | 25 | attributed plumes in the trailing 30 days, saturating at 2 | 2 = a detection plus an earlier one, 03c's repetition rule: a release seen again was not fixed. One detection scores half |
 # | compliance | 20 | violation notices in the trailing 30 days, plus 0.5 per open state case, saturating at 1 | a notice is the regulator's finding; an open state case is one pending |
-# | maintenance | 15 | half the overdue-PM share (saturating at 25%, about twice the estate's ~11%), half LDAR leaks outstanding (saturating at 5) | a slipping backlog |
-# | open work | 10 | active open plus stalled-backlog tickets, saturating at 5 | work already raised against the site |
+# | maintenance | 15 | half the overdue-PM share (saturating at 20%, about twice the estate's ~11%), half LDAR leaks outstanding (saturating at 2) | a slipping backlog |
+# | open work | 10 | active open plus stalled-backlog tickets, saturating at 2 | work already raised against the site |
+#
+# **Saturation levels are calibrated on the realised inputs**, not chosen a priori. The first
+# levels (condition 1.0, plumes 3, overdue 25%, LDAR 5, tickets 5) saturated far above anything
+# the data produced. Over 4,500 facility-days the score had p50 8, p99 29, max 43, and nothing
+# above 50. The condition index, for instance, spans 0.10-0.24 and never came near 1.0. From the
+# offline backfill's raw inputs, each dense input (condition, overdue share) now saturates near
+# its p95, and each sparse count (LDAR outstanding, tickets) at its p95 of 2; plumes saturate
+# at 2, their p99. The result: p25 18, **p50 25**, p75 33, p95 46, p99 56, **max 73**. So a
+# typical facility-day sits near 25, and the worst, with high condition, a repeat emitter, a
+# slipping backlog and open work together, reaches the low 70s. Re-check against Fabric's
+# distribution before quoting a score. Calibration used one estate, and the component means
+# differ a little there.
+#
+# **Compliance is rare, by design, and kept at 20.** Violations are few: 3 in 30 days across 150
+# facilities on Fabric, 1 offline. So the component is non-zero on a small share of
+# facility-days: 0.4% offline, on two facilities, half from a notice and half from an open
+# state case. A notice stays in the trailing window for 30 days. On every other day it contributes nothing, and a facility without a notice tops out
+# at 80. That is intended. A notice of violation is the strongest risk signal the operation
+# receives, and when one exists it should move the facility up the list decisively: +20 takes
+# the worst offline day from 73 to 93. Scaling it to be "present" on typical days would mean
+# inventing a compliance signal where the regulator found none.
 #
 # V1 weighted health 40, 8 per open ticket, 12 per violation and 5 per active plume on
 # **that day**, capped at 100. A score driven by one day's plume count jumps with each
@@ -312,11 +333,14 @@ OFFLINE_KPI_HOURS = 8               # 02e's KPI_HOURS: no reading in 8 h = offli
 STATE_CASE_TYPES = ("Venting", "Flaring")    # 03c's state cases (TX_RRC_SWR32)
 RISK_WEIGHTS = {"condition": 30.0, "emissions": 25.0, "compliance": 20.0, "maintenance": 15.0,
                 "open_work": 10.0}
-RISK_PLUMES_AT_MAX = 3.0
+# Saturation levels, calibrated on the offline backfill's realised inputs over 4,500
+# facility-days (the markdown above has the distributions): each at about its p95, plumes at p99.
+RISK_CONDITION_AT_MAX = 0.19        # condition index p95 0.187 (range 0.10-0.24)
+RISK_PLUMES_AT_MAX = 2.0            # p99; a detection plus a repeat, 03c's repetition rule
 RISK_OPEN_CASE_WEIGHT = 0.5
-RISK_OVERDUE_SHARE_AT_MAX = 0.25
-RISK_LDAR_AT_MAX = 5.0
-RISK_TICKETS_AT_MAX = 5.0
+RISK_OVERDUE_SHARE_AT_MAX = 0.20    # p95 0.200; about twice the estate's ~11%
+RISK_LDAR_AT_MAX = 2.0              # p95; non-zero on 20% of facility-days
+RISK_TICKETS_AT_MAX = 2.0           # p95; non-zero on 39% of facility-days
 RISK_RANGE = (0.0, 100.0)
 
 assert abs(sum(RISK_WEIGHTS.values()) - RISK_RANGE[1]) < 1e-9, "risk weights must sum to 100"
@@ -727,7 +751,7 @@ SNAP_COLS = (["date_sk", "facility_sk", "facility_id", "snapshot_date", "active_
 def risk_points(cond, plumes_30d, violations_30d, open_state_cases, overdue_share, ldar_out,
                 tickets):
     """{component: points}; the points sum to the risk score."""
-    s = {"condition": min(max(cond, 0.0), 1.0),
+    s = {"condition": min(max(cond, 0.0) / RISK_CONDITION_AT_MAX, 1.0),
          "emissions": min(plumes_30d / RISK_PLUMES_AT_MAX, 1.0),
          "compliance": min(violations_30d + RISK_OPEN_CASE_WEIGHT * open_state_cases, 1.0),
          "maintenance": 0.5 * min(overdue_share / RISK_OVERDUE_SHARE_AT_MAX, 1.0)
@@ -1482,6 +1506,10 @@ print(_top.to_string(formatters={"usd": "${:,.0f}".format, "p50": "${:,.0f}".for
 print(f"\nRISK SCORE over {len(wsnap):,} facility-days (range {RISK_RANGE}):")
 print("  " + "  ".join(f"p{q} {np.percentile(wsnap['risk_score'], q):.1f}" for q in (5, 25, 50, 75, 95, 99))
       + f"  max {wsnap['risk_score'].max():.1f}")
+print(f"  calibration targets (typical ~20-30, worst 70-90): median {wsnap['risk_score'].median():.1f}; "
+      f"{int((wsnap['risk_score'] >= 50).sum())} facility-day(s) >= 50, "
+      f"{int((wsnap['risk_score'] >= 70).sum())} >= 70; compliance non-zero on "
+      f"{(wsnap['risk_pts_compliance'] > 0).mean():.1%} of facility-days")
 _h = np.histogram(wsnap["risk_score"], bins=[0, 10, 20, 30, 40, 50, 60, 80, 100.001])
 for lo_, hi_, n_ in zip(_h[1][:-1], _h[1][1:], _h[0]):
     print(f"  {lo_:>5.0f}-{min(hi_, 100):<5.0f} {n_:>6,}  {'#' * int(60 * n_ / max(_h[0].max(), 1))}")
