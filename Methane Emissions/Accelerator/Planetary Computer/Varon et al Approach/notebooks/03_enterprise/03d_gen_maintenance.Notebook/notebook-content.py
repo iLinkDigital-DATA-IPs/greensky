@@ -242,9 +242,57 @@ LDAR_METHODS = {"OGI": 0.60, "Method21": 0.25, "Aerial": 0.15}      # V1
 FEDERAL_FROM = pd.Timestamp("2015-09-18")
 
 # ---- steady state ---------------------------------------------------------------------------------------
-TREND_WINDOW_DAYS, TREND_MAX_RISE = 14, 0.25
-# The 14-day slope alone lets a slow, steady climb through: 1,527 -> 1,773 over thirteen weeks
-# passed the 25% bound at +42.7 over 14 days. Three checks over NET_WINDOW_DAYS catch that.
+# Neither backlog is judged by the shape of its level. Both are judged by their mechanism: does
+# what enters leave. Two shape tests were tried and removed; the reasons follow, because the
+# checks that remain look weaker than either and someone will want to put one back.
+#
+# WHY NOT "A 14-DAY SLOPE UNDER 25% OF THE LEVEL". That was the first check, on both backlogs
+# (TREND_WINDOW_DAYS, TREND_MAX_RISE = 14, 0.25). It fails in both directions.
+# - It misses a real climb: 1,527 -> 1,773 overdue PMs over thirteen weeks passed it at +42.7
+#   over 14 days. On the offline pipeline it fired on 0 of 32 horizons with half the estate
+#   never completing a PM again from day 30.
+# - It fires on a healthy drain. LDAR outstanding is roughly the last two weeks of detections
+#   (median repair 7 days), and the quarterly survey calendar delivers them in pulses: 24, 8,
+#   17, 35, 33, 42, 18, 23, 50, 26, 16, 48, 16 leaks a week. On the offline pipeline, whose
+#   weekly series matches Fabric's through week 12, it failed 13 of the 32 horizons where it
+#   is asserted, including 2026-09-12 (+19.7 against a bound of 13.5) and 2026-09-13. This is
+#   not repair noise. The EXPECTED fill curve, the actual detections integrated against the
+#   designed repair-delay law with no randomness at all, trips it by itself: +25.4 against
+#   13.7 at 2026-09-12. With the repair delays redrawn 2,000 times it fired at 09-12 in 97.5%
+#   of redraws, and at some checked horizon in 100%. It fired on 13 of 32 horizons for the
+#   healthy drain and also 13 of 32 for a drain three times slower, so it cannot tell the
+#   two apart.
+# On the same run the checks below fire on 0 of the 32 horizons when healthy. With a defect
+# planted at day 30 they fire on every horizon for no repairs, half never repaired and repairs
+# 3x slower (after warm-up the window is short, so the monotonicity check sees the fill). For
+# PMs they catch half the estate stopping and every PM stopping on every horizon, and a quarter
+# of the estate stopping on 25 of 32; the removed slope caught none of those 7 either.
+# On a longer window (harness_maintenance.py, 180 days, defect at day 90) those checks caught
+# only a COMPLETE LDAR drain failure (repaired/detected-30d 0.61 < 0.70; net rise +0.838).
+# Half never repaired read net rise +0.489 against 0.5 -- losing a share f of new leaks drives
+# net/entries toward f, so 0.5 sits exactly at a 50% loss -- and the lag check read 0.80,
+# because it is cumulative from the history start and dilutes a recent defect. The removed
+# slope passed that case too. AGED OUTSTANDING closes it:
+# - AGED OUTSTANDING (LDAR). Of the leaks detected AGED_MIN_DAYS to NET_WINDOW_DAYS before the
+#   horizon, the share still unrepaired at it must stay at or under AGED_OUTSTANDING_MAX. It
+#   asks directly whether leaks get repaired, over a trailing window, so a recent defect is
+#   not diluted by history. Calibrated on the 8-seed, 540-day null (thresh_analyse.py), every
+#   daily horizon from BACKLOG_CHECK_MIN_DAYS, 3,856 in all, ~260 aged leaks per window: healthy
+#   mean 4.1%, sd 1.3%, p99.9 9.4%, MAX 10.4% (8.0% once the shutdown tail has filled, day
+#   120+). Defects planted at day 180 of each seed, once the window is wholly after them: no
+#   repairs 100%; half never repaired min 47.6%, mean 52.0%. 20% is 1.9x the healthy maximum and
+#   2.4x under the half-repaired minimum; no healthy horizon crosses it, and it fires 43-59 days
+#   after half the repairs stop. 30 days is past every ordinary repair's median (7 d) and most
+#   of its tail (capped at 45 d), so what remains old is the shutdown tail plus any real loss.
+# NOT CAUGHT, BY CHOICE: repairs 3x slower. The pool settles 2.6x higher, but at a 30-day age
+#   the aged share lands at min 8.1%, mean 16.0% -- inside the healthy range. A 14-day age
+#   would separate it (healthy max 12.4% against slow min 15.5%), but by 1.26x, ~1.5 points
+#   each side: too thin to ship. A slow drain that still converges is not a broken one; see
+#   AGED_OUTSTANDING_MAX. harness_maintenance.py asserts it is not caught, so any change that
+#   starts catching it is noticed.
+# These figures are from the offline runs of 2026-09-30. Measure a shape test against both
+# the healthy null (tools/harness/drift_run.py) and a planted defect (harness_maintenance.py
+# plants one per check) before reinstating it.
 #
 # WHY NOT "AT MOST N CONSECUTIVE WEEKLY RISES". That was the previous check (MAX_RISING_WEEKS
 # = 5: six or more rises in a row failed). It looks stricter than what replaced it, and it is
@@ -288,7 +336,24 @@ TREND_WINDOW_DAYS, TREND_MAX_RISE = 14, 0.25
 NET_WINDOW_DAYS = 91            # 13 weeks
 NET_RISE_MAX_SHARE = 0.5
 OVERDUE_SHARE_MAX = 0.15
-WARMUP_DAYS = 45                # LDAR repairs run to 45 days; the overdue pool is seeded stationary
+AGED_MIN_DAYS = 30              # a leak this old should have been repaired
+# AGED_OUTSTANDING_MAX catches a drain that LOSES leaks, not one that is merely SLOW. That is a
+# deliberate choice, not an oversight. Repairs 3x slower read ~16% aged outstanding (min 8.1%
+# on the 8-seed null) against a healthy ~4% (max 10.4%) and this 20% limit, so they pass. A
+# uniformly slower drain that still converges is a different thing from a broken one. Every
+# check that matters -- net rise against entries, repaired >= 70% with lag, and this one --
+# catches a drain that stops draining. Do not tighten toward 16% to catch the slow case: that
+# puts the healthy maximum of 10.4% close to the bound, and two checks have already been
+# removed for firing on healthy data.
+AGED_OUTSTANDING_MAX = 0.20
+# WARMUP_DAYS: LDAR outstanding starts from zero at the first survey. Ordinary repairs finish
+# inside LDAR_REPAIR_MAX_DAYS (45), but LDAR_DELAY_SHARE (5%) of leaks wait for a shutdown,
+# LDAR_DELAY_DAYS (45-120 d), so that part of the pool keeps filling until ~day 120: about 15
+# of the ~52 steady-state leaks outstanding, adding ~+2 per 14 days while it fills. The
+# mechanism checks below tolerate that bounded fill; a level test after 45 days would not.
+# The overdue pool is seeded stationary and needs no warm-up.
+WARMUP_DAYS = 45
+BACKLOG_CHECK_MIN_DAYS = WARMUP_DAYS + 14   # history before the backlog checks assert (unchanged)
 LDAR_REPAIR_LAG_DAYS = 30       # cumulative repaired must reach ...
 LDAR_REPAIR_BAND = (0.70, 1.00) # ... this share of cumulative detected LAG days earlier
 
@@ -881,6 +946,16 @@ def overdue_entries(flags):
     return e
 
 
+def aged_outstanding_share(surveys, horizon):
+    """(share, aged, outstanding): of the leaks detected AGED_MIN_DAYS to NET_WINDOW_DAYS before
+    the horizon, the share still unrepaired at it."""
+    lo = horizon - pd.Timedelta(days=NET_WINDOW_DAYS)
+    hi = horizon - pd.Timedelta(days=AGED_MIN_DAYS)
+    aged = [ts for s in surveys if lo <= s["survey_ts"] < hi for ts, _ in s["_repairs"]]
+    still = sum(1 for ts in aged if ts >= horizon)
+    return (still / len(aged) if aged else 0.0), len(aged), still
+
+
 def ldar_cumulative(surveys, days):
     """Cumulative leaks detected and repaired, and outstanding, at the end of each day."""
     det, rep = [], []
@@ -1386,11 +1461,13 @@ print("OK  inspection results consistent; LDAR repaired + outstanding = detected
 #   `WARMUP_DAYS`. Cumulative repaired must reach `LDAR_REPAIR_BAND[0]` of cumulative
 #   detected `LDAR_REPAIR_LAG_DAYS` earlier, the design note's "≥70% with lag".
 #
-# A backlog fails on any of: a slope over 25% of the level in the last 14 days; a net rise
-# over the last `NET_WINDOW_DAYS` of `NET_RISE_MAX_SHARE` or more of the entries into it; every
-# weekly mean in that window above the last; or (overdue PMs only) an overdue share of assets
-# above `OVERDUE_SHARE_MAX`. The constants cell records why this replaced a count of
-# consecutive weekly rises, and the multi-seed margin behind each threshold.
+# A backlog fails on any of: a net rise over the last `NET_WINDOW_DAYS` of `NET_RISE_MAX_SHARE`
+# or more of the entries into it; every weekly mean in that window above the last; (LDAR) repairs
+# falling below `LDAR_REPAIR_BAND[0]` of detections `LDAR_REPAIR_LAG_DAYS` earlier, or more than
+# `AGED_OUTSTANDING_MAX` of the leaks aged `AGED_MIN_DAYS`-`NET_WINDOW_DAYS` days still unrepaired;
+# or (overdue PMs) an overdue share of assets above `OVERDUE_SHARE_MAX`. There is no slope test on either.
+# The constants cell records why the 14-day slope and the consecutive-rise count were removed,
+# and the multi-seed margin behind each threshold that remains.
 
 # CELL ********************
 
@@ -1413,13 +1490,7 @@ cum_det, cum_rep, outstanding = ldar_cumulative(ALL_SURVEYS, DAYS)
 assert sorted(s["survey_sk"] for s in ALL_SURVEYS) == sorted(ldar["survey_sk"]), \
     "fact_ldar_survey does not hold exactly the calendar's surveys"
 
-_enough = len(DAYS) >= WARMUP_DAYS + TREND_WINDOW_DAYS
-_x = np.arange(TREND_WINDOW_DAYS, dtype=float)
-
-
-def _rise(v):
-    return float(np.polyfit(_x, v[-TREND_WINDOW_DAYS:].astype(float), 1)[0]) * (TREND_WINDOW_DAYS - 1)
-
+_enough = len(DAYS) >= BACKLOG_CHECK_MIN_DAYS
 
 _od = pm[pm["is_overdue"]]
 _sched_w = _p[_p.merge(_mi, left_on=["equipment_sk", "maintenance_ts"],
@@ -1448,10 +1519,6 @@ print(f"LDAR: {len(ALL_SURVEYS)} surveys, cumulative detected {cum_det[-1]:,}, r
 print("LDAR outstanding by week: " + "  ".join(str(int(outstanding[i:i + 7].mean()))
                                                for i in range(0, len(outstanding), 7)))
 if _enough:
-    _r = _rise(overdue_est)
-    assert _r <= TREND_MAX_RISE * max(overdue_est[-TREND_WINDOW_DAYS:].mean(), 1.0), (
-        f"overdue PMs rose {_r:+.1f} over the last {TREND_WINDOW_DAYS} days -- the overdue "
-        "population is growing, which is the V1 defect")
     _share, _net, _ent = net_rise_share(overdue_est, overdue_entries(_flags_est))
     assert _share < NET_RISE_MAX_SHARE, (
         f"established overdue PMs rose {_net:+d} over the last {NET_WINDOW_DAYS} days against "
@@ -1476,23 +1543,27 @@ if _enough:
     assert all(_ok) and (cum_rep <= cum_det).all(), (
         f"cumulative repaired fell below {LDAR_REPAIR_BAND[0]:.0%} of cumulative detected "
         f"{_lag} days earlier on {len(_ok) - sum(_ok)} day(s)")
-    _ro = _rise(outstanding)
-    assert _ro <= TREND_MAX_RISE * max(outstanding[-TREND_WINDOW_DAYS:].mean(), 1.0), (
-        f"LDAR outstanding rose {_ro:+.1f} over the last {TREND_WINDOW_DAYS} days")
     _ls, _ln, _le = net_rise_share(outstanding[WARMUP_DAYS:], np.diff(cum_det, prepend=0)[WARMUP_DAYS:])
     assert _ls < NET_RISE_MAX_SHARE, (
         f"LDAR outstanding rose {_ln:+d} against {_le} detections after warm-up ({_ls:+.2f})")
     assert not strictly_rising(weekly_means(outstanding[WARMUP_DAYS:][-NET_WINDOW_DAYS:])), \
         "LDAR outstanding rose every week after warm-up"
-    print(f"OK  established assets' overdue PMs not trending (slope {_r:+.1f} over 14 d; net "
-          f"{_net:+d} against {_ent} entries = {_share:+.2f} of max {NET_RISE_MAX_SHARE}; not "
-          f"monotonic; peak share {max(_peak_e, _peak_a):.1%} of max {OVERDUE_SHARE_MAX:.0%}); "
-          f"first-PM cohort inside its bound; the rebuild ends at the snapshot's {_od_now}")
-    print(f"OK  LDAR repaired >= {LDAR_REPAIR_BAND[0]:.0%} of detected {_lag} d earlier on every day; "
-          f"outstanding not trending (slope {_ro:+.1f}; net {_ln:+d} against {_le} detected = {_ls:+.2f})")
+    _ag, _an, _ao = aged_outstanding_share(ALL_SURVEYS, HORIZON)
+    assert _an > 0, "no leak is old enough to judge aged outstanding after the warm-up"
+    assert _ag <= AGED_OUTSTANDING_MAX, (
+        f"{_ao} of {_an} leaks detected {AGED_MIN_DAYS}-{NET_WINDOW_DAYS} days ago are still "
+        f"unrepaired ({_ag:.1%}, max {AGED_OUTSTANDING_MAX:.0%}): leaks are not being repaired")
+    print(f"OK  established assets' overdue PMs drain: net {_net:+d} against {_ent} entries = "
+          f"{_share:+.2f} of max {NET_RISE_MAX_SHARE}; not monotonic; peak share "
+          f"{max(_peak_e, _peak_a):.1%} of max {OVERDUE_SHARE_MAX:.0%}; first-PM cohort inside its "
+          f"bound; the rebuild ends at the snapshot's {_od_now}")
+    print(f"OK  LDAR drains: repaired >= {LDAR_REPAIR_BAND[0]:.0%} of detected {_lag} d earlier on every "
+          f"day; net {_ln:+d} against {_le} detected = {_ls:+.2f}; not monotonic after warm-up; "
+          f"{_ao} of {_an} leaks aged {AGED_MIN_DAYS}-{NET_WINDOW_DAYS} d still open = {_ag:.1%} "
+          f"(max {AGED_OUTSTANDING_MAX:.0%})")
 else:
     print(f"NOTE  {len(DAYS)} days of history; the backlog checks need "
-          f"{WARMUP_DAYS + TREND_WINDOW_DAYS}. NOT asserted this run.")
+          f"{BACKLOG_CHECK_MIN_DAYS}. NOT asserted this run.")
 
 # METADATA ********************
 

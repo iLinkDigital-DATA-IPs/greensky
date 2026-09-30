@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "03e_gen_financial_snapshots"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "3aa62e6f-38d2-4457-bf00-5d78d2f7a506"
+  }
+}

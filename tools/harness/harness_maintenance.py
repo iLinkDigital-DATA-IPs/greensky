@@ -16,8 +16,9 @@
 
 3. Backlogs over 180 days: established overdue PMs pass the net-rise, monotonicity and
    share-ceiling checks, with negative controls that each one fires; PM visit completion near its target;
-   LDAR cumulative repaired >= 70% of cumulative detected 30 days earlier, outstanding not
-   trending; Leak Found rate rising with condition; every preventive record sitting exactly
+   LDAR cumulative repaired >= 70% of cumulative detected 30 days earlier, and outstanding passes the
+   net-rise and monotonicity checks, with planted drain defects that each fire. No slope test on
+   either backlog: 03d's constants cell records why it was removed; Leak Found rate rising with condition; every preventive record sitting exactly
    on a Maintenance interval.
 """
 import ast
@@ -298,8 +299,6 @@ def check_backlogs(g, U, history_start, n_days):
         by_fac.setdefault(a["facility_sk"], []).append(a)
     sv = g["ldar_surveys_in"](si, by_fac, U["fac"], history_start, end, history_start)
     det, rep, out = g["ldar_cumulative"](sv, days)
-    x = np.arange(14, dtype=float)
-    rise = lambda v: float(np.polyfit(x, v[-14:].astype(float), 1)[0]) * 13   # noqa: E731
     mi = st[(st["state"] == "Maintenance") & st["end_ts"].notna()]
     p = m[m["maintenance_type"] == "Preventive"].merge(
         mi, left_on=["equipment_sk", "maintenance_ts"], right_on=["equipment_sk", "end_ts"], how="left")
@@ -312,16 +311,70 @@ def check_backlogs(g, U, history_start, n_days):
     print("  LDAR outstanding by 15 days: " + "  ".join(str(int(out[k:k + 15].mean())) for k in range(0, len(out), 15)))
     print(f"  cumulative detected {det[-1]}, repaired {rep[-1]}")
     assert abs(comp - g["PM_ON_TIME_COMPLETION"]) < 0.05, f"PM completion {comp:.1%}"
-    assert rise(oe) <= g["TREND_MAX_RISE"] * max(oe[-14:].mean(), 1), "established overdue PMs trending"
     lag, lo = g["LDAR_REPAIR_LAG_DAYS"], g["LDAR_REPAIR_BAND"][0]
     assert all(rep[k] >= lo * det[k - lag] for k in range(g["WARMUP_DAYS"], len(days))), "repairs lag"
     assert (rep <= det).all()
-    assert rise(out) <= g["TREND_MAX_RISE"] * max(out[-14:].mean(), 1), "LDAR outstanding trending"
     w0 = g["WARMUP_DAYS"]
     ls, ln, le = g["net_rise_share"](out[w0:], np.diff(det, prepend=0)[w0:])
     print(f"  LDAR outstanding after warm-up: net {ln:+d} against {le} detected = {ls:+.3f}")
     assert ls < g["NET_RISE_MAX_SHARE"], "LDAR outstanding: net rise over half the detections"
     assert not g["strictly_rising"](g["weekly_means"](out[w0:][-g["NET_WINDOW_DAYS"]:])), "LDAR monotonic"
+    ag, an, ao = g["aged_outstanding_share"](sv, end)
+    print(f"  LDAR aged outstanding: {ao} of {an} leaks aged {g['AGED_MIN_DAYS']}-{g['NET_WINDOW_DAYS']} d "
+          f"still open = {ag:.1%} (max {g['AGED_OUTSTANDING_MAX']:.0%})")
+    assert an > 0 and ag <= g["AGED_OUTSTANDING_MAX"], "LDAR aged outstanding over its maximum"
+
+    # LDAR negative controls: the same surveys, with the drain broken from day 90. Each must fail
+    # a check that remains; together they are what the removed slope test claimed to catch.
+    never = pd.Timestamp("2100-01-01")
+    cut = history_start + 90 * DAY
+
+    def ldar_fails(repair_of):
+        ends = [d + DAY for d in days]
+        dt = [(s["survey_ts"], repair_of(s["survey_ts"], ts, i)) for s in sv
+              for i, (ts, _) in enumerate(s["_repairs"])]
+        d_ = np.array([sum(1 for a, _ in dt if a < h) for h in ends])
+        r_ = np.array([sum(1 for _, b in dt if b < h) for h in ends])
+        o_ = d_ - r_
+        fired = []
+        ratio = min(r_[k] / max(d_[k - lag], 1) for k in range(w0, len(days)))
+        if not all(r_[k] >= lo * d_[k - lag] for k in range(w0, len(days))):
+            fired.append("repaired>=70% lag")
+        nr = g["net_rise_share"](o_[w0:], np.diff(d_, prepend=0)[w0:])[0]
+        if nr >= g["NET_RISE_MAX_SHARE"]:
+            fired.append("net rise")
+        if g["strictly_rising"](g["weekly_means"](o_[w0:][-g["NET_WINDOW_DAYS"]:])):
+            fired.append("monotonic")
+        a_lo, a_hi = end - g["NET_WINDOW_DAYS"] * DAY, end - g["AGED_MIN_DAYS"] * DAY
+        aged = [b for a, b in dt if a_lo <= a < a_hi]
+        ag_ = sum(1 for b in aged if b >= end) / max(len(aged), 1)
+        if ag_ > g["AGED_OUTSTANDING_MAX"]:
+            fired.append("aged outstanding")
+        w = o_[-14:].astype(float)
+        sl = float(np.polyfit(np.arange(14.0), w, 1)[0]) * 13 > 0.25 * max(w.mean(), 1.0)
+        print(f"    {'':<4}min repaired/detected-30d {ratio:.2f} (floor {lo}); net rise share {nr:+.3f} "
+              f"(max {g['NET_RISE_MAX_SHARE']}); aged {ag_:.1%} (max {g['AGED_OUTSTANDING_MAX']:.0%}); weekly {' '.join(f'{v:.0f}' for v in g['weekly_means'](o_[w0:][-g['NET_WINDOW_DAYS']:]))}; "
+              f"removed slope would {'FIRE' if sl else 'pass'}")
+        return fired, int(o_[-1])
+
+    ctl = {"no repairs from day 90": lambda a, b, i: never if a >= cut else b,
+           "half never repaired from day 90": lambda a, b, i: never if a >= cut and i % 2 == 0 else b,
+           "repairs 3x slower from day 90": lambda a, b, i: a + (b - a) * 3 if a >= cut else b}
+    # NOT CAUGHT BY CHOICE, asserted so any change that starts catching it is noticed: 03d's LDAR
+    # checks catch a drain that loses leaks (none repaired; half never repaired, through aged
+    # outstanding), not one that is merely slow. Repairs 3x slower read ~16% aged outstanding
+    # against a healthy ~4% and a 20% limit. The comment beside 03d's AGED_OUTSTANDING_MAX says why.
+    must_fire = {"no repairs from day 90", "half never repaired from day 90"}
+    for lbl, fn in ctl.items():
+        print(f"  LDAR control: {lbl}")
+        fired, o_end = ldar_fails(fn)
+        if lbl in must_fire:
+            assert fired, f"no remaining LDAR check fires when {lbl}"
+            print(f"OK  caught: {', '.join(fired)} (outstanding {o_end} against {int(out[-1])})")
+        else:
+            assert not fired, (f"{lbl} is now caught ({', '.join(fired)}), which 03d deliberately does "
+                               "not do -- see the comment beside AGED_OUTSTANDING_MAX before accepting it")
+            print(f"NOT CAUGHT (by design: slow, not lost)  no check fires (outstanding {o_end} against {int(out[-1])})")
     ins = pd.DataFrame(i if isinstance(i, list) else [])
     ii = g["inspections_in"](si, assets, history_start, end, end, history_start, set(), [])
     c = np.array([e["_cond"] for e in ii])
@@ -330,8 +383,9 @@ def check_backlogs(g, U, history_start, n_days):
     lo_rate, hi_rate = lf[c <= qs[0]].mean(), lf[c >= qs[1]].mean()
     print(f"  Leak Found rate: bottom condition quintile {lo_rate:.1%}, top {hi_rate:.1%}")
     assert hi_rate > lo_rate, "Leak Found does not rise with condition"
-    print("OK  backlogs: overdue PMs and LDAR outstanding not trending; PM completion on target; "
-          "repairs keep pace with a 30-day lag; Leak Found rises with condition; every PM on a stop")
+    print("OK  backlogs: overdue PMs and LDAR outstanding drain (net rise, monotonicity, share ceiling, "
+          "repairs keep pace with a 30-day lag); PM completion on target; Leak Found rises with "
+          "condition; every PM on a stop")
 
 
 if __name__ == "__main__":

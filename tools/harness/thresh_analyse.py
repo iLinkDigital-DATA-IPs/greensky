@@ -1,6 +1,7 @@
 """Over drift_run.py's pickles: every 13-week window's net rise / entries and monotonicity, for
-established overdue PMs and LDAR outstanding, and the daily overdue share. The margins quoted
-above 03d's NET_RISE_MAX_SHARE and OVERDUE_SHARE_MAX come from this output.
+established overdue PMs and LDAR outstanding, the daily overdue share, and LDAR aged outstanding
+with planted drain defects. The margins quoted above 03d's NET_RISE_MAX_SHARE, OVERDUE_SHARE_MAX
+and AGED_OUTSTANDING_MAX come from this output.
 
     python thresh_analyse.py [DIR]      # DIR holds drift_*.pkl; default "."
 """
@@ -62,3 +63,67 @@ for r in runs:
 print(f"  max across seeds: established {max(mx_e):.2%}, all assets {max(mx_a):.2%}; "
       f"mean of seed means {np.mean([(r['est'] / r['n_est']).mean() for r in runs]):.2%}, "
       f"sd of seed means {np.std([(r['est'] / r['n_est']).mean() for r in runs]):.2%}")
+
+# ---- LDAR aged outstanding: the share of leaks detected 30-91 days before the horizon that are
+# ---- still unrepaired at it. The healthy null at every daily horizon, then three drain defects
+# ---- planted at day 180 of each seed. The margins above 03d's AGED_OUTSTANDING_MAX come from here.
+if "leak_det_ns" not in runs[0]:
+    print("== LDAR aged outstanding: these pickles predate per-leak instants; rerun drift_run.py")
+    sys.exit(0)
+AGE, WIN, D0 = 30, 91, 180
+DNS = 86400 * 10 ** 9
+
+
+def aged_series(det, rep, h0, n_days, first):
+    """[(day index, share, n)] for horizons at the end of each day from `first`."""
+    out = []
+    for j in range(first, n_days):
+        h = h0 + (j + 1) * DNS
+        m = (det >= h - WIN * DNS) & (det < h - AGE * DNS)
+        k = int(m.sum())
+        out.append((j, (rep[m] >= h).sum() / k if k else np.nan, k))
+    return out
+
+
+def defects(det, rep, h0):
+    cut = h0 + D0 * DNS
+    new = det >= cut
+    never = np.int64(2 ** 62)
+    return {"no repairs": np.where(new, never, rep),
+            "half never repaired": np.where(new & (np.arange(len(det)) % 2 == 0), never, rep),
+            "repairs 3x slower": np.where(new, det + 3 * (rep - det), rep)}
+
+
+print(f"== LDAR aged outstanding: leaks detected {AGE}-{WIN} d before the horizon, share still "
+      "unrepaired at it")
+first = 45 + 14 - 1                     # 03d asserts from BACKLOG_CHECK_MIN_DAYS
+healthy, late, dfx = [], [], {}
+for r in runs:
+    h0 = int(r["days"][0].value)
+    det, rep = r["leak_det_ns"], r["leak_rep_ns"]
+    s = aged_series(det, rep, h0, len(r["days"]), first)
+    v = np.array([x[1] for x in s])
+    healthy += list(v)
+    late += [x[1] for x in s if x[0] >= 120]
+    print(f"  seed {r['seed']:>3}  leaks {len(det):>5}  per window {np.mean([x[2] for x in s]):5.0f}  "
+          f"share mean {np.nanmean(v):.1%}  p99 {np.nanpercentile(v, 99):.1%}  max {np.nanmax(v):.1%}")
+    for lbl, rep_d in defects(det, rep, h0).items():
+        sd = aged_series(det, rep_d, h0, len(r["days"]), D0)
+        dfx.setdefault(lbl, []).append(sd)
+a = np.array(healthy)
+b = np.array(late)
+print(f"  HEALTHY, every checked horizon, 8 seeds pooled ({len(a):,}): mean {np.nanmean(a):.1%}  "
+      f"sd {np.nanstd(a):.1%}  p99 {np.nanpercentile(a, 99):.1%}  p99.9 {np.nanpercentile(a, 99.9):.1%}  "
+      f"MAX {np.nanmax(a):.1%}")
+print(f"  healthy after day 120 (shutdown tail filled): mean {np.nanmean(b):.1%}  max {np.nanmax(b):.1%}")
+print(f"  defects planted at day {D0}; once the window is wholly after it (day {D0 + WIN}+):")
+for lbl, per_seed in dfx.items():
+    full = np.array([x[1] for sd in per_seed for x in sd if x[0] >= D0 + WIN])
+    print(f"    {lbl:<22} min {np.nanmin(full):.1%}  p1 {np.nanpercentile(full, 1):.1%}  mean {np.nanmean(full):.1%}")
+for thr in (0.15, 0.20, 0.25):
+    lat = {lbl: [next((x[0] - D0 for x in sd if x[1] > thr), None) for sd in per_seed]
+           for lbl, per_seed in dfx.items()}
+    fp = int((a > thr).sum())
+    print(f"  threshold {thr:.0%}: healthy horizons over it {fp} of {len(a):,} (max {np.nanmax(a):.1%} = "
+          f"{thr / np.nanmax(a):.1f}x under); days from defect to first firing, per seed: "
+          + "; ".join(f"{k} {v}" for k, v in lat.items()))

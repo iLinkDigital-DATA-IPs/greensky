@@ -1,11 +1,12 @@
 """One long 03d backfill on harness_maintenance's synthetic estate under one seed. Pickles the
-daily overdue series (established and first-PM cohorts, with entries into overdue) and LDAR
-detected / repaired / outstanding, for drift_analyse.py and thresh_analyse.py.
+daily overdue series (established and first-PM cohorts, with entries into overdue), LDAR
+detected / repaired / outstanding, and every leak's detection and repair instant, for
+drift_analyse.py and thresh_analyse.py.
 
     python drift_run.py SEED DAYS [OUT_DIR]      # SEED 0 = the repo's own seed; OUT_DIR default "."
 
-This is the multi-seed null behind 03d's NET_RISE_MAX_SHARE, OVERDUE_SHARE_MAX and the
-strict-monotonicity check. Run several seeds (the thresholds were set from 8, at 540 days:
+This is the multi-seed null behind 03d's NET_RISE_MAX_SHARE, OVERDUE_SHARE_MAX,
+AGED_OUTSTANDING_MAX and the strict-monotonicity check. Run several seeds (the thresholds were set from 8, at 540 days:
 0 11 23 37 41 53 67 79) as separate processes, then run the two analyses on OUT_DIR.
 
 A non-zero SEED must change BOTH seeds together: 03d's draws (g["TOPOLOGY_SEED"]) and the
@@ -21,6 +22,7 @@ import pickle
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import numpy as np                    # noqa: E402
 import pandas as pd                    # noqa: E402
 import harness_maintenance as HM      # noqa: E402
 import harness_model as M             # noqa: E402
@@ -55,9 +57,13 @@ for a in assets.values():
     by_fac.setdefault(a["facility_sk"], []).append(a)
 sv = g["ldar_surveys_in"](g["state_index"](st), by_fac, U["fac"], H0, end, H0)
 det, rep_, out = g["ldar_cumulative"](sv, days)
+# every leak's detection and repair instant, for the aged-outstanding null (thresh_analyse.py)
+leak_det = np.array([s_["survey_ts"].value for s_ in sv for _ in s_["_repairs"]], dtype="int64")
+leak_rep = np.array([ts.value for s_ in sv for ts, _ in s_["_repairs"]], dtype="int64")
 os.makedirs(out_dir, exist_ok=True)
 with open(os.path.join(out_dir, f"drift_{seed}.pkl"), "wb") as f:
     pickle.dump({"seed": seed, "days": days, "est": oe, "entries": ee, "young": oy, "n_est": len(est),
-                 "n_all": len(assets), "all": oe + oy, "ldar_det": det, "ldar_rep": rep_, "ldar_out": out}, f)
+                 "n_all": len(assets), "all": oe + oy, "ldar_det": det, "ldar_rep": rep_, "ldar_out": out,
+                 "leak_det_ns": leak_det, "leak_rep_ns": leak_rep}, f)
 wk = g["weekly_means"](oe)
 print(seed, len(est), "weekly:", " ".join(f"{v:.0f}" for v in wk))
