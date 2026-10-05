@@ -1,5 +1,11 @@
 #Green Sky Specific
 Methane Emissions/Archive/
+# harness gate: the baseline fingerprint JSONs are the committed reference; their stdouts and
+# every other capture output are reproducible locally with tools/harness/capture.py
+tools/harness/baseline/**
+!tools/harness/baseline/**/
+!tools/harness/baseline/**/*.fingerprint.json
+tools/harness/captures/
 
 
 ##TEMPLATE

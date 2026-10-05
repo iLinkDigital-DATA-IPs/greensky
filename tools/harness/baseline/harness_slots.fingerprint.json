@@ -1,0 +1,47 @@
+{
+ "harness": "harness_slots",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_slots.py::slots_for_day::local:grp#all",
+   "n_calls": 30,
+   "row_count": 87420,
+   "column_list": [
+    "install_date",
+    "sampling_interval_seconds"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "datetime64[ns]",
+    "int64"
+   ],
+   "sha256": "456b8ddb50328a3725c44f7fb9d4dd0be258cb39f244571c110e11a19203a97a"
+  },
+  {
+   "frame_name": "harness_slots.py::slots_for_day::local:inst<Series>#all",
+   "n_calls": 30,
+   "kind": "Series",
+   "row_count": 87420,
+   "dtype": "datetime64[ns]",
+   "sha256": "121b30dc46287edb3dd5108e266aab2b213279d02cb2e8e6109494e7ce458815"
+  },
+  {
+   "frame_name": "harness_slots.py::<module>::global:live",
+   "row_count": 3896,
+   "column_list": [
+    "install_date",
+    "sampling_interval_seconds"
+   ],
+   "dtypes": [
+    "datetime64[ns]",
+    "int64"
+   ],
+   "sha256": "224b307dad8bdc5d229a2caff441d75a0e8ad9c16d8f8b26a1cd45ade5dc1bd9"
+  }
+ ]
+}

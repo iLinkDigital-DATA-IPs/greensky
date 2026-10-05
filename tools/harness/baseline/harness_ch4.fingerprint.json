@@ -1,0 +1,910 @@
+{
+ "harness": "harness_ch4",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_ch4.py::registry::return",
+   "row_count": 600,
+   "column_list": [
+    "sensor_id",
+    "equipment_sk",
+    "facility_id",
+    "equipment_type",
+    "sensor_type",
+    "tier",
+    "sigma_ppm",
+    "exceedance_threshold_ppm",
+    "leak_propensity",
+    "age_ratio",
+    "install_ts",
+    "status",
+    "risk",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "b140325f8944376a5cc2e1ca06373343f39b6e6efc32c8d1cd6257d528c2d2eb"
+  },
+  {
+   "frame_name": "harness_ch4.py::registry::local:w<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    8
+   ],
+   "dtype": "float64",
+   "sha256": "a9cb5ee1dc2e31b7cb2e44da6636b228cec0b06949d9a4772b20dbf2f6c6c0d9"
+  },
+  {
+   "frame_name": "harness_ch4.py::registry::local:rank<Series>",
+   "kind": "Series",
+   "row_count": 600,
+   "name": "sensor_id",
+   "dtype": "float64",
+   "index_dtype": "int64",
+   "sha256": "01eeeab506584f57717bd1ce59477c4cff01e866233ab744e5ab2779abe623d6"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::return[0]<ndarray>#all",
+   "n_calls": 33238,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "a99a1fb1196ea53aa75b9ec73826ebb70250f2221e3c8ad56867da9638ada384"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::return[1]<ndarray>#all",
+   "n_calls": 33238,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "e65cca8ee0bb800082ee3cb81f54ac9b1dbeb3e27ca09d4c778a5e6824d6c2c3"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::local:amps<ndarray>#all",
+   "n_calls": 33238,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "e7bc74fa56bf0d3f71d4ad7a4262cf2c3517ee9c8ca65b2924690fbdf114f585"
+  },
+  {
+   "frame_name": "harness_model.py::spectral::return<ndarray>#all",
+   "n_calls": 33238,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "37c8e2392a8f784c594aee082b8e811b14f9e16bf007d987f14150a0398ccdd4"
+  },
+  {
+   "frame_name": "harness_ch4.py::spec::return<ndarray>#all",
+   "n_calls": 33238,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "37c8e2392a8f784c594aee082b8e811b14f9e16bf007d987f14150a0398ccdd4"
+  },
+  {
+   "frame_name": "harness_ch4.py::outages::local:offs<ndarray>#all",
+   "n_calls": 16704,
+   "kind": "ndarray",
+   "shape_first": [
+    2
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "44f58779e6024b31825751612c542d4b42a5392a29780fdc5b27c56c3b679a86"
+  },
+  {
+   "frame_name": "harness_ch4.py::outages::local:durs<ndarray>#all",
+   "n_calls": 16704,
+   "kind": "ndarray",
+   "shape_first": [
+    2
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "8ea2a4b70853e20a8cc1ab3200fe93c4f66c336eebc2e7500bbfb8b09e907ead"
+  },
+  {
+   "frame_name": "harness_model.py::row_uniforms::return<ndarray>#all",
+   "n_calls": 18742,
+   "kind": "ndarray",
+   "shape_first": [
+    720,
+    1
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "d9b1ec5ca5bcec41dd454e4b9cfadfe8d2fd816aac85eaf3349edacfc5533105"
+  },
+  {
+   "frame_name": "harness_ch4.py::state_of::return<ndarray>#all",
+   "n_calls": 18742,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "<U11",
+   "shapes_vary": true,
+   "sha256": "20dc36e5a39b9012ff8fc187fa645c7d5595bb641f72b6131c3ef39c3014d8b2"
+  },
+  {
+   "frame_name": "harness_ch4.py::state_of::local:s<ndarray>#all",
+   "n_calls": 18742,
+   "kind": "ndarray",
+   "shape_first": [
+    17
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "f0ef6803a8f38cbba9a042d2e63725dfb560388548b605a741c39c51f64f1841"
+  },
+  {
+   "frame_name": "harness_ch4.py::state_of::local:names<ndarray>#all",
+   "n_calls": 18742,
+   "kind": "ndarray",
+   "shape_first": [
+    17
+   ],
+   "dtype": "<U11",
+   "shapes_vary": true,
+   "sha256": "b16dc8b840c98cae3777aef5e4d65c7447a04e03645c6b7805ae9f4ef7169f13"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::return[0]#all",
+   "n_calls": 32,
+   "row_count": 1249200,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "2cf8114e83d32fb09a04b67efe8a41b5e4780a6e355163375036cb296e13489a"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:idx_all<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "e0f9251dc5785dbb1100504f6be9f96d3200505279abdb0708327d3afe79f6bd"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:ts_all<Index>#all",
+   "n_calls": 32,
+   "kind": "Index",
+   "row_count": 2160,
+   "dtype": "datetime64[ns]",
+   "sha256": "d3b725d4d76160e83612585bb574d41b92d775c7610582b8733619edb6a14201"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:t_all<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "d47a23754c0ee0cdde0fa6a3815f6d7923775ec6f87f01281dabebf7deb4416d"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:rg<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "a38e4796392c8109ed3a67d2bb2c21f4ce784b24fa68be1d1eedf954efdc67ed"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:local_h<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "80d7371d5dd5db3af551dcccbc758b6ecb6fc84476e11cd93d8db0108537e091"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:base_common<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "56aa8db6859d193971b0540ae17d38b2b082c18b499f8716359fa60d0c033049"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:keep<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "747503ecb82be335e6c8fadcf1af948c598cbf46106eece9400a96a422a1d92a"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:idx<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "9c0ff6fb5f0a8767c92b414058d462a2b86f9feb9f814fd3535c1b63f03d61c6"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:ts<Index>#all",
+   "n_calls": 32,
+   "kind": "Index",
+   "row_count": 2157,
+   "dtype": "datetime64[ns]",
+   "sha256": "275a246408a1959eed201dd915943419d8a5d932cb15d1c92d29dbf9dc42cb4a"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:t<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "327c45205b1bf9239838f014da3b47f284c5c31352074e16f08f1ab22a1e3ea0"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:u<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "34a81f390943ff5b811df045590beb964f1d3f8557e0ecd69ce2a4a1dcddc25c"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:m<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "370afafa527768aabce82cea365721852afa9e9777fbf57f3db93ee3e53608b2"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:sel<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "af3ab4248835061f2d66e2055c8869487c5bcdf33187be871ac79f82492231b6"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:st_f<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "613ce85bfd7ea6c88869f3439aa768250416606505c5d5cb5f4fcc7ddd317db7"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:ws_f<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "1838bfb21600da7bd647910efe5c063a34c6290b36ccc6215cedd05408c779db"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:wd_f<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    720
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "d20d12376368918d07835dbb0fad3b4974854ff4b2842b053fe469dbe27a8120"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:base<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "fabfb55a5c4ecf80d9a3280ff64e3e786ee1fe4ccc6d3d4357c0f2418b8fc0c5"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:state<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "<U11",
+   "shapes_vary": true,
+   "sha256": "5c465e8a13360c44c6a474774f621b89cc9a0b8af90dffb849084abe410f989b"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:z<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "2b1eef60264384956cc9f2c58a421ad4c838405bd6b473ddedc24e486222ea4c"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:onset<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "aed48fdfa9d0cc75d9fd670a0f9cb341371c1eac6422310d5370c61cf1063d94"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:sup<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "858df1d7a415cef94217bfa44cfd9d49870b1ac14c0ab206df3e9375d5cffd04"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:mult<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "a05e656caf0538bf2a675144ff3349d0434d38d05dfe8d7a0c8596730030c8ff"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:leak<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "0dbdcd740762170400bddadc3a6457db1c9cb373f0d8aa5b942acae52fb8361d"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:bg<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "e91868241c790ea2460186d950ff451c43919b07f8c179710b4cf4fce9c031e0"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:ch4<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "b190dd7f4fc2365830e85d6d021fb515baaf80871fc63c106aa6f52efb71279a"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:wsp<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "f9450fe34c1116af932b6538644e458fc8a79fbd42afc7e519413e97be4f8e6a"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:wdr<ndarray>#all",
+   "n_calls": 32,
+   "kind": "ndarray",
+   "shape_first": [
+    719
+   ],
+   "dtype": "float64",
+   "shapes_vary": true,
+   "sha256": "c7558923dc5a79b028398ddebcfaac9f90e0778ec625404469c253be563abad5"
+  },
+  {
+   "frame_name": "harness_ch4.py::generate::local:df#all",
+   "n_calls": 32,
+   "row_count": 1249200,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "2cf8114e83d32fb09a04b67efe8a41b5e4780a6e355163375036cb296e13489a"
+  },
+  {
+   "frame_name": "harness_ch4.py::runs_of::return<Series>",
+   "kind": "Series",
+   "row_count": 520,
+   "name": "None",
+   "dtype": "int64",
+   "index_dtype": "int64",
+   "sha256": "13c7bcc3815cad751fa19722f05deae7780913f2eaa6811ff14832f7d2f53d2d"
+  },
+  {
+   "frame_name": "harness_ch4.py::runs_of::local:f",
+   "row_count": 4590,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "c5e7e86e784b0d6dca0ac0f8809ffa55fc27d1d13a989c7fa98ec539b192b1b5"
+  },
+  {
+   "frame_name": "harness_ch4.py::runs_of::local:gap<Series>",
+   "kind": "Series",
+   "row_count": 4590,
+   "name": "reading_ts",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "7e4ca59fb7c9626a4f33d2bd9dc2687e9578d35e98752ce7084c5ae16759f5d1"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:ac<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    594
+   ],
+   "dtype": "float64",
+   "sha256": "c3ab2ecff7d53efcbf3143a4c4e69d6b9a309c8a2d35cf55c0ef0565bd0971df"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:by_risk<Series>",
+   "kind": "Series",
+   "row_count": 4,
+   "name": "exceedance_flag",
+   "dtype": "float64",
+   "index_dtype": "category",
+   "sha256": "b5701b0b37c06356f9241ac33a4988b4051d36126a2cc9d6298a271b75643552"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:by_state<Series>",
+   "kind": "Series",
+   "row_count": 6,
+   "name": "exceedance_flag",
+   "dtype": "float64",
+   "index_dtype": "object",
+   "sha256": "d209536786edffd656780a536b5f8cf07e03972727b174af6737752a0fd28f65"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:daily",
+   "row_count": 416400,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "32eaccb300b4c44679d9268176b43d476c573b7cb4f1d8afa7877b068b075b58"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:day_rate<Series>",
+   "kind": "Series",
+   "row_count": 30,
+   "name": "exceedance_flag",
+   "dtype": "float64",
+   "index_dtype": "object",
+   "sha256": "e43afd48ecbda5fee6fc5fc5f355ce01eaab80ff7c79a149e86a73d792e57ad7"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:df",
+   "row_count": 416400,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "32eaccb300b4c44679d9268176b43d476c573b7cb4f1d8afa7877b068b075b58"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:df2",
+   "row_count": 416400,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "32eaccb300b4c44679d9268176b43d476c573b7cb4f1d8afa7877b068b075b58"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:ex",
+   "row_count": 600,
+   "column_list": [
+    "sensor_id",
+    "equipment_sk",
+    "facility_id",
+    "equipment_type",
+    "sensor_type",
+    "tier",
+    "sigma_ppm",
+    "exceedance_threshold_ppm",
+    "leak_propensity",
+    "age_ratio",
+    "install_ts",
+    "status",
+    "risk",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "b140325f8944376a5cc2e1ca06373343f39b6e6efc32c8d1cd6257d528c2d2eb"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:g",
+   "row_count": 719,
+   "column_list": [
+    "sensor_id",
+    "facility_id",
+    "reading_ts",
+    "state",
+    "ch4_ppm",
+    "baseline_ppm",
+    "exceedance_flag",
+    "wind_speed_ms",
+    "wind_dir_deg",
+    "sensor_status",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "object",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64",
+    "bool",
+    "float64",
+    "float64",
+    "object",
+    "float64"
+   ],
+   "sha256": "619fdd08cb5c449c416567f72148d93c513f75a72cea4f2c3ba28ce61ffe64a5"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:o",
+   "row_count": 7,
+   "column_list": [
+    "sensor_id",
+    "equipment_sk",
+    "facility_id",
+    "equipment_type",
+    "sensor_type",
+    "tier",
+    "sigma_ppm",
+    "exceedance_threshold_ppm",
+    "leak_propensity",
+    "age_ratio",
+    "install_ts",
+    "status",
+    "risk",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "da4a2bf4795c654b0bb7988079458a813638d0c9f50cb1b33025e7cba202cfaa"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:ok<Series>",
+   "kind": "Series",
+   "row_count": 719,
+   "name": "reading_ts",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "5f2c1431e5d0021be13f3a8b0ee3f9f190d70eafd889546587b6419d7e846f72"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:per<Series>",
+   "kind": "Series",
+   "row_count": 594,
+   "name": "exceedance_flag",
+   "dtype": "int64",
+   "index_dtype": "object",
+   "sha256": "f79760b80aed24aada65a20ea64b3b4600e729b1ca87dd06a1e76e2a4508a97b"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:q<Series>",
+   "kind": "Series",
+   "row_count": 416400,
+   "name": "risk_rel",
+   "dtype": "category",
+   "index_dtype": "int64",
+   "sha256": "c58c29640b3fa259b6eb3faa35a02d67a178e81bd6b0e9bc809628d24c5a4793"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:reg",
+   "row_count": 600,
+   "column_list": [
+    "sensor_id",
+    "equipment_sk",
+    "facility_id",
+    "equipment_type",
+    "sensor_type",
+    "tier",
+    "sigma_ppm",
+    "exceedance_threshold_ppm",
+    "leak_propensity",
+    "age_ratio",
+    "install_ts",
+    "status",
+    "risk",
+    "risk_rel"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "datetime64[ns]",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "b140325f8944376a5cc2e1ca06373343f39b6e6efc32c8d1cd6257d528c2d2eb"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:rl<Series>",
+   "kind": "Series",
+   "row_count": 520,
+   "name": "None",
+   "dtype": "int64",
+   "index_dtype": "int64",
+   "sha256": "13c7bcc3815cad751fa19722f05deae7780913f2eaa6811ff14832f7d2f53d2d"
+  },
+  {
+   "frame_name": "harness_ch4.py::<module>::global:v<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    719
+   ],
+   "dtype": "float64",
+   "sha256": "b87b56a9e330babc59c3cbdbdb0830d52f9eed6cdf29ea36ec07e8bb64b52d1b"
+  }
+ ]
+}

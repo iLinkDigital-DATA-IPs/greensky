@@ -394,7 +394,7 @@ if __name__ == "__main__":
     print("=" * 84)
     g = load_model()
     check_static(g)
-    H0 = pd.Timestamp("2026-06-17")
+    H0 = pd.Timestamp(g["TOPOLOGY_AS_OF"]) - pd.Timedelta(days=g["STATE_HISTORY_DAYS"])  # 03d's HISTORY_START
     U = upstream(g, H0, H0 + 180 * DAY)
     print(f"  synthetic upstream: {len(U['eq'])} assets, {len(U['state']):,} state intervals, "
           f"{int((U['state']['cause'] == 'Scheduled PM').sum())} Scheduled PM stops, {len(U['wo'])} work orders")

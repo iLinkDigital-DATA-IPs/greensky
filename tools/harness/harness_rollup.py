@@ -21,11 +21,14 @@ import numpy as np
 import pandas as pd
 from harness_final_rate import load_config
 
-STATES = load_config()["STATES"]
+CFG = load_config()
+STATES = CFG["STATES"]
 SCALE = 10 ** 6
 TOL = 1.0 / SCALE
-START = pd.Timestamp("2026-08-16")
-DAYS = 30
+# 02c's raw window, from the same source 02c uses: RAW_START, RAW_END = AS_OF - TELEMETRY_RAW_DAYS,
+# AS_OF with AS_OF = TOPOLOGY_AS_OF (02c:180-181).
+DAYS = CFG["TELEMETRY_RAW_DAYS"]
+START = pd.Timestamp(CFG["TOPOLOGY_AS_OF"]) - pd.Timedelta(days=DAYS)
 END = START + pd.Timedelta(days=DAYS)
 H = pd.Timedelta(hours=1)
 

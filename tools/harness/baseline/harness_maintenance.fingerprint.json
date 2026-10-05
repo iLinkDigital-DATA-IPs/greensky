@@ -1,0 +1,3261 @@
+{
+ "harness": "harness_maintenance",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_episodes.py::estate::return",
+   "row_count": 3102,
+   "column_list": [
+    "equipment_sk",
+    "equipment_id",
+    "equipment_type",
+    "install_date",
+    "expected_life_years",
+    "inspection_frequency_days",
+    "reliability_index",
+    "leak_propensity",
+    "criticality",
+    "area_sk",
+    "facility_sk",
+    "facility_id",
+    "area_lat",
+    "area_lon"
+   ],
+   "dtypes": [
+    "int64",
+    "object",
+    "object",
+    "datetime64[ns]",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "ec5ce2f28a71626d337106ea32764d32e56febdcc9b507acd968dfe2fc07eb95"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::simulate::return#all",
+   "n_calls": 3102,
+   "row_count": 36994,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "25d8c1b70f88f83ba56c45076878ce8901f893cd3bdaeb485458eb27b92975bb"
+  },
+  {
+   "frame_name": "harness_episodes.py::full_state::return",
+   "row_count": 36994,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64"
+   ],
+   "sha256": "8f023aec0fb1959da946c6959ca35210bd8e3343a9df036762241cb475c5c2a1"
+  },
+  {
+   "frame_name": "harness_episodes.py::full_state::local:tr",
+   "row_count": 12,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64"
+   ],
+   "sha256": "13fdd9a597a091ae36ea078daa115e707a7711d8172402e218e75c18df688672"
+  },
+  {
+   "frame_name": "03d_model_cell::state_index::local:s#all",
+   "n_calls": 69,
+   "row_count": 1212800,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "bf036a25698153d2fd78f50e5e979f54abaf509e66523acc368c646cc74c1676"
+  },
+  {
+   "frame_name": "03d_model_cell::state_index::local:g#all",
+   "n_calls": 69,
+   "row_count": 300,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "0e103fc77e393251d0da2d8ac5ec6490bb56cdfad25125eaf986812d0814262b"
+  },
+  {
+   "frame_name": "03d_model_cell::state_index::local:e<ndarray>#all",
+   "n_calls": 69,
+   "kind": "ndarray",
+   "shape_first": [
+    12
+   ],
+   "dtype": "datetime64[ns]",
+   "shapes_vary": true,
+   "sha256": "70a0a0e525e91ec42764f788a0794048cdd1410a1a91dc04229eb2e4175f5530"
+  },
+  {
+   "frame_name": "harness_maintenance.py::down::local:m<ndarray>#all",
+   "n_calls": 2160,
+   "kind": "ndarray",
+   "shape_first": [
+    9
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "517b299e69d83190d74706173c7107d93d7a4b6aa5db0acc1b19465624750a36"
+  },
+  {
+   "frame_name": "harness_maintenance.py::down::local:a<ndarray>#all",
+   "n_calls": 2160,
+   "kind": "ndarray",
+   "shape_first": [
+    2
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "87ed14b60ca840c2e2d5d3a5dbe29b171df84dc7d4f714c6664dc43e8c5419a8"
+  },
+  {
+   "frame_name": "harness_maintenance.py::down::local:b<ndarray>#all",
+   "n_calls": 2160,
+   "kind": "ndarray",
+   "shape_first": [
+    2
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "215535f2ae78ea0fc85272bf5b799489159f971d86f079e82d194d4c071bf90e"
+  },
+  {
+   "frame_name": "03d_model_cell::asset_views::local:f#all",
+   "n_calls": 70,
+   "row_count": 10500,
+   "column_list": [
+    "facility_id",
+    "sub_basin",
+    "facility_type",
+    "commission_date"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "object",
+    "object",
+    "datetime64[ns]"
+   ],
+   "sha256": "8d07559fed7eeb93126f2b9b1a0bc2f8c443f047c29038cfab41de2589ea4813"
+  },
+  {
+   "frame_name": "03d_model_cell::asset_views::local:fr<Series>#all",
+   "n_calls": 70,
+   "kind": "Series",
+   "row_count": 280,
+   "dtype": "object",
+   "sha256": "87956f48204655dd746f711e7ddc63a67093c2dbfc2e2e3895bfa86c957ab5e2"
+  },
+  {
+   "frame_name": "03d_model_cell::seed_calibration::local:m",
+   "row_count": 2248,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "40629e0bf336e2363b2c8916c6c191b296cd3a802d2548c5df0639bced2ef9a7"
+  },
+  {
+   "frame_name": "03d_model_cell::seed_calibration::local:other<Series>",
+   "kind": "Series",
+   "row_count": 860,
+   "name": "None",
+   "dtype": "int64",
+   "index_dtype": "int64",
+   "sha256": "f6a7a20918b2b2213f32d07d817c69cf1ec5100b08d26855a4adb991792fbe3c"
+  },
+  {
+   "frame_name": "03d_model_cell::seed_calibration::local:st<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    1
+   ],
+   "dtype": "int64",
+   "sha256": "54f5c5b0476fb5d535c63f0d7280a7a5b0ff33317a5bfdd811d84acf5d39a484"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::return['eq']",
+   "row_count": 3102,
+   "column_list": [
+    "equipment_sk",
+    "equipment_id",
+    "equipment_type",
+    "install_date",
+    "expected_life_years",
+    "inspection_frequency_days",
+    "reliability_index",
+    "leak_propensity",
+    "criticality",
+    "area_sk",
+    "facility_sk",
+    "facility_id",
+    "area_lat",
+    "area_lon"
+   ],
+   "dtypes": [
+    "int64",
+    "object",
+    "object",
+    "datetime64[ns]",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "ec5ce2f28a71626d337106ea32764d32e56febdcc9b507acd968dfe2fc07eb95"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::return['fac']",
+   "row_count": 150,
+   "column_list": [
+    "facility_sk",
+    "facility_id",
+    "sub_basin",
+    "facility_type",
+    "commission_date"
+   ],
+   "dtypes": [
+    "int64",
+    "object",
+    "object",
+    "object",
+    "datetime64[ns]"
+   ],
+   "sha256": "548b21d321ba9de9cbc318a0b05ebbb4517263f0474979cf92746675e8b5f1f2"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::return['state']",
+   "row_count": 36994,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "6a1943a627ce759b91931a3388ec9cdcf42fccc59962853bc5e5ef699e611f09"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::return['wo']",
+   "row_count": 2160,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64"
+   ],
+   "sha256": "f6fca8bd67f60b339fab5b058d93ea214c7dbf84ae93d2df1b6b17be941b0ad2"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::local:assets",
+   "row_count": 3102,
+   "column_list": [
+    "equipment_sk",
+    "equipment_id",
+    "equipment_type",
+    "install_date",
+    "expected_life_years",
+    "inspection_frequency_days",
+    "reliability_index",
+    "leak_propensity",
+    "criticality",
+    "area_sk",
+    "facility_sk",
+    "facility_id",
+    "area_lat",
+    "area_lon"
+   ],
+   "dtypes": [
+    "int64",
+    "object",
+    "object",
+    "datetime64[ns]",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64"
+   ],
+   "sha256": "ec5ce2f28a71626d337106ea32764d32e56febdcc9b507acd968dfe2fc07eb95"
+  },
+  {
+   "frame_name": "harness_maintenance.py::upstream::local:e<Series>",
+   "kind": "Series",
+   "row_count": 14,
+   "name": "1565",
+   "dtype": "object",
+   "index_dtype": "object",
+   "sha256": "4fa12db355bdc061b0721cb565c5709109057ded62ea1e5e633d9ef177ef2200"
+  },
+  {
+   "frame_name": "harness_episodes.py::cut_state::return#all",
+   "n_calls": 68,
+   "row_count": 1175806,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "3f92691ed413102dc9ebafb489b10ee44b6932125f352fe3eef2c5066c48b2ec"
+  },
+  {
+   "frame_name": "harness_maintenance.py::as_of::return[0]#all",
+   "n_calls": 68,
+   "row_count": 1175806,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "3f92691ed413102dc9ebafb489b10ee44b6932125f352fe3eef2c5066c48b2ec"
+  },
+  {
+   "frame_name": "harness_maintenance.py::as_of::return[1]#all",
+   "n_calls": 68,
+   "row_count": 64304,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full",
+    "status",
+    "closed_ts",
+    "downtime_hours"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64",
+    "object",
+    "datetime64[ns]",
+    "float64"
+   ],
+   "sha256": "f19bb9bcbd3273928c93fc322466fb3abc57e640722f259ab1a205d2890bade6"
+  },
+  {
+   "frame_name": "harness_maintenance.py::as_of::local:w#all",
+   "n_calls": 68,
+   "row_count": 146880,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full",
+    "status",
+    "closed_ts",
+    "downtime_hours"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64",
+    "object",
+    "datetime64[ns]",
+    "float64"
+   ],
+   "sha256": "de99bd281807e47277c0807b4be622b5a725c8a9630549ecf7bed9ec7ee3187d"
+  },
+  {
+   "frame_name": "harness_maintenance.py::as_of::local:closed<Series>#all",
+   "n_calls": 68,
+   "kind": "Series",
+   "row_count": 146880,
+   "dtype": "bool",
+   "sha256": "559fb0d161567242e71d54cf350e855d0cfe5be5fd6ae0c7e60d30614b174c2e"
+  },
+  {
+   "frame_name": "03d_model_cell::resume_time::local:starts<ndarray>#all",
+   "n_calls": 742375,
+   "kind": "ndarray",
+   "shape_first": [
+    5
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "2589fccca5ec188fd12240c4b5fe8fdb3f4245d79d8930491fece2b1452999e4"
+  },
+  {
+   "frame_name": "03d_model_cell::resume_time::local:ends<ndarray>#all",
+   "n_calls": 742375,
+   "kind": "ndarray",
+   "shape_first": [
+    5
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "8f28bee2188c1b4d0f3fc1053274dc038ea6978ac750611c7dc71dc281e7a902"
+  },
+  {
+   "frame_name": "03d_model_cell::resume_time::local:states<ndarray>#all",
+   "n_calls": 742375,
+   "kind": "ndarray",
+   "shape_first": [
+    5
+   ],
+   "dtype": "object",
+   "shapes_vary": true,
+   "sha256": "b122f636a542adfbf516e44c0bc5d0559717f4b8e90d423381a5dabfefd4368b"
+  },
+  {
+   "frame_name": "03d_model_cell::days_since_service::local:m<ndarray>#all",
+   "n_calls": 190796,
+   "kind": "ndarray",
+   "shape_first": [
+    5
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "a127ffe854682b38049bdfd1add4df89ffca237ae127a4b604fb57fa92f28fb6"
+  },
+  {
+   "frame_name": "03d_model_cell::run_window::local:maint#all",
+   "n_calls": 67,
+   "row_count": 24438,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "abf8338d754750a41150a2c4d0081b8935bf4d5f9cb1107687fb19bedbcf5e03"
+  },
+  {
+   "frame_name": "03d_model_cell::run_window::local:wo#all",
+   "n_calls": 67,
+   "row_count": 7409,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full",
+    "status",
+    "closed_ts",
+    "downtime_hours"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64",
+    "object",
+    "datetime64[ns]",
+    "float64"
+   ],
+   "sha256": "c170057003e6e61f25f11cbd36d82b1958d15ace5110131b38e8033b52cea7c0"
+  },
+  {
+   "frame_name": "03d_model_cell::to_frame::return#all",
+   "n_calls": 268,
+   "row_count": 238369,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": true,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "e7fe915b53449a032ac826860afd378dd8b49d43f6617b51e79a7bb94ca57366"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::return[0]#all",
+   "n_calls": 67,
+   "row_count": 19463,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "c563e42be014ea3fd9d23152231ddb283747340f1b54b8a0ac996860130d97e6"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::return[1]#all",
+   "n_calls": 67,
+   "row_count": 12520,
+   "column_list": [
+    "inspection_sk",
+    "equipment_sk",
+    "facility_sk",
+    "team_sk",
+    "inspection_ts",
+    "inspection_type",
+    "method",
+    "components_checked",
+    "leaks_found",
+    "result",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "d12e793a1c6e1fe08319a7a468a9501bb121818096d48655788d4d5691c95b81"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::return[2]#all",
+   "n_calls": 67,
+   "row_count": 1252,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "f07b1d12f461550cbe5677070c2b08076f4530fb1c84c610a82f542960a5e989"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::return[3]#all",
+   "n_calls": 67,
+   "row_count": 205134,
+   "column_list": [
+    "pm_schedule_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "pm_type",
+    "frequency_days",
+    "last_completed_ts",
+    "next_due_ts",
+    "is_overdue",
+    "days_overdue",
+    "criticality",
+    "assigned_team_sk",
+    "as_of_ts",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "int64",
+    "bool"
+   ],
+   "sha256": "6d6b12cc8a0e2fb300a407df7f0676c84bd2e5ebb7b231d959705151957ebe5c"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::local:st#all",
+   "n_calls": 67,
+   "row_count": 1138987,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "1152589c4ae200560485580285502d09e4238aa065b83692af8079d0f2bc21a9"
+  },
+  {
+   "frame_name": "harness_maintenance.py::run::local:wo#all",
+   "n_calls": 67,
+   "row_count": 62144,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full",
+    "status",
+    "closed_ts",
+    "downtime_hours"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64",
+    "object",
+    "datetime64[ns]",
+    "float64"
+   ],
+   "sha256": "50772f536f83677ee6813350110da85be01329a14a76669f708b39898edf7f2c"
+  },
+  {
+   "frame_name": "harness_maintenance.py::norm::return#all",
+   "n_calls": 26,
+   "row_count": 52143,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": true,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "f57a9d860636fcc374e943b6a5c3b579e4dc884abd113ad58038d4038f18e7a4"
+  },
+  {
+   "frame_name": "harness_maintenance.py::norm::local:d#all",
+   "n_calls": 26,
+   "row_count": 52143,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": true,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "f57a9d860636fcc374e943b6a5c3b579e4dc884abd113ad58038d4038f18e7a4"
+  },
+  {
+   "frame_name": "03d_model_cell::prior_state::local:done#all",
+   "n_calls": 61,
+   "row_count": 73266,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "a4a14a17137bdf43465c9b1c38e97f49b5492655550337ce075f30a700ac9e71"
+  },
+  {
+   "frame_name": "03d_model_cell::prior_state::local:lf#all",
+   "n_calls": 61,
+   "row_count": 9472,
+   "column_list": [
+    "inspection_sk",
+    "equipment_sk",
+    "facility_sk",
+    "team_sk",
+    "inspection_ts",
+    "inspection_type",
+    "method",
+    "components_checked",
+    "leaks_found",
+    "result",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "02b540220cf124ae28e7d4f7c1aa9e82b8f0791804568d43995f766e7bae048d"
+  },
+  {
+   "frame_name": "03d_model_cell::merge_for_write::return#all",
+   "n_calls": 61,
+   "row_count": 2547,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "546bf834219b1f30789d27e02f87ee0490d91c926dee8ee6c2c9776034179a2f"
+  },
+  {
+   "frame_name": "03d_model_cell::merge_for_write::local:keep#all",
+   "n_calls": 61,
+   "row_count": 2251,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "22abbabf95f72f5d23c7fa4744c20720c675b1b9164bd610c32b00dcfd4ff413"
+  },
+  {
+   "frame_name": "03d_model_cell::merge_for_write::local:out#all",
+   "n_calls": 61,
+   "row_count": 2547,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "546bf834219b1f30789d27e02f87ee0490d91c926dee8ee6c2c9776034179a2f"
+  },
+  {
+   "frame_name": "harness_maintenance.py::replace_window::return#all",
+   "n_calls": 183,
+   "row_count": 237159,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": true,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "0421fd383ed8f775d8928d5ce5377274b51e8bb997c3f2daaf85ec5839b783ca"
+  },
+  {
+   "frame_name": "harness_maintenance.py::replace_window::local:keep#all",
+   "n_calls": 183,
+   "row_count": 231367,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": true,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "5c7f7b7ca3e1b7dc313380b96e67c984b951d018ddff55463a0f86877babfff9"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::return['maint']#all",
+   "n_calls": 61,
+   "row_count": 140326,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "a3f5b19b520e084733e4f1ccee4e70685027d8e9dbe8f5c9f15c34b0a2f6daa1"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::return['insp']#all",
+   "n_calls": 61,
+   "row_count": 89131,
+   "column_list": [
+    "inspection_sk",
+    "equipment_sk",
+    "facility_sk",
+    "team_sk",
+    "inspection_ts",
+    "inspection_type",
+    "method",
+    "components_checked",
+    "leaks_found",
+    "result",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "d3b9a20506dacd0e82b6f7235d64b43fa4391305dac2cf683c04dcb509bfb4a9"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::return['ldar']#all",
+   "n_calls": 61,
+   "row_count": 7702,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "be602af6901c77b8df2d27ce503da36cc0121f497888f0fed99c320ebacd409e"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::return['pm']#all",
+   "n_calls": 61,
+   "row_count": 186697,
+   "column_list": [
+    "pm_schedule_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "pm_type",
+    "frequency_days",
+    "last_completed_ts",
+    "next_due_ts",
+    "is_overdue",
+    "days_overdue",
+    "criticality",
+    "assigned_team_sk",
+    "as_of_ts",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "int64",
+    "bool"
+   ],
+   "sha256": "5cb0e9af9ea87928c413b38bfc4af9b1f11663626267a563e76b3424442028be"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::local:m#all",
+   "n_calls": 61,
+   "row_count": 1964,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "f60757858ae003a3fa4cec9918271b79e0b8a705d858ef9a971b42741b7b76e4"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::local:i#all",
+   "n_calls": 61,
+   "row_count": 1281,
+   "column_list": [
+    "inspection_sk",
+    "equipment_sk",
+    "facility_sk",
+    "team_sk",
+    "inspection_ts",
+    "inspection_type",
+    "method",
+    "components_checked",
+    "leaks_found",
+    "result",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "8a964f091eefdff3ce0c32f6b1e85d040e9c79033632472caeb92f4fe42f87b6"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::local:l#all",
+   "n_calls": 61,
+   "row_count": 296,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "87db378668e10055102ff6073955c91344f66171d855ebac9db65c75eacbe8ef"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::local:ex#all",
+   "n_calls": 61,
+   "row_count": 2453,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "bcbd18ddad4c9c5ed2c387ce07ab7ccb86868c2232b7c5e863eb374072936386"
+  },
+  {
+   "frame_name": "harness_maintenance.py::incremental_day::local:lw#all",
+   "n_calls": 61,
+   "row_count": 2547,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "546bf834219b1f30789d27e02f87ee0490d91c926dee8ee6c2c9776034179a2f"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    3102,
+    90
+   ],
+   "dtype": "bool",
+   "sha256": "27df93bd9f5484e9f3f3e336efc86a8774f520924ea4cdff3ca491c9d4370ee3"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    3102,
+    90
+   ],
+   "dtype": "bool",
+   "sha256": "27df93bd9f5484e9f3f3e336efc86a8774f520924ea4cdff3ca491c9d4370ee3"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    3102,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "ba0056ed079089c628ea56a9e3baed178852b57bc36181a88dd8ff35dd92938a"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call3",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "ce295fc8f4908f1f3accc927858f9b5a4cbc64f3ea0f262e88bd7cd987461def"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call4",
+   "kind": "ndarray",
+   "shape": [
+    562,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "b85f83622e19f0136f90a9811b533affdabb952fc35dee32904af585dd108813"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call5",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "303479b3d3f89110996bb635766412c0246b7b03ecd67171de92d05cd5c187bc"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::return<ndarray>#call6",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "6ed6c03d69ab4e4ba4f499c50ac603612c831718e176dd29710537b14b0eb4e9"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call0",
+   "row_count": 1460,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "c2987ad43f3164bfa53310ed6b28840e7e6855b394d8fed671a7ab67d5cc52a1"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call1",
+   "row_count": 1460,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[us]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "723ceb750a2d53a6a5761da9acae576c57b745b22fc28890033b5d873f418309"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call2",
+   "row_count": 3046,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "d96b263bc62ba4964507c9f49e211e37008530ba9adf32b897b771e32725fce6"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call3",
+   "row_count": 3046,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "d96b263bc62ba4964507c9f49e211e37008530ba9adf32b897b771e32725fce6"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call4",
+   "row_count": 3046,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "d96b263bc62ba4964507c9f49e211e37008530ba9adf32b897b771e32725fce6"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call5",
+   "row_count": 2369,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "6aa3565734efa63a39bd52fd1e8fb46ffaacddc43bf5a3681aff1f11cff86015"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:d#call6",
+   "row_count": 0,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "9ec5237a42a28e6d7b2cffb3ab1d3f81dc528f0076b5c4a854fa866c61d76951"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call0",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "2f8414b8c314cfb27773f6543b81d8f89ecffb444d44939120a10e5056e81049"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call1",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[us]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "92f2e287b2863f666613241e5bd724f7908133aa4b943b3d7bf77beba0248b74"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call2",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "372028153ec5d7d45493597f59662a0946d51b051b35a16adb4b4f607689380e"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call3",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "372028153ec5d7d45493597f59662a0946d51b051b35a16adb4b4f607689380e"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call4",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "372028153ec5d7d45493597f59662a0946d51b051b35a16adb4b4f607689380e"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:g#call5",
+   "row_count": 1,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "372028153ec5d7d45493597f59662a0946d51b051b35a16adb4b4f607689380e"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_trajectory::return<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    90
+   ],
+   "dtype": "int64",
+   "sha256": "6fcbb22ccfd44e7c81c1bd5f5065a33a3487669f4492e91166ce1e177c4f9449"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_trajectory::return<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    90
+   ],
+   "dtype": "int64",
+   "sha256": "6fcbb22ccfd44e7c81c1bd5f5065a33a3487669f4492e91166ce1e177c4f9449"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_trajectory::return<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "1fd4cef520a9612ec07a8f265abe497fd5bd702434c9f5407960f5937dae73a1"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_trajectory::return<ndarray>#call3",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "d83bdfefbcb6466975ff8fb030904a6f453b88d3ccb8c4ee526fe3f229eec3ad"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_determinism::local:days<Index>",
+   "kind": "Index",
+   "row_count": 90,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "fec1ce8cd9bbf1a323a98250ce1498af8cb90bab7dd6807fce89ea620b81ff0a"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_determinism::local:m_ns",
+   "row_count": 2759,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "a3b2806874962fc456f24d18d60faf5d2062a60afb0b8eed615c0c66bde459a1"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_determinism::local:m_us",
+   "row_count": 2759,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[us]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "cf77015809bd18013b4f3f3177c91a409d89266feeaed0c9646412610cddac6b"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_determinism::local:a_ns<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    90
+   ],
+   "dtype": "int64",
+   "sha256": "6fcbb22ccfd44e7c81c1bd5f5065a33a3487669f4492e91166ce1e177c4f9449"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_determinism::local:a_us<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    90
+   ],
+   "dtype": "int64",
+   "sha256": "6fcbb22ccfd44e7c81c1bd5f5065a33a3487669f4492e91166ce1e177c4f9449"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:c<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    1
+   ],
+   "dtype": "int64",
+   "sha256": "97348a5f4438b74f74150e7399fd9b2f72203c8968484a5b4b829f978141a599"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:c<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    1
+   ],
+   "dtype": "int64",
+   "sha256": "97348a5f4438b74f74150e7399fd9b2f72203c8968484a5b4b829f978141a599"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:c<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    1
+   ],
+   "dtype": "int64",
+   "sha256": "e965c00f44f3250dec5baf5f11d60fa23fc354a59078f6bdd2e5fe443e786f8a"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_flags::local:c<ndarray>#call3",
+   "kind": "ndarray",
+   "shape": [
+    1
+   ],
+   "dtype": "int64",
+   "sha256": "97348a5f4438b74f74150e7399fd9b2f72203c8968484a5b4b829f978141a599"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_entries::return<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "c77da84f7ff78ffba11db483d415afdeed76688b68a9f40c4e841303fa927417"
+  },
+  {
+   "frame_name": "03d_model_cell::overdue_entries::return<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "c9ff0247103d472efb1da339e7e02fe6cb2c502a68f95d57f0ded181f21d0681"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "5b70dd831d1f21e1a2f050149b23ca7c517dd3ccf02b23130246470e040943d2"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "d5ac0d9f744357365d3b1f6a1e9d8b70109caf9a3f72b27d1fcb426d587dbf4c"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "c81b0fe5650ab6a5d2e8bca841fc03060a46fb451e8955505b3d597ddb98a709"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call3",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "6fb65d7305479da251a245cc71de6124cc624d6c690072ab57027d2dd45319b2"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call4",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "db8ed8c0260bcce583994259db1f3dcf11208255b67d61d7bfc6e246bf6a3359"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:c<ndarray>#call5",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "2fb524373d8f2ecdf2d683c5bd548b3b3a76525d6c9d4a03cb88514a5f6ace3d"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "3bda3e767b4bc963cb80934c02a1ad1501c489732d60459a1169165ca538e7b0"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "62a08941d3636bf1819f1828d3936bdd071d4dea8d02f821b9d72348a7033c24"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "8b4e37127b239bf311e865dc7fbeef4e4ada5dbdfb2c9b1148bf58a1b3e24ea7"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call3",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "8b4e37127b239bf311e865dc7fbeef4e4ada5dbdfb2c9b1148bf58a1b3e24ea7"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call4",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "8b4e37127b239bf311e865dc7fbeef4e4ada5dbdfb2c9b1148bf58a1b3e24ea7"
+  },
+  {
+   "frame_name": "03d_model_cell::net_rise_share::local:e<ndarray>#call5",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "int64",
+   "sha256": "8b4e37127b239bf311e865dc7fbeef4e4ada5dbdfb2c9b1148bf58a1b3e24ea7"
+  },
+  {
+   "frame_name": "03d_model_cell::young_bound::return<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "float64",
+   "sha256": "f17a61bec9bd3bef7c0facc7ddb4f139129eb62c86fc4704fbb88b4d3b22dfc3"
+  },
+  {
+   "frame_name": "03d_model_cell::ldar_cumulative::return[0]<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "9519ad83d6c5c31b9401635462297176422ddc9fc0c3f5a50fece9d1c0d0a3df"
+  },
+  {
+   "frame_name": "03d_model_cell::ldar_cumulative::return[1]<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "a5a12633ddb8f3e14f02f2cf0229857c5d9fd5a79ca018a3efb1f984f656b2c4"
+  },
+  {
+   "frame_name": "03d_model_cell::ldar_cumulative::return[2]<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "0c8254f12df07698ad424e5497bf5aac34f05f9141219db847b6d164d30c89cf"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:o_<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "ee1317be58245cdbefcf47cc2315d43ca93ed35ab2bbe2fd0b0a6a7777a94820"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:o_<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "a0838fa63b6fbbc71d4714ea4b55d16f90915dcc5da760906b1f26c0a62a39ba"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:o_<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "4c5980c0e2d57657e14a08baa4558f552b6aa95f884c90567bd4d5c85204657b"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:w<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    14
+   ],
+   "dtype": "float64",
+   "sha256": "1ae4f8b4496713ccf633781d1ed0caf2f69969fef615b287c5afa4013cad19fe"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:w<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    14
+   ],
+   "dtype": "float64",
+   "sha256": "3ef79671aba24d48c1ec7117467bf80dc6651b71f2d246332d98ef63f8c37a88"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:w<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    14
+   ],
+   "dtype": "float64",
+   "sha256": "52dbbbc776ddde8cccfc9e20ea6340e2add20f2273059c9ce9d0ad33a40a8887"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:d_<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "9519ad83d6c5c31b9401635462297176422ddc9fc0c3f5a50fece9d1c0d0a3df"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:d_<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "9519ad83d6c5c31b9401635462297176422ddc9fc0c3f5a50fece9d1c0d0a3df"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:d_<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "9519ad83d6c5c31b9401635462297176422ddc9fc0c3f5a50fece9d1c0d0a3df"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:r_<ndarray>#call0",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "bbd4f88d052a0d405a15ca12e056407e23488c1913bdfacae10eccaa93307260"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:r_<ndarray>#call1",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "95fff7b19a9d9be265b478f2547bb93beb341b6e48a68ead664e4577c8fbfa0b"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs.<locals>.ldar_fails::local:r_<ndarray>#call2",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "1da5374abf7ab4192fe9993d6f627045b24db75938a11d8d1b58b012ac09fa2e"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:m",
+   "row_count": 5646,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "e6bd2c00f99e8d687e30ad29a3f78defe3017b85624388bb8c1124d85c199b39"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:i",
+   "row_count": 3690,
+   "column_list": [
+    "inspection_sk",
+    "equipment_sk",
+    "facility_sk",
+    "team_sk",
+    "inspection_ts",
+    "inspection_type",
+    "method",
+    "components_checked",
+    "leaks_found",
+    "result",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "144239c995837019957b088edf799c04d56d8d18a6af1d741244eea45bac2165"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:l",
+   "row_count": 300,
+   "column_list": [
+    "survey_sk",
+    "facility_sk",
+    "team_sk",
+    "survey_ts",
+    "survey_method",
+    "regulatory_program",
+    "components_surveyed",
+    "leaks_detected",
+    "leaks_repaired",
+    "leaks_outstanding",
+    "repair_cost_usd",
+    "duration_hours",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "float64",
+    "float64",
+    "int64",
+    "bool"
+   ],
+   "sha256": "6287dc78911d751da759719e85ab82b157f183a9ef8e955e8b5b97a66c24f46e"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:pm",
+   "row_count": 3102,
+   "column_list": [
+    "pm_schedule_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "pm_type",
+    "frequency_days",
+    "last_completed_ts",
+    "next_due_ts",
+    "is_overdue",
+    "days_overdue",
+    "criticality",
+    "assigned_team_sk",
+    "as_of_ts",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "object",
+    "int64",
+    "datetime64[ns]",
+    "int64",
+    "bool"
+   ],
+   "sha256": "a0b02343bb81751b2f1c2029ffc07c72365d2ca9bb319dce678f55ea86d0b66c"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:st",
+   "row_count": 36819,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "5b432c8c89fe16f26a6ff58219bf289cf4fd8e9d73efa5ed1932f046c2710bc5"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:wo",
+   "row_count": 2160,
+   "column_list": [
+    "work_order_id",
+    "equipment_sk",
+    "source",
+    "created_ts",
+    "close_at",
+    "cost_usd",
+    "assigned_team_sk",
+    "downtime_full",
+    "status",
+    "closed_ts",
+    "downtime_hours"
+   ],
+   "dtypes": [
+    "object",
+    "int64",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "float64",
+    "int64",
+    "float64",
+    "object",
+    "datetime64[ns]",
+    "float64"
+   ],
+   "sha256": "6863baaeb95e6ce8128e3f794bf335118c906361150a286b97f1bf6b08411222"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:fe<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "ce295fc8f4908f1f3accc927858f9b5a4cbc64f3ea0f262e88bd7cd987461def"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:oe<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "05ae9fdbbf7bdb05ffd6da94ff369489e9afd84ba42050b601866974c631eebd"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:ee<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "c77da84f7ff78ffba11db483d415afdeed76688b68a9f40c4e841303fa927417"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:oy<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "d83bdfefbcb6466975ff8fb030904a6f453b88d3ccb8c4ee526fe3f229eec3ad"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:leak",
+   "row_count": 4890,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool"
+   ],
+   "sha256": "129c337b6030a8d39a474023b3b5962609ca8129adf1900d6a5339ea5733f303"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:fl<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "303479b3d3f89110996bb635766412c0246b7b03ecd67171de92d05cd5c187bc"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:climb<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    91
+   ],
+   "dtype": "float64",
+   "sha256": "54fe557517538ab54ff738fe55dea1a22e9ee472017ea76cb82936ddf1246212"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:fz<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2540,
+    180
+   ],
+   "dtype": "bool",
+   "sha256": "6ed6c03d69ab4e4ba4f499c50ac603612c831718e176dd29710537b14b0eb4e9"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:mi",
+   "row_count": 7130,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts",
+    "equipment_sk",
+    "cause"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "f481066bacb97f2ce68aa66fd71ecc61c86eeafd2099e24bc630dc5d12b30c6f"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:p",
+   "row_count": 3519,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic",
+    "state",
+    "start_ts",
+    "end_ts",
+    "cause"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "object"
+   ],
+   "sha256": "d334581d0bd7958629f0e57a6045a52421ddfef79afaa5f09d1cbce8d2e05e51"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:sched",
+   "row_count": 3219,
+   "column_list": [
+    "maintenance_sk",
+    "equipment_sk",
+    "facility_sk",
+    "area_sk",
+    "team_sk",
+    "contractor_sk",
+    "maintenance_ts",
+    "maintenance_type",
+    "trigger",
+    "work_order_id",
+    "downtime_hours",
+    "labor_hours",
+    "parts_cost_usd",
+    "total_cost_usd",
+    "root_cause",
+    "is_completed",
+    "date_sk",
+    "is_synthetic",
+    "state",
+    "start_ts",
+    "end_ts",
+    "cause"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "int64",
+    "Int64",
+    "datetime64[ns]",
+    "object",
+    "object",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "bool",
+    "int64",
+    "bool",
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "object"
+   ],
+   "sha256": "8e8e95bf939434197b0c0607f863f3fe8450fe2093b37133f5490d89c4a2cc6d"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:ins",
+   "row_count": 0,
+   "column_list": [],
+   "dtypes": [],
+   "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:c<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    3690
+   ],
+   "dtype": "float64",
+   "sha256": "476e11dce05b7b08dfac1309fd2f7ac411326619601cfd1ba24aab82509cfdb6"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:lf<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    3690
+   ],
+   "dtype": "bool",
+   "sha256": "3ce38717f637f3073155e0af290a15455f44c4d110a336a2f2bbd7d73c4efe5d"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:qs<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2
+   ],
+   "dtype": "float64",
+   "sha256": "c5514fa4fbf7e036c330c6f8ac8bed83ccca3600793aa8a1420596e5b6c7fbb8"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:days<Index>",
+   "kind": "Index",
+   "row_count": 180,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "68d40a8206cbdc503e482bd0bfd529c8c61df25f45b9c1dd59064a0fe205324d"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:det<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "9519ad83d6c5c31b9401635462297176422ddc9fc0c3f5a50fece9d1c0d0a3df"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:od<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "1fd4cef520a9612ec07a8f265abe497fd5bd702434c9f5407960f5937dae73a1"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:out<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "0c8254f12df07698ad424e5497bf5aac34f05f9141219db847b6d164d30c89cf"
+  },
+  {
+   "frame_name": "harness_maintenance.py::check_backlogs::local:rep<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    180
+   ],
+   "dtype": "int64",
+   "sha256": "a5a12633ddb8f3e14f02f2cf0229857c5d9fd5a79ca018a3efb1f984f656b2c4"
+  }
+ ]
+}
