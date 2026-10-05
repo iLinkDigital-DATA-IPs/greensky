@@ -1411,6 +1411,26 @@
 #   string. The columns are named p5 / p95; the dashboard's P10 / P90 labels should change.
 # - Fines are dated at the notice of violation.
 #
+# #### Changed: 03e risk score saturation levels recalibrated
+# - The first levels saturated far above anything the data produced. Over 4,500 facility-days
+#   the score ran p50 8.0, p99 29.2, max 43.5, and nothing reached 50. Mean points: condition
+#   3.4/30, emissions 1.4/25, compliance 0.4/20, maintenance 3.5/15, open work 1.4/10 (Fabric).
+# - Weights and stored per-component points are unchanged; only the saturation levels moved,
+#   set from the raw inputs recorded over the offline backfill's 4,500 facility-days: condition
+#   index 1.0 -> 0.19 (its p95; it spans 0.10-0.24), plumes in 30 d 3 -> 2 (p99; a detection
+#   plus a repeat, 03c's repetition rule, so one detection scores half), overdue share 25% ->
+#   20% (p95), LDAR outstanding 5 -> 2 (p95), tickets 5 -> 2 (p95). Compliance is unchanged at
+#   one notice.
+# - Offline result: p25 18.1, p50 24.5, p95 45.4, p99 56.2, max 72.8; 111 facility-days at 50
+#   or above, 1 at 70 or above. Saturating emissions at a single plume reached 76, but was
+#   rejected because it scores a one-off detection like a repeat emitter.
+# - Compliance kept at 20, rare by design: non-zero on 0.4% of facility-days offline (two
+#   facilities). A facility without a notice tops out at 80; a notice adds a decisive +20
+#   (the worst offline day would go from 73 to 93).
+# - Calibrated on one offline estate only. 03e now prints the median, the facility-days at 50
+#   and 70 or above, and how often compliance contributes, so the levels can be checked
+#   against Fabric's own distribution.
+#
 # #### Remaining
 # - [ ] Fabric, before anything: `SELECT count(*), min(start_ts) FROM fact_asset_state WHERE
 #       date_sk = 20260915` (expect 3 open intervals at 00:00), and the row counts of
@@ -1421,5 +1441,7 @@
 #       in any of the three tables. 03a needs no rerun unless it was run incrementally since
 #       its backfill.
 # - [ ] Decide the TOPOLOGY_AS_OF ceiling (above) before scheduling any daily run.
+# - [ ] Fabric, after the 03e backfill: read 03e's risk calibration line. If the median lands
+#       well outside 20-30, or nothing reaches the 60s, recalibrate on Fabric's own inputs.
 # - [ ] Dashboard: relabel the financial P10 / P90 tiles to P5 / P95; rebind the renamed 03e
 #       columns (violation_fine_usd, total_impact_usd_*).
