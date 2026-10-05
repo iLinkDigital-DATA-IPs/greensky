@@ -70,6 +70,28 @@ mentions are in docstrings and comments.
 - `perturbations.py`: Perturbation A (the config source at `:343` plus the 11 literals above,
   12 edits, 2026-09-15 -> 2026-09-16; the 6 config reads follow by construction) and
   Perturbation B (`STATE_HISTORY_DAYS` 90 -> 91), with apply, revert, suite, diff and sets.
-- `sets.json`: SET B, SET A minus B and NEITHER for every harness entry. **These are the
-  refactor's acceptance criteria.**
+- Reverting a perturbation: **an empty `git diff` on its targets is the proof the revert
+  worked** (`perturbations.py revert` checks it, and checks each file byte-for-byte against its
+  pre-apply hash). No post-revert confirmation capture is taken. Agreed practice since
+  2026-10-05, on the grounds that an empty diff has corresponded to an identical capture each
+  time it was checked. The check on record here: on 2026-10-05, after reverting Perturbation A,
+  20 of 21 harnesses (2,207 entries) re-captured identical to `baseline/` with byte-identical
+  stdouts (`harness_joins` was not re-run). Do not reinstate the confirmation capture.
 - `captures/`: perturbed and confirmation captures. Git-ignored.
+
+**The gate for the refactor: all 21 harness fingerprints identical to `baseline/` at the
+current date.** That is what was accepted on 2026-10-05, and it is met. It proves the refactor
+is a no-op at today's date; it does not say which entries should move when the date moves.
+
+The SET A / SET B refinement (classify every entry as moving under Perturbation A, under B, or
+neither, and accept the refactor against that classification in `sets.json`) was started and
+deliberately not finished. `perturbations.py` still has the `sets` command; `sets.json` was
+never written, no suite beyond A was completed, and `harness_joins` was never confirmed after
+the A revert. Do not treat the refinement as part of the gate.
+
+## Parked
+
+- **02b autocorrelation threshold.** `02b_gen_scada_telemetry:1922` asserts lag-1
+  autocorrelation `> AUTOCORR_MIN` (0.70, set at `:1878`) on every sampled tag. 0.70 sits on
+  one vibration tag's population value, so the check is a coin-flip on that tag: 7 of 9
+  thirty-day draws fail. Unrelated to the date work; found while running it.
