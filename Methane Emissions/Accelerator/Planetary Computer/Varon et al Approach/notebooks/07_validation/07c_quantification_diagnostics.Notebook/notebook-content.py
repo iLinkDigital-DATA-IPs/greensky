@@ -1487,3 +1487,126 @@ else:
 # 11. **Overall verdict:** _______________
 #
 # 12. **Next actions:** _______________
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+
+ep   = spark.table("fact_emission_episode")
+pl   = spark.table("gold_plume_catalog")
+tel  = spark.table("scada_telemetry")
+tag  = spark.table("dim_scada_tag")
+alm  = spark.table("fact_scada_alarm")
+
+# --- 1. above-floor episodes at facilities that also have a plume attributed -------------
+big = (ep.filter("above_tropomi_floor")
+         .select("episode_sk","facility_id","facility_sk","equipment_sk","equipment_id",
+                 "root_cause","peak_rate_kg_h","start_ts","end_ts"))
+print("above-floor episodes:", big.count())
+
+plm = (pl.filter("attributed_facility_id is not null")
+         .select(F.col("attributed_facility_id").alias("facility_id"),
+                 F.col("plume_id"), F.col("detection_date").alias("plume_ts"),
+                 F.col("emission_rate_kg_h").alias("plume_kg_h"),
+                 F.col("attribution_distance_km")))
+
+# episode and plume at the same facility, plume timestamp inside the episode
+both = (big.join(plm, "facility_id")
+           .filter((F.col("plume_ts") >= F.col("start_ts")) &
+                   (F.col("plume_ts") <= F.col("end_ts"))))
+print("\n=== episode active at the facility when the plume was detected ===")
+both.select("facility_id","equipment_id","root_cause","peak_rate_kg_h",
+            "plume_id","plume_kg_h","attribution_distance_km","start_ts","end_ts") \
+    .orderBy(F.desc("peak_rate_kg_h")).show(20, truncate=False)
+print("matches:", both.count())
+
+# --- 2. does the telemetry show it? ------------------------------------------------------
+# for each match, the asset's tags and whether any reading in the episode window
+# was flagged as episode-affected or raised an alarm
+cand = both.select("episode_sk","facility_id","equipment_sk","equipment_id",
+                   "root_cause","start_ts","end_ts","plume_id").distinct()
+
+tags_on = tag.select("tag_sk","tag_id","equipment_sk","measurement_type")
+
+sig = (cand.join(tags_on, "equipment_sk")
+           .join(tel.select("tag_sk","reading_ts","value_num","operating_state"),
+                 "tag_sk")
+           .filter((F.col("reading_ts") >= F.col("start_ts")) &
+                   (F.col("reading_ts") <= F.col("end_ts")))
+           .groupBy("facility_id","equipment_id","root_cause","plume_id")
+           .agg(F.countDistinct("tag_id").alias("tags"),
+                F.count("*").alias("readings")))
+print("\n=== telemetry coverage for those assets during the episode ===")
+sig.show(20, truncate=False)
+
+# --- 3. alarms on the same asset during the episode ---------------------------------------
+al = (cand.join(tags_on, "equipment_sk")
+          .join(alm.select("tag_sk","alarm_type","priority","raised_ts","peak_value"),
+                "tag_sk")
+          .filter((F.col("raised_ts") >= F.col("start_ts")) &
+                  (F.col("raised_ts") <= F.col("end_ts"))))
+print("\n=== alarms raised on those assets during the episode ===")
+al.select("facility_id","equipment_id","root_cause","plume_id",
+          "tag_id","alarm_type","priority","raised_ts") \
+  .orderBy("facility_id","raised_ts").show(30, truncate=False)
+print("alarms:", al.count())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+for eq in ["EQ-00811", "EQ-02501"]:
+    n = spark.table("dim_scada_tag").filter(f"equipment_id = '{eq}'").count()
+    print(eq, "tags:", n)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+tag = spark.table("dim_scada_tag"); tel = spark.table("scada_telemetry")
+alm = spark.table("fact_scada_alarm")
+
+for fac, t0, t1, pid in [("GS-0038","2026-09-10 09:31:04","2026-09-14 14:11:19","PL-ee07d05aa443"),
+                         ("GS-0118","2026-08-10 16:53:24","2026-08-25 13:40:29","PL-b823142179bc")]:
+    print(f"\n===== {fac}  {pid}  {t0} .. {t1} =====")
+    tags = tag.filter(f"facility_id = '{fac}'").select("tag_sk","tag_id","equipment_id","measurement_type")
+    print("instrumented tags at this facility:", tags.count())
+    a = (tags.join(alm.select("tag_sk","alarm_type","priority","raised_ts","peak_value"), "tag_sk")
+             .filter(f"raised_ts between '{t0}' and '{t1}'"))
+    print("alarms during the episode:", a.count())
+    a.select("tag_id","equipment_id","measurement_type","alarm_type","priority","raised_ts") \
+     .orderBy("raised_ts").show(20, truncate=False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.table("fact_emission_episode") \
+  .filter("facility_id = 'GS-0118'") \
+  .filter("end_ts >= '2026-08-10' and start_ts <= '2026-08-26'") \
+  .select("equipment_id","root_cause","peak_rate_kg_h","above_tropomi_floor",
+          "start_ts","end_ts") \
+  .orderBy("start_ts").show(20, truncate=False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
