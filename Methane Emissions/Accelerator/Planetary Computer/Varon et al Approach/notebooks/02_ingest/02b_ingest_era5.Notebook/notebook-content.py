@@ -41,13 +41,117 @@
 
 # MARKDOWN ********************
 
+# ### Run mode and window
+#
+# `run_mode` via `getArgument`, with optional `start_date` / `end_date` overrides, as 02a-02e
+# and 03a-03e. The window is half-open, `[start_date, end_date)`: the pipeline's
+# `pipeline_date` P is the day processed, so incremental is `[P, P+1)`. Backfill starts at
+# `DETECTION_HISTORY_START` (00_config). Without arguments (an interactive run) P is today, UTC.
+#
+# STAC and Open-Meteo take inclusive date ranges, so they get `START_DATE` and `LAST_DATE`, the
+# last day inside the window.
+
+# CELL ********************
+
+import pandas as pd
+
+RUN_MODE = "backfill"
+try:
+    RUN_MODE = getArgument("run_mode", "backfill")
+except Exception:
+    pass
+RUN_MODE = (str(RUN_MODE) or "backfill").lower()
+assert RUN_MODE in ("backfill", "incremental"), (
+    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
+)
+
+try:
+    _start_override = getArgument("start_date", "")
+    _end_override = getArgument("end_date", "")
+except Exception:
+    _start_override, _end_override = "", ""
+
+_DAY = pd.Timedelta(days=1)
+_TODAY = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+HISTORY_START = pd.Timestamp(DETECTION_HISTORY_START)
+
+if RUN_MODE == "backfill":
+    WINDOW_START, WINDOW_END = HISTORY_START, _TODAY + _DAY
+else:
+    WINDOW_START, WINDOW_END = _TODAY, _TODAY + _DAY
+
+if _start_override:
+    WINDOW_START = pd.Timestamp(_start_override)
+if _end_override:
+    WINDOW_END = pd.Timestamp(_end_override)
+
+WINDOW_START = pd.Timestamp(WINDOW_START).normalize()
+WINDOW_END = pd.Timestamp(WINDOW_END).normalize()
+assert WINDOW_START < WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
+assert WINDOW_START >= HISTORY_START, (
+    f"window starts {WINDOW_START.date()}, before DETECTION_HISTORY_START {HISTORY_START.date()}"
+)
+
+START_DATE = WINDOW_START.strftime("%Y-%m-%d")
+LAST_DATE = (WINDOW_END - _DAY).strftime("%Y-%m-%d")
+print(f"RUN_MODE={RUN_MODE}  window=[{START_DATE}, {WINDOW_END.date()})  last day {LAST_DATE}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
 # ### Inspect the file:
 
 # CELL ********************
 
+import os
+import re
 import xarray as xr
 
-ds = xr.open_dataset("/lakehouse/default/Files/reference/era5_permian_202606_202607.nc")
+# The ERA5 extract is resolved from the window, never named. Files are
+# era5_permian_<YYYYMM first>_<YYYYMM last>.nc, covering whole months. With no file covering
+# [WINDOW_START, WINDOW_END) this fails: without ERA5, 04 falls back to the fixed mixing time,
+# and 03's null-rate assertion would be the only thing left to catch it.
+ERA5_DIR = "/lakehouse/default/Files/reference"
+_ERA5_NAME = re.compile(r"^era5_permian_(\d{6})_(\d{6})\.nc$")
+
+def _coverage(name):
+    m = _ERA5_NAME.match(name)
+    if not m:
+        return None
+    first = pd.Timestamp(f"{m.group(1)}01")
+    last = pd.Timestamp(f"{m.group(2)}01")
+    return first, last + pd.offsets.MonthBegin(1)    # [first of first month, first after last)
+
+_files = {n: _coverage(n) for n in sorted(os.listdir(ERA5_DIR))}
+_files = {n: c for n, c in _files.items() if c is not None}
+_covering = [n for n, (lo, hi) in _files.items() if lo <= WINDOW_START and WINDOW_END <= hi]
+if not _covering:
+    raise FileNotFoundError(
+        f"No ERA5 extract in {ERA5_DIR} covers the window [{START_DATE}, {WINDOW_END.date()}). "
+        "Available: " + (", ".join(f"{n} [{lo.date()}, {hi.date()})" for n, (lo, hi) in _files.items())
+                         or "none")
+        + ". Download one that covers the window; do not run without ERA5."
+    )
+# The narrowest covering extract, then by name, so the choice is deterministic.
+ERA5_FILE = min(_covering, key=lambda n: (_files[n][1] - _files[n][0], n))
+print(f"ERA5 extract: {ERA5_FILE} for window [{START_DATE}, {WINDOW_END.date()})")
+
+ds = xr.open_dataset(f"{ERA5_DIR}/{ERA5_FILE}")
+
+# The name only claims coverage; check the time axis itself. Hourly data must reach the last
+# hour of the window.
+_tname = next(c for c in ("valid_time", "time") if c in ds.coords)
+_t = pd.to_datetime(ds[_tname].values)
+assert _t.min() <= WINDOW_START and _t.max() >= WINDOW_END - pd.Timedelta(hours=1), (
+    f"{ERA5_FILE} {_tname} runs {_t.min()} .. {_t.max()}, which does not cover the window "
+    f"[{START_DATE}, {WINDOW_END.date()}). The file is truncated or misnamed."
+)
 print("=== Dataset Overview ===")
 print(ds)
 print()

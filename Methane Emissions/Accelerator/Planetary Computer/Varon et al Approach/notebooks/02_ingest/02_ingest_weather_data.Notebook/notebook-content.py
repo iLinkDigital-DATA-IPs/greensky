@@ -41,6 +41,70 @@
 
 # MARKDOWN ********************
 
+# ### Run mode and window
+#
+# `run_mode` via `getArgument`, with optional `start_date` / `end_date` overrides, as 02a-02e
+# and 03a-03e. The window is half-open, `[start_date, end_date)`: the pipeline's
+# `pipeline_date` P is the day processed, so incremental is `[P, P+1)`. Backfill starts at
+# `DETECTION_HISTORY_START` (00_config). Without arguments (an interactive run) P is today, UTC.
+#
+# STAC and Open-Meteo take inclusive date ranges, so they get `START_DATE` and `LAST_DATE`, the
+# last day inside the window.
+
+# CELL ********************
+
+import pandas as pd
+
+RUN_MODE = "backfill"
+try:
+    RUN_MODE = getArgument("run_mode", "backfill")
+except Exception:
+    pass
+RUN_MODE = (str(RUN_MODE) or "backfill").lower()
+assert RUN_MODE in ("backfill", "incremental"), (
+    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
+)
+
+try:
+    _start_override = getArgument("start_date", "")
+    _end_override = getArgument("end_date", "")
+except Exception:
+    _start_override, _end_override = "", ""
+
+_DAY = pd.Timedelta(days=1)
+_TODAY = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+HISTORY_START = pd.Timestamp(DETECTION_HISTORY_START)
+
+if RUN_MODE == "backfill":
+    WINDOW_START, WINDOW_END = HISTORY_START, _TODAY + _DAY
+else:
+    WINDOW_START, WINDOW_END = _TODAY, _TODAY + _DAY
+
+if _start_override:
+    WINDOW_START = pd.Timestamp(_start_override)
+if _end_override:
+    WINDOW_END = pd.Timestamp(_end_override)
+
+WINDOW_START = pd.Timestamp(WINDOW_START).normalize()
+WINDOW_END = pd.Timestamp(WINDOW_END).normalize()
+assert WINDOW_START < WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
+assert WINDOW_START >= HISTORY_START, (
+    f"window starts {WINDOW_START.date()}, before DETECTION_HISTORY_START {HISTORY_START.date()}"
+)
+
+START_DATE = WINDOW_START.strftime("%Y-%m-%d")
+LAST_DATE = (WINDOW_END - _DAY).strftime("%Y-%m-%d")
+print(f"RUN_MODE={RUN_MODE}  window=[{START_DATE}, {WINDOW_END.date()})  last day {LAST_DATE}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
 # ### Build weather station grid:
 
 # CELL ********************
@@ -77,8 +141,8 @@ import requests
 import pandas as pd
 import time
 
-start_date = CONFIG["start_date"]
-end_date = CONFIG["end_date"]
+start_date = START_DATE
+end_date = LAST_DATE
 
 all_weather = []
 failed_points = []
@@ -230,8 +294,8 @@ import numpy as np
 import itertools
 import time
 
-start_date = CONFIG["start_date"]
-end_date = CONFIG["end_date"]
+start_date = START_DATE
+end_date = LAST_DATE
 
 # Find missing points
 spacing = CONFIG["weather_grid_spacing"]

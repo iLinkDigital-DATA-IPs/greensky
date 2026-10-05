@@ -1,6 +1,6 @@
 {
   "properties": {
-    "description": "Detection: ingest (4 in parallel) -> 03 join -> 04 -> 04b -> 05 -> 06. Windows are half-open [start_date, end_date).",
+    "description": "Detection: ingest (4 in parallel) -> 03 join -> 04 -> 04b -> 05 -> 06. pipeline_date P is the day processed (UTC trigger date when empty); windows are half-open, incremental [P, P+1), backfill [DETECTION_HISTORY_START, P+1).",
     "activities": [
       {
         "type": "IfCondition",
@@ -46,14 +46,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -113,14 +113,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -180,14 +180,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -247,14 +247,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -314,14 +314,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -399,14 +399,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -466,14 +466,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -533,14 +533,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"
@@ -600,14 +600,14 @@
             },
             "start_date": {
               "value": {
-                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), -1), 'yyyy-MM-dd'))",
+                "value": "@if(equals(pipeline().parameters.run_mode, 'backfill'), '', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date))",
                 "type": "Expression"
               },
               "type": "string"
             },
             "end_date": {
               "value": {
-                "value": "@if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date)",
+                "value": "@formatDateTime(addDays(if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), 1), 'yyyy-MM-dd')",
                 "type": "Expression"
               },
               "type": "string"

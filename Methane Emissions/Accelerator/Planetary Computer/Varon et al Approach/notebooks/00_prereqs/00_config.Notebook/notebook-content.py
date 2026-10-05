@@ -98,17 +98,18 @@ CONFIG = {
 
     # Weather grid spacing for Open-Meteo queries (degrees)
     "weather_grid_spacing": 0.5,
-
-    # Date range (update as needed)
-    "start_date": "2026-06-10",
-    "end_date": "2026-07-09",
 }
+
+# First day of detection history: where a backfill starts. The window itself is not set here.
+# Every notebook that uses one takes it from the run_mode / start_date / end_date arguments in
+# its "Run mode and window" cell, half-open [start_date, end_date).
+DETECTION_HISTORY_START = "2026-08-16"
 
 # Convenience accessors
 BBOX = CONFIG["bbox"]
 print("Config loaded successfully")
 print(f"BBOX: {BBOX}")
-print(f"Date range: {CONFIG['start_date']} to {CONFIG['end_date']}")
+print(f"Detection history starts: {DETECTION_HISTORY_START}")
 
 # METADATA ********************
 
