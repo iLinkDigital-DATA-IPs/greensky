@@ -1,6 +1,6 @@
 {
   "properties": {
-    "description": "Detection: ingest (4 in parallel) -> 03 join -> 04 -> 04b -> 05 -> 06. pipeline_date P is the day processed (UTC trigger date when empty); windows are half-open, incremental [P, P+1), backfill [DETECTION_HISTORY_START, P+1).",
+    "description": "Detection: ingest (4 in parallel) -> 03 join -> 04 -> 04b -> 05 -> 06. pipeline_date P is the day processed (UTC trigger date when empty); windows are half-open, incremental [P, P+1), backfill [DETECTION_HISTORY_START, P+1). Run order: 01 topology (dims) first; greensky_enterprise runs after this pipeline and reads its gold_plume_catalog and gold_multi_gas_signatures.",
     "activities": [
       {
         "type": "IfCondition",

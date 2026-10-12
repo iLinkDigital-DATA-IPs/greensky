@@ -59,6 +59,9 @@ mentions are in docstrings and comments.
 
 ## The gate
 
+The refactor this gates, and why it is shaped the way it is: `DESIGN_NOTE_date_refactor.md`
+(repo root).
+
 - `capture.py`: fingerprints every DataFrame, Series, Index and ndarray a harness produces
   (see its docstring). Refuses to run if Python, pandas or numpy differ from `baseline/`.
 - `baseline/`: the canonical capture. The committed `baseline/**/*.fingerprint.json` files are
@@ -95,3 +98,11 @@ the A revert. Do not treat the refinement as part of the gate.
   autocorrelation `> AUTOCORR_MIN` (0.70, set at `:1878`) on every sampled tag. 0.70 sits on
   one vibration tag's population value, so the check is a coin-flip on that tag: 7 of 9
   thirty-day draws fail. Unrelated to the date work; found while running it.
+- **An incremental enterprise run stops at 02a (the TOPOLOGY_AS_OF ceiling), confirmed in
+  Fabric.** `greensky_enterprise`, `run_mode=incremental`, `pipeline_date` empty, 2026-10-12
+  (job `9ff5890c`): 02a resumed the day after its watermark, window `[2026-09-15,
+  2026-09-16)`, and its validation raised `204 interval(s) start at or after the as-of date`
+  before writing. Nothing was written, and nothing downstream ran. 02a's window cell has no
+  as-of bound; the assertion in its validation cell is the guard. The pipeline cannot run
+  incrementally until the date refactor lands, which has to fix this
+  (`DESIGN_NOTE_date_refactor.md` §4).

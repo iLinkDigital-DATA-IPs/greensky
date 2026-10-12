@@ -1445,3 +1445,73 @@
 #       well outside 20-30, or nothing reaches the 60s, recalibrate on Fabric's own inputs.
 # - [ ] Dashboard: relabel the financial P10 / P90 tiles to P5 / P95; rebind the renamed 03e
 #       columns (violation_fine_usd, total_impact_usd_*).
+
+# MARKDOWN ********************
+
+# ### 2026-10-12 -- Day 16 (Completed)
+# #### Run order: topology, then detection, then enterprise
+# - **01 topology** (setup, on demand) writes the dim_* tables. Both pipelines assume they exist.
+# - **greensky_detection** writes gold_plume_catalog and gold_multi_gas_signatures.
+# - **greensky_enterprise** is not self-contained. 03c reads gold_plume_catalog and
+#   gold_multi_gas_signatures, and 03e reads gold_plume_catalog. Run detection before
+#   enterprise, and the topology before both. Each pipeline's description says the same.
+# #### Fixed: notebooks never received pipeline parameters
+# - Fabric hands base parameters to a notebook only through a toggled parameter cell. getArgument
+#   never saw them, so all 17 V2 notebooks silently ran their own default windows.
+# - Every one now opens with "# PARAMETERS CELL" (run_mode, start_date, end_date, all empty),
+#   ahead of any %run. It prints the parameters received, the window, and the source of each
+#   end, and raises instead of guessing. Detection notebooks require end_date. 02a-03e keep
+#   their own derivation, with start_date / end_date as optional overrides.
+# #### Added: greensky_enterprise pipeline
+# - 02a -> 03a -> 02b -> (02c | 02d); 02a -> 02e; (02b, 02d, 02e) -> 03c -> 03b -> 03d -> 03e.
+# - Two orders fail silently if wrong. Without fact_emission_episode, 02b skips the episode
+#   overlay. Without fact_compliance_event, 03b raises zero compliance tickets.
+# - pipeline_date empty passes no window: every notebook derives its own. A pipeline_date P
+#   overrides it (end_date P+1, start_date P for incremental, empty for backfill). There is no
+#   TriggerTime fallback, because the estate's clock is TOPOLOGY_AS_OF, not the calendar.
+# - Timeouts from the first Fabric run (41 min end to end): 02b 1 h (it took 17.2 min for
+#   19.7M rows); every other step 20 min (each took 2.3-4.6 min). Retries 0, as detection.
+# #### Windows each notebook resolves (backfill, pipeline_date empty, 2026-10-12)
+# All half-open. TOPOLOGY_AS_OF = 2026-09-15, STATE_HISTORY_DAYS = 90, TELEMETRY_RAW_DAYS = 30.
+# | Notebook | Window | Start from | End from |
+# |---|---|---|---|
+# | 02a | [2026-06-17, 2026-09-15) | TOPOLOGY_AS_OF - STATE_HISTORY_DAYS | TOPOLOGY_AS_OF |
+# | 03a | [2026-06-17, 2026-09-15) | TOPOLOGY_AS_OF - STATE_HISTORY_DAYS | TOPOLOGY_AS_OF |
+# | 02b | [2026-08-16, 2026-09-15) | TOPOLOGY_AS_OF - TELEMETRY_RAW_DAYS | TOPOLOGY_AS_OF |
+# | 02c | [2026-08-16, 2026-09-15) | raw-telemetry window | raw-telemetry window |
+# | 02e | [2026-08-16, 2026-09-15) | raw-telemetry window | raw-telemetry window |
+# | 02d | [2026-08-16, 2026-09-15) | scada_telemetry's first day | day after scada_telemetry's last day |
+# | 03c | [2026-08-16, 2026-09-15) | SOURCE_START: max start of scada_telemetry, sensor_telemetry | SOURCE_END: min end of the same |
+# | 03b | [2026-08-16, 2026-09-15) | SOURCE_START: max start of scada_telemetry, sensor_telemetry | SOURCE_END: min end of those and fact_asset_state |
+# | 03d | [2026-06-17, 2026-09-15) | TOPOLOGY_AS_OF - STATE_HISTORY_DAYS | SOURCE_END: min end of scada_telemetry, sensor_telemetry, fact_asset_state |
+# | 03e | [2026-08-16, 2026-09-15) | SOURCE_START: max start of sensor_telemetry, fact_work_order_event | SOURCE_END: min end of sensor_telemetry, fact_asset_state |
+# - Three families: TOPOLOGY_AS_OF directly (02a, 03a, 02b), the raw-telemetry horizon (02c,
+#   02e, and 02d through scada_telemetry), and the sources' span (03b, 03c, 03e; 03d takes its
+#   start from TOPOLOGY_AS_OF and its end from the sources).
+# - Incremental: 02a, 02b, 02d and 02e resume the day after their own watermark. 02c re-rolls
+#   its last rolled day through the raw window end. 03a takes the last day of fact_asset_state,
+#   and 03b-03e the sources' last day.
+# - Every row above except 03e's is the notebook's own printed output. 03e's driver log was never
+#   written ("no available log file"), so its row comes from its rule and the data: both sources
+#   ran 2026-08-16 to 2026-09-14, and the three tables it wrote cover exactly those 30 days.
+# #### Verified in Fabric
+# - greensky_detection, backfill, pipeline_date 2026-09-15: every window
+#   [2026-08-16, 2026-09-16). gold_plume_catalog 49; 06 green.
+# - greensky_enterprise, backfill, pipeline_date empty: all ten succeeded, every table rewritten
+#   (Delta version advanced) and equal to the known state. fact_asset_state 20,261,
+#   fact_emission_episode 1,598, scada_telemetry 19,687,393 (episode overlay ON: 604 episodes),
+#   hourly 3,265,025, daily 137,092, fact_scada_alarm 7,415, fact_sensor_status_event 6,977,
+#   sensor_telemetry 411,568, fact_compliance_event 80, fact_work_order 1,119, fact_maintenance
+#   2,757, fact_inspection 1,854, fact_ldar_survey 150, fact_pm_schedule 3,132,
+#   fact_production_daily 4,500, fact_financial_impact 44, fact_facility_daily_snapshot 4,500.
+# #### Confirmed: an incremental enterprise run stops at 02a
+# - greensky_enterprise, run_mode incremental, pipeline_date empty (job 9ff5890c): 02a resolved
+#   [2026-09-15, 2026-09-16) from its watermark. Its validation raised "204 interval(s) start at
+#   or after the as-of date" before writing. Nothing was written, and nothing downstream ran.
+# - This is the Day 15 TOPOLOGY_AS_OF ceiling, now observed. The fix is the date refactor:
+#   DESIGN_NOTE_date_refactor.md (repo root), which also records the decision and its gate.
+# #### Remaining
+# - [ ] The date refactor (DESIGN_NOTE_date_refactor.md). No incremental enterprise run can
+#       succeed until it lands.
+# - [ ] Row-count assertions on the pipelines.
+# - [ ] An ERA5 extract covering October, or detection's incremental runs fail at 02b_ingest_era5.
