@@ -4,7 +4,10 @@ import re
 import sys
 import pathlib
 
-MARK = re.compile(r"^# (CELL|MARKDOWN|METADATA) \*{20,}$")
+# PARAMETERS CELL is a code cell toggled as the parameter cell: Fabric injects pipeline base
+# parameters in a cell beneath it, and by no other route a notebook can read.
+MARK = re.compile(r"^# (CELL|PARAMETERS CELL|MARKDOWN|METADATA) \*{20,}$")
+CODE = ("CELL", "PARAMETERS CELL")
 
 
 def cells(path):
@@ -33,8 +36,8 @@ def check(path):
     # every CELL must be followed by a METADATA block; MARKDOWN must not be
     for i, (k, body) in enumerate(cs):
         nxt = kinds[i + 1] if i + 1 < len(kinds) else None
-        if k == "CELL" and nxt != "METADATA":
-            errs.append(f"cell {i}: CELL not followed by METADATA (got {nxt})")
+        if k in CODE and nxt != "METADATA":
+            errs.append(f"cell {i}: {k} not followed by METADATA (got {nxt})")
         if k == "MARKDOWN":
             if nxt == "METADATA":
                 errs.append(f"cell {i}: MARKDOWN followed by a METADATA block")
@@ -45,19 +48,26 @@ def check(path):
             meta = [l for l in body if l.strip()]
             if not all(l.startswith("# META") for l in meta):
                 errs.append(f"cell {i}: METADATA block has a non-# META line")
+    # at most one parameter cell, and first, so the injected cell lands ahead of %run 00_config
+    params = [i for i, k in enumerate(kinds) if k == "PARAMETERS CELL"]
+    if len(params) > 1:
+        errs.append(f"{len(params)} PARAMETERS CELL markers, expected at most one")
+    if params and params[0] != 1:
+        errs.append(f"cell {params[0]}: PARAMETERS CELL is not the first cell after the header")
     # code cells must parse together, in order
     code = []
     for k, body in cs:
-        if k == "CELL":
+        if k in CODE:
             code += [("pass  # " + l) if l.startswith("%") else l for l in body]
     try:
         ast.parse("\n".join(code))
     except SyntaxError as e:
         errs.append(f"python syntax: line {e.lineno}: {e.msg}: {e.text!r}")
 
-    n_cell = kinds.count("CELL")
+    n_cell = sum(kinds.count(k) for k in CODE)
     n_md = kinds.count("MARKDOWN")
-    print(f"{name}: {n_cell} code cells, {n_md} markdown cells, {len(code)} code lines")
+    print(f"{name}: {n_cell} code cells ({len(params)} parameter), {n_md} markdown cells, "
+          f"{len(code)} code lines")
     for e in errs:
         print(f"  FAIL  {e}")
     if not errs:
