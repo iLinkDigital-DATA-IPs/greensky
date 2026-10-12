@@ -1789,6 +1789,57 @@ else:
 # META   "language_group": "synapse_pyspark"
 # META }
 
+# CELL ********************
+
+from pyspark.sql import functions as F
+
+print("=== PL-059118a52421 ===")
+(spark.table("gold_rejected_collinear")
+   .filter("plume_id = 'PL-059118a52421'")
+   .select("plume_id","variance_explained","n_physical_columns",
+           "n_column_pairs","dominant_column_share","would_be_valid")
+   .distinct().show(truncate=False))
+
+rej = (spark.table("gold_rejected_collinear")
+       .select("plume_id","dominant_column_share","variance_explained",
+               "n_physical_columns","would_be_valid")
+       .distinct())
+
+print("=== dominant_column_share across rejected clusters ===")
+rej.select("dominant_column_share").summary().show()
+
+print("=== lowest rejected shares (closest to the 0.80 cut) ===")
+rej.orderBy("dominant_column_share").show(10, truncate=False)
+
+print("=== histogram ===")
+(rej.withColumn("bin", (F.col("dominant_column_share")*20).cast("int")/20)
+    .groupBy("bin").count().orderBy("bin").show(25))
+
+print("=== would these have been accepted otherwise? ===")
+rej.groupBy("would_be_valid").count().show()
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.table("gold_rejected_collinear") \
+  .filter("plume_id in ('PL-b420f53b29d2','PL-f9a7d3813c6f','PL-279e326a83c4')") \
+  .select("plume_id","latitude","longitude","orbit","ground_pixel","scanline",
+          "ch4_enhancement_destriped") \
+  .orderBy("plume_id","latitude").show(30, truncate=False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # ### 
