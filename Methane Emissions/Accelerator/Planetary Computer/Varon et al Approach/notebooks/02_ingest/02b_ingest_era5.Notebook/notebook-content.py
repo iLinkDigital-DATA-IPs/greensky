@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = "backfill"
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # ### Load configs:
@@ -42,12 +55,10 @@
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
 # `run_mode` via `getArgument`, with optional `start_date` / `end_date` overrides, as 02a-02e
 # and 03a-03e. The window is half-open, `[start_date, end_date)`: the pipeline's
 # `pipeline_date` P is the day processed, so incremental is `[P, P+1)`. Backfill starts at
 # `DETECTION_HISTORY_START` (00_config). Without arguments (an interactive run) P is today, UTC.
-#
 # STAC and Open-Meteo take inclusive date ranges, so they get `START_DATE` and `LAST_DATE`, the
 # last day inside the window.
 
