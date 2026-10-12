@@ -26,7 +26,7 @@
 
 # PARAMETERS CELL ********************
 
-run_mode = "backfill"
+run_mode = ""
 start_date = ""
 end_date = ""
 
@@ -59,16 +59,18 @@ end_date = ""
 # notebook, and nowhere else: Fabric hands a pipeline's base parameters to a notebook only by
 # injecting a cell beneath a toggled parameter cell. That cell must stay first, ahead of
 # `%run 00_config`, so the injected values exist before anything reads them.
-# The window is half-open, `[start_date, end_date)`. The pipeline always passes `end_date`
-# (P+1 for `pipeline_date` P), and passes `start_date` as P for incremental and empty for
-# backfill. An empty `start_date` on a backfill means `DETECTION_HISTORY_START` (00_config).
+# The window is half-open, `[start_date, end_date)`. `greensky_detection` always passes
+# `end_date` (P+1 for `pipeline_date` P), and passes `start_date` as P for incremental and empty
+# for backfill. An empty `start_date` on a backfill means `DETECTION_HISTORY_START` (00_config).
 # Nothing else is filled in: with no `end_date`, or no `start_date` on an incremental run, this
 # cell raises. An interactive run sets them in the parameter cell.
+# `START_DATE` and `LAST_DATE`, the last day inside the window, are the inclusive form, for STAC
+# and Open-Meteo, which take inclusive date ranges.
 
 # CELL ********************
 
 import re
-from datetime import datetime
+from datetime import datetime as _dt
 
 import pandas as pd
 
@@ -78,7 +80,7 @@ def _param_date(name, value):
     value = str(value).strip()
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
-    return pd.Timestamp(datetime.strptime(value, "%Y-%m-%d"))
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
 
 RUN_MODE = str(run_mode).strip().lower()
 if RUN_MODE not in ("backfill", "incremental"):

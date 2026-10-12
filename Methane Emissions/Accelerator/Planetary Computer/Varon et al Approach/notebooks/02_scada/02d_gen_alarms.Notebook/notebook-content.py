@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = ""
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # # 02d — Derive SCADA Alarms and Sensor Status
@@ -106,9 +119,9 @@
 
 # ### Run mode, and the boundary problem
 #
-# `run_mode` follows 02b: `getArgument` in a try/except, with `start_date` / `end_date`
-# overrides, and an incremental window taken from the table's own watermark rather than
-# `utcnow()`.
+# `run_mode` follows 02b: from the parameter cell at the top of the notebook (empty raises), with
+# `start_date` / `end_date` overrides, and an incremental window taken from the table's own
+# watermark rather than `utcnow()`. With no watermark, an incremental run raises.
 #
 # **The boundary problem.** An alarm raised before the window and cleared inside it has a
 # `raised_ts` outside the window, so its partition is not in the run's `replaceWhere` scope.
@@ -167,21 +180,27 @@ STATUS_TABLE = "fact_sensor_status_event"
 TELEMETRY_TABLE = "scada_telemetry"
 STATE_TABLE = "fact_asset_state"
 
-RUN_MODE = "backfill"
-try:
-    RUN_MODE = getArgument("run_mode", "backfill")
-except Exception:
-    pass
-RUN_MODE = (str(RUN_MODE) or "backfill").lower()
-assert RUN_MODE in ("backfill", "incremental"), (
-    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
-)
+import re
+from datetime import datetime as _dt
 
-try:
-    _start_override = getArgument("start_date", "")
-    _end_override = getArgument("end_date", "")
-except Exception:
-    _start_override, _end_override = "", ""
+print(f"parameters received: run_mode={run_mode!r} start_date={start_date!r} end_date={end_date!r}")
+
+
+def _param_date(name, value):
+    """A yyyy-MM-dd parameter as a Timestamp; None when empty, which means no override."""
+    value = str(value).strip()
+    if not value:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
+
+
+RUN_MODE = str(run_mode).strip().lower()
+if RUN_MODE not in ("backfill", "incremental"):
+    raise ValueError(f"run_mode must be 'backfill' or 'incremental', got {run_mode!r}")
+_start_override = _param_date("start_date", start_date)
+_end_override = _param_date("end_date", end_date)
 
 
 def table_exists(name):
@@ -207,22 +226,29 @@ TEL_END = pd.Timestamp(str(int(_tel_span["hi"]))) + pd.Timedelta(days=1)
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = TEL_START, TEL_END
+    _start_source = f"{TELEMETRY_TABLE} first day (backfill)"
+    _end_source = f"day after {TELEMETRY_TABLE} last day (backfill)"
 else:
     wm = None
     if table_exists(ALARM_TABLE):
         wm = spark.sql(f"SELECT max(date_sk) AS m FROM {ALARM_TABLE}").collect()[0]["m"]
     if wm is None:
-        WINDOW_START, WINDOW_END = TEL_END - pd.Timedelta(days=1), TEL_END
-        print(f"{ALARM_TABLE} is empty or absent -- incremental falls back to a one-day "
-              "window. Run a backfill first for a populated history.")
+        if _start_override is None or _end_override is None:
+            raise ValueError(
+                f"{ALARM_TABLE} is empty or absent, so an incremental run has no watermark "
+                "to resume from. Run a backfill first, or pass both start_date and end_date."
+            )
+        WINDOW_START = WINDOW_END = _start_source = _end_source = None   # set from the parameters below
     else:
         WINDOW_START = pd.Timestamp(str(int(wm))) + pd.Timedelta(days=1)
         WINDOW_END = min(WINDOW_START + pd.Timedelta(days=1), TEL_END)
+        _start_source = f"day after {ALARM_TABLE} max(date_sk) {int(wm)} (incremental watermark)"
+        _end_source = f"watermark day + 1, capped at {TELEMETRY_TABLE}'s end (incremental)"
 
-if _start_override:
-    WINDOW_START = pd.Timestamp(_start_override)
-if _end_override:
-    WINDOW_END = pd.Timestamp(_end_override)
+if _start_override is not None:
+    WINDOW_START, _start_source = _start_override, "start_date parameter"
+if _end_override is not None:
+    WINDOW_END, _end_source = _end_override, "end_date parameter"
 
 WINDOW_START = pd.Timestamp(WINDOW_START).normalize()
 WINDOW_END = pd.Timestamp(WINDOW_END).normalize()
@@ -232,6 +258,9 @@ assert WINDOW_END <= TEL_END, (
 )
 
 WINDOW_DAYS = int((WINDOW_END - WINDOW_START).days)
+print(f"window [{WINDOW_START.date()}, {WINDOW_END.date()})")
+print(f"  start from {_start_source}")
+print(f"  end   from {_end_source}")
 
 # METADATA ********************
 

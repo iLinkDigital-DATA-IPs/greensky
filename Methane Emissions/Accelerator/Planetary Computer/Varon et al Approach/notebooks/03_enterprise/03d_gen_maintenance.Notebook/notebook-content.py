@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = ""
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # # 03d — Generate Maintenance, Inspections and LDAR
@@ -1020,18 +1033,27 @@ print("03d model defined -- PM visits are 02a's Scheduled PM intervals; completi
 
 # CELL ********************
 
-RUN_MODE = "backfill"
-try:
-    RUN_MODE = getArgument("run_mode", "backfill")
-except Exception:
-    pass
-RUN_MODE = (str(RUN_MODE) or "backfill").lower()
-assert RUN_MODE in ("backfill", "incremental"), "run_mode must be backfill or incremental"
-try:
-    _start_override = getArgument("start_date", "")
-    _end_override = getArgument("end_date", "")
-except Exception:
-    _start_override, _end_override = "", ""
+import re
+from datetime import datetime as _dt
+
+print(f"parameters received: run_mode={run_mode!r} start_date={start_date!r} end_date={end_date!r}")
+
+
+def _param_date(name, value):
+    """A yyyy-MM-dd parameter as a Timestamp; None when empty, which means no override."""
+    value = str(value).strip()
+    if not value:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
+
+
+RUN_MODE = str(run_mode).strip().lower()
+if RUN_MODE not in ("backfill", "incremental"):
+    raise ValueError(f"run_mode must be 'backfill' or 'incremental', got {run_mode!r}")
+_start_override = _param_date("start_date", start_date)
+_end_override = _param_date("end_date", end_date)
 
 for _t in ("fact_asset_state", "fact_work_order", "fact_work_order_event", "scada_telemetry",
            "sensor_telemetry"):
@@ -1052,13 +1074,17 @@ SOURCE_END = min(_hi("scada_telemetry"), _hi("sensor_telemetry"), STATE_HORIZON)
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = HISTORY_START, SOURCE_END
+    _start_source = "STATE_HISTORY_DAYS before TOPOLOGY_AS_OF (backfill)"
+    _end_source = "SOURCE_END, the sources' common end (backfill)"
 else:
     WINDOW_END = SOURCE_END
     WINDOW_START = WINDOW_END - _DAY
-if _start_override:
-    WINDOW_START = pd.Timestamp(_start_override)
-if _end_override:
-    WINDOW_END = pd.Timestamp(_end_override)
+    _start_source = "the sources' last day (incremental)"
+    _end_source = "SOURCE_END, the sources' common end (incremental)"
+if _start_override is not None:
+    WINDOW_START, _start_source = _start_override, "start_date parameter"
+if _end_override is not None:
+    WINDOW_END, _end_source = _end_override, "end_date parameter"
 WINDOW_START, WINDOW_END = WINDOW_START.normalize(), WINDOW_END.normalize()
 assert HISTORY_START <= WINDOW_START < WINDOW_END <= SOURCE_END, (
     f"window {WINDOW_START.date()}..{WINDOW_END.date()} is outside the sources' span "
@@ -1081,6 +1107,8 @@ if RUN_MODE == "incremental":
 
 print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()}  "
       f"(sources end {SOURCE_END.date()}; fact_asset_state runs to {STATE_HORIZON.date()})")
+print(f"  start from {_start_source}")
+print(f"  end   from {_end_source}")
 
 # METADATA ********************
 

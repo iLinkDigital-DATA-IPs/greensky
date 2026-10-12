@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = ""
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # # 03a — Generate Emission Episodes
@@ -488,8 +501,8 @@ print("episode model defined -- a day's episodes are a pure function of "
 
 # ### Run mode and window
 #
-# `run_mode` via `getArgument`, matching 02a, with optional `start_date` / `end_date`
-# overrides. Both modes cover the same history as `fact_asset_state`: `STATE_HISTORY_DAYS`
+# `run_mode` from the parameter cell at the top of the notebook (empty raises), matching 02a,
+# with optional `start_date` / `end_date` overrides. Both modes cover the same history as `fact_asset_state`: `STATE_HISTORY_DAYS`
 # back from `TOPOLOGY_AS_OF`.
 #
 # **Incremental follows `fact_asset_state`, not a watermark of its own.** Its window is the
@@ -509,21 +522,27 @@ print("episode model defined -- a day's episodes are a pure function of "
 
 # CELL ********************
 
-RUN_MODE = "backfill"
-try:
-    RUN_MODE = getArgument("run_mode", "backfill")
-except Exception:
-    pass
-RUN_MODE = (str(RUN_MODE) or "backfill").lower()
-assert RUN_MODE in ("backfill", "incremental"), (
-    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
-)
+import re
+from datetime import datetime as _dt
 
-try:
-    _start_override = getArgument("start_date", "")
-    _end_override = getArgument("end_date", "")
-except Exception:
-    _start_override, _end_override = "", ""
+print(f"parameters received: run_mode={run_mode!r} start_date={start_date!r} end_date={end_date!r}")
+
+
+def _param_date(name, value):
+    """A yyyy-MM-dd parameter as a Timestamp; None when empty, which means no override."""
+    value = str(value).strip()
+    if not value:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
+
+
+RUN_MODE = str(run_mode).strip().lower()
+if RUN_MODE not in ("backfill", "incremental"):
+    raise ValueError(f"run_mode must be 'backfill' or 'incremental', got {run_mode!r}")
+_start_override = _param_date("start_date", start_date)
+_end_override = _param_date("end_date", end_date)
 
 AS_OF = pd.Timestamp(TOPOLOGY_AS_OF)
 HISTORY_START = AS_OF - pd.Timedelta(days=STATE_HISTORY_DAYS)
@@ -538,14 +557,18 @@ STATE_HORIZON = pd.Timestamp(str(int(_state_wm))) + _DAY
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = HISTORY_START, AS_OF
+    _start_source = "STATE_HISTORY_DAYS before TOPOLOGY_AS_OF (backfill)"
+    _end_source = "TOPOLOGY_AS_OF (backfill)"
 else:
     WINDOW_END = STATE_HORIZON
     WINDOW_START = WINDOW_END - _DAY
+    _start_source = "the last day of fact_asset_state (incremental)"
+    _end_source = "fact_asset_state horizon (incremental)"
 
-if _start_override:
-    WINDOW_START = pd.Timestamp(_start_override)
-if _end_override:
-    WINDOW_END = pd.Timestamp(_end_override)
+if _start_override is not None:
+    WINDOW_START, _start_source = _start_override, "start_date parameter"
+if _end_override is not None:
+    WINDOW_END, _end_source = _end_override, "end_date parameter"
 
 assert WINDOW_START < WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
 assert WINDOW_START >= HISTORY_START, (
@@ -575,6 +598,8 @@ if RUN_MODE == "incremental" and table_exists(TABLE):
     )
 
 print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()}")
+print(f"  start from {_start_source}")
+print(f"  end   from {_end_source}")
 print(f"onset days regenerated {GEN_START.date()}..{(GEN_END - _DAY).date()}  "
       f"(replaceWhere date_sk {SK_LO}..{SK_HI})")
 print(f"state history {HISTORY_START.date()} .. {STATE_HORIZON.date()}  as-of {AS_OF.date()}")

@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = ""
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # # 02 — Ingest TROPOMI CH₄ from Planetary Computer
@@ -49,59 +62,72 @@
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# `run_mode` via `getArgument`, with optional `start_date` / `end_date` overrides, as 02a-02e
-# and 03a-03e. The window is half-open, `[start_date, end_date)`: the pipeline's
-# `pipeline_date` P is the day processed, so incremental is `[P, P+1)`. Backfill starts at
-# `DETECTION_HISTORY_START` (00_config). Without arguments (an interactive run) P is today, UTC.
-#
-# STAC and Open-Meteo take inclusive date ranges, so they get `START_DATE` and `LAST_DATE`, the
-# last day inside the window.
+# `run_mode`, `start_date` and `end_date` arrive through the parameter cell at the top of this
+# notebook, and nowhere else: Fabric hands a pipeline's base parameters to a notebook only by
+# injecting a cell beneath a toggled parameter cell. That cell must stay first, ahead of
+# `%run 00_config`, so the injected values exist before anything reads them.
+# The window is half-open, `[start_date, end_date)`. `greensky_detection` always passes
+# `end_date` (P+1 for `pipeline_date` P), and passes `start_date` as P for incremental and empty
+# for backfill. An empty `start_date` on a backfill means `DETECTION_HISTORY_START` (00_config).
+# Nothing else is filled in: with no `end_date`, or no `start_date` on an incremental run, this
+# cell raises. An interactive run sets them in the parameter cell.
+# `START_DATE` and `LAST_DATE`, the last day inside the window, are the inclusive form, for STAC
+# and Open-Meteo, which take inclusive date ranges.
 
 # CELL ********************
 
+import re
+from datetime import datetime as _dt
+
 import pandas as pd
 
-RUN_MODE = "backfill"
-try:
-    RUN_MODE = getArgument("run_mode", "backfill")
-except Exception:
-    pass
-RUN_MODE = (str(RUN_MODE) or "backfill").lower()
-assert RUN_MODE in ("backfill", "incremental"), (
-    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
-)
+print(f"parameters received: run_mode={run_mode!r} start_date={start_date!r} end_date={end_date!r}")
 
-try:
-    _start_override = getArgument("start_date", "")
-    _end_override = getArgument("end_date", "")
-except Exception:
-    _start_override, _end_override = "", ""
+def _param_date(name, value):
+    value = str(value).strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
 
-_DAY = pd.Timedelta(days=1)
-_TODAY = pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()
+RUN_MODE = str(run_mode).strip().lower()
+if RUN_MODE not in ("backfill", "incremental"):
+    raise ValueError(f"run_mode must be 'backfill' or 'incremental', got {run_mode!r}")
+
 HISTORY_START = pd.Timestamp(DETECTION_HISTORY_START)
 
-if RUN_MODE == "backfill":
-    WINDOW_START, WINDOW_END = HISTORY_START, _TODAY + _DAY
+if not str(end_date).strip():
+    raise ValueError(
+        "end_date is empty, so the window cannot be determined. The pipeline always passes it; "
+        "for an interactive run, set end_date (exclusive, yyyy-MM-dd) in the parameter cell."
+    )
+WINDOW_END = _param_date("end_date", end_date)
+_end_source = "end_date parameter"
+
+if str(start_date).strip():
+    WINDOW_START = _param_date("start_date", start_date)
+    _start_source = "start_date parameter"
+elif RUN_MODE == "backfill":
+    WINDOW_START = HISTORY_START
+    _start_source = "DETECTION_HISTORY_START (backfill, start_date empty)"
 else:
-    WINDOW_START, WINDOW_END = _TODAY, _TODAY + _DAY
+    raise ValueError(
+        "run_mode is incremental but start_date is empty, so the window cannot be determined. "
+        "The pipeline passes pipeline_date as start_date; set it in the parameter cell."
+    )
 
-if _start_override:
-    WINDOW_START = pd.Timestamp(_start_override)
-if _end_override:
-    WINDOW_END = pd.Timestamp(_end_override)
+if not WINDOW_START < WINDOW_END:
+    raise ValueError(f"empty window: [{WINDOW_START.date()}, {WINDOW_END.date()})")
+if WINDOW_START < HISTORY_START:
+    raise ValueError(
+        f"window starts {WINDOW_START.date()}, before DETECTION_HISTORY_START {HISTORY_START.date()}"
+    )
 
-WINDOW_START = pd.Timestamp(WINDOW_START).normalize()
-WINDOW_END = pd.Timestamp(WINDOW_END).normalize()
-assert WINDOW_START < WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
-assert WINDOW_START >= HISTORY_START, (
-    f"window starts {WINDOW_START.date()}, before DETECTION_HISTORY_START {HISTORY_START.date()}"
-)
-
+_DAY = pd.Timedelta(days=1)
 START_DATE = WINDOW_START.strftime("%Y-%m-%d")
 LAST_DATE = (WINDOW_END - _DAY).strftime("%Y-%m-%d")
 print(f"RUN_MODE={RUN_MODE}  window=[{START_DATE}, {WINDOW_END.date()})  last day {LAST_DATE}")
+print(f"  start from {_start_source}")
+print(f"  end   from {_end_source}")
 
 # METADATA ********************
 

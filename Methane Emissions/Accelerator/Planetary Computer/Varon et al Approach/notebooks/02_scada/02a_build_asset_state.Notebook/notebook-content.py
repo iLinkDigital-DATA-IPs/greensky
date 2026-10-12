@@ -24,6 +24,19 @@
 # META   }
 # META }
 
+# PARAMETERS CELL ********************
+
+run_mode = ""
+start_date = ""
+end_date = ""
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
 # MARKDOWN ********************
 
 # # 02a — Build Asset Operating State
@@ -98,9 +111,10 @@
 
 # ### Run mode
 #
-# `run_mode` follows the convention in the archived V1 notebooks: `getArgument` wrapped in a
-# try/except so the notebook also runs interactively, with optional `start_date` / `end_date`
-# overrides that take precedence.
+# `run_mode` arrives through the parameter cell at the top of the notebook, the only route by
+# which Fabric passes pipeline parameters in; an empty `run_mode` raises. Optional `start_date`
+# / `end_date` there take precedence over the derived window. An incremental run on an empty or
+# absent table raises rather than guessing a window.
 #
 # What differs from V1: the incremental window is **not** anchored to `utcnow()`. V1 used the
 # wall clock, which makes a rerun on a different day produce a different window and breaks
@@ -112,21 +126,27 @@
 
 TABLE = "fact_asset_state"
 
-RUN_MODE = "backfill"
-try:
-    RUN_MODE = getArgument("run_mode", "backfill")
-except Exception:
-    pass
-RUN_MODE = (str(RUN_MODE) or "backfill").lower()
-assert RUN_MODE in ("backfill", "incremental"), (
-    f"run_mode must be 'backfill' or 'incremental', got {RUN_MODE!r}"
-)
+import re
+from datetime import datetime as _dt
 
-try:
-    _start_override = getArgument("start_date", "")
-    _end_override = getArgument("end_date", "")
-except Exception:
-    _start_override, _end_override = "", ""
+print(f"parameters received: run_mode={run_mode!r} start_date={start_date!r} end_date={end_date!r}")
+
+
+def _param_date(name, value):
+    """A yyyy-MM-dd parameter as a Timestamp; None when empty, which means no override."""
+    value = str(value).strip()
+    if not value:
+        return None
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ValueError(f"{name} must be yyyy-MM-dd, got {value!r}")
+    return pd.Timestamp(_dt.strptime(value, "%Y-%m-%d"))
+
+
+RUN_MODE = str(run_mode).strip().lower()
+if RUN_MODE not in ("backfill", "incremental"):
+    raise ValueError(f"run_mode must be 'backfill' or 'incremental', got {run_mode!r}")
+_start_override = _param_date("start_date", start_date)
+_end_override = _param_date("end_date", end_date)
 
 AS_OF = pd.Timestamp(TOPOLOGY_AS_OF)
 HISTORY_START = AS_OF - pd.Timedelta(days=STATE_HISTORY_DAYS)
@@ -141,27 +161,34 @@ def table_exists(name):
 
 if RUN_MODE == "backfill":
     WINDOW_START, WINDOW_END = HISTORY_START, AS_OF
+    _start_source = "STATE_HISTORY_DAYS before TOPOLOGY_AS_OF (backfill)"
+    _end_source = "TOPOLOGY_AS_OF (backfill)"
 else:
-    # Watermark: resume the day after the last day already written. Falls back to a
-    # one-day window ending at the as-of date when the table is empty or absent.
+    # Watermark: resume the day after the last day already written. An empty or absent table
+    # has no watermark, and an incremental run does not guess one.
     wm = None
     if table_exists(TABLE):
         row = spark.sql(f"SELECT max(date_sk) AS m FROM {TABLE}").collect()[0]
         wm = row["m"]
     if wm is None:
-        WINDOW_START, WINDOW_END = AS_OF - pd.Timedelta(days=1), AS_OF
-        print(f"{TABLE} is empty or absent -- incremental falls back to a one-day window. "
-              "Run a backfill first for a populated history.")
+        if _start_override is None or _end_override is None:
+            raise ValueError(
+                f"{TABLE} is empty or absent, so an incremental run has no watermark "
+                "to resume from. Run a backfill first, or pass both start_date and end_date."
+            )
+        WINDOW_START = WINDOW_END = _start_source = _end_source = None   # set from the parameters below
     else:
         WINDOW_START = pd.Timestamp(str(int(wm))) + pd.Timedelta(days=1)
         WINDOW_END = WINDOW_START + pd.Timedelta(days=1)
+        _start_source = f"day after {TABLE} max(date_sk) {int(wm)} (incremental watermark)"
+        _end_source = "watermark day + 1 (incremental)"
 
-if _start_override:
-    WINDOW_START = pd.Timestamp(_start_override)
-if _end_override:
-    WINDOW_END = pd.Timestamp(_end_override)
+if _start_override is not None:
+    WINDOW_START, _start_source = _start_override, "start_date parameter"
+if _end_override is not None:
+    WINDOW_END, _end_source = _end_override, "end_date parameter"
 
-assert WINDOW_START <= WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
+assert WINDOW_START < WINDOW_END, f"empty window: {WINDOW_START} .. {WINDOW_END}"
 assert WINDOW_START >= HISTORY_START, (
     f"window starts {WINDOW_START.date()}, before the {STATE_HISTORY_DAYS}-day history at "
     f"{HISTORY_START.date()}. State before that point was never generated, so intervals "
@@ -172,6 +199,8 @@ WINDOW_DAYS = max(1, (WINDOW_END - WINDOW_START).days)
 
 print(f"RUN_MODE={RUN_MODE}  window={WINDOW_START.date()}..{WINDOW_END.date()} "
       f"({WINDOW_DAYS} days)")
+print(f"  start from {_start_source}")
+print(f"  end   from {_end_source}")
 print(f"history anchor {HISTORY_START.date()}  as-of {AS_OF.date()}")
 
 # METADATA ********************
