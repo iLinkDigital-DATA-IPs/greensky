@@ -1168,3 +1168,29 @@ print("  not modified      gold_plume_catalog, every other dim_* table, every te
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
+
+# CELL ********************
+
+pl  = read_input("gold_plume_catalog")
+fac = read_input("dim_facility")
+
+att = (pl.filter("attributed_facility_id is not null")
+         .select("plume_id","attributed_facility_id","attribution_distance_km",
+                 "attribution_probability"))
+print("attributed plumes:", att.count())
+
+orphan = att.join(fac.select(F.col("facility_id").alias("attributed_facility_id")),
+                  "attributed_facility_id", "left_anti")
+print("orphans:", orphan.count())
+orphan.show(20, truncate=False)
+
+print("dim_facility ids, sample:")
+fac.select("facility_id").orderBy("facility_id").show(5, truncate=False)
+print("facility count:", fac.count(), " is_current:", fac.filter("is_current").count())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
