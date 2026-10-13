@@ -1323,27 +1323,101 @@ if len(ime_df) > 0:
 # CELL ********************
 
 if len(ime_df) > 0:
-    # Select final columns for gold_plume_catalog
-    gold_columns = [
-        "plume_id", "scene_id", "stac_id", "detection_date",
-        "source_lat", "source_lon",
-        "n_pixels", "plume_area_km2",
-        "peak_ch4_enhancement_ppb", "mean_ch4_enhancement_ppb",
-        "ime_kg",
-        "emission_rate_kg_s", "emission_rate_kg_h", "emission_rate_t_h",
-        "emission_rate_p5_kg_s", "emission_rate_p50_kg_s", "emission_rate_p95_kg_s",
-        "emission_rate_p5_kg_h", "emission_rate_p50_kg_h", "emission_rate_p95_kg_h",
-        "t_mix_s", "t_mix_method",
-        "U_eff_ms", "L_m",
-        "wind_alignment_deg", "wind_confidence",
-        "uncertainty_ratio", "confidence",
-    ]
+    # Final columns for gold_plume_catalog, typed explicitly rather than inferred from pandas:
+    # an inferred schema follows the pandas dtype, so a NaN in an integer column turns it into
+    # a double on that run only, and that is a schema change. Types and order are the table's
+    # schema at version 24, attribution columns excluded (they are appended below).
+    from pyspark.sql.types import LongType, TimestampType
+    GOLD_CATALOG_SCHEMA = StructType([
+        StructField("plume_id", StringType()),
+        StructField("scene_id", StringType()),
+        StructField("stac_id", StringType()),
+        StructField("detection_date", TimestampType()),
+        StructField("source_lat", DoubleType()),
+        StructField("source_lon", DoubleType()),
+        StructField("n_pixels", LongType()),
+        StructField("plume_area_km2", DoubleType()),
+        StructField("peak_ch4_enhancement_ppb", DoubleType()),
+        StructField("mean_ch4_enhancement_ppb", DoubleType()),
+        StructField("ime_kg", DoubleType()),
+        StructField("emission_rate_kg_s", DoubleType()),
+        StructField("emission_rate_kg_h", DoubleType()),
+        StructField("emission_rate_t_h", DoubleType()),
+        StructField("emission_rate_p5_kg_s", DoubleType()),
+        StructField("emission_rate_p50_kg_s", DoubleType()),
+        StructField("emission_rate_p95_kg_s", DoubleType()),
+        StructField("emission_rate_p5_kg_h", DoubleType()),
+        StructField("emission_rate_p50_kg_h", DoubleType()),
+        StructField("emission_rate_p95_kg_h", DoubleType()),
+        StructField("t_mix_s", DoubleType()),
+        StructField("t_mix_method", StringType()),
+        StructField("U_eff_ms", DoubleType()),
+        StructField("L_m", DoubleType()),
+        StructField("wind_alignment_deg", DoubleType()),
+        StructField("wind_confidence", StringType()),
+        StructField("uncertainty_ratio", DoubleType()),
+        StructField("confidence", StringType()),
+    ])
+    gold_columns = GOLD_CATALOG_SCHEMA.fieldNames()
     
     # Only include columns that exist
     available_columns = [c for c in gold_columns if c in ime_df.columns]
-    gold_pdf = ime_df[available_columns]
-    
-    gold_spark = spark.createDataFrame(gold_pdf)
+    gold_pdf = ime_df[available_columns].copy()
+    gold_schema = StructType([GOLD_CATALOG_SCHEMA[c] for c in available_columns])
+
+    # Keep NaN out of every non-float field, driven by the schema's types. A NaN in a string
+    # field becomes None, i.e. NULL; left as a float it fails the explicit schema, or turns
+    # into the string "NaN". An integer field must have no missing values at all, and says so
+    # by name rather than failing later as a cast error.
+    for _f in gold_schema.fields:
+        if isinstance(_f.dataType, StringType):
+            gold_pdf[_f.name] = gold_pdf[_f.name].astype(object).where(
+                gold_pdf[_f.name].notna(), None)
+        elif isinstance(_f.dataType, (LongType, IntegerType)):
+            _n_missing = int(gold_pdf[_f.name].isna().sum())
+            assert _n_missing == 0, (
+                f"{_f.name} is {_f.dataType.simpleString()} in gold_plume_catalog but has "
+                f"{_n_missing} null/NaN value(s) in ime_df")
+
+    gold_spark = spark.createDataFrame(gold_pdf, gold_schema)
+
+    # 05's attribution columns, appended here as placeholders so the table's schema is the
+    # same after this write as after 05's. Without them every run dropped the 11 columns and
+    # 05 added them back, a schema change each time; under an accelerated KQL external table
+    # that freezes the acceleration catalog (gold_multi_gas_signatures froze that way).
+    # Names, types and order must match ATTRIBUTION_FIELDS in 05 exactly. Every value is
+    # NULL except attribution_method = 'not_attributed', so a reader between the two writes
+    # can tell "05 has not run yet" from 05's own 'no_match'. facilities_in_range stays NULL
+    # rather than 0 for the same reason: 0 is what 05 writes for a search that found nothing.
+    ATTRIBUTION_PLACEHOLDERS = [
+        ("attributed_facility_id", "string"),
+        ("attributed_facility_name", "string"),
+        ("attributed_facility_lat", "double"),
+        ("attributed_facility_lon", "double"),
+        ("attribution_probability", "double"),
+        ("attribution_distance_km", "double"),
+        ("attribution_angular_offset_deg", "double"),
+        ("attribution_method", "string"),
+        ("facilities_in_range", "bigint"),
+        ("second_facility_id", "string"),
+        ("second_facility_probability", "double"),
+    ]
+    for _name, _type in ATTRIBUTION_PLACEHOLDERS:
+        if _name == "attribution_method":
+            # A bare lit("not_attributed") is a NOT NULL column, and 05 writes this one
+            # nullable. The NULL otherwise branch makes it nullable here too, rather than
+            # relying on Delta to relax it on write.
+            _col = when(lit(True), lit("not_attributed")).otherwise(lit(None))
+        else:
+            _col = lit(None)
+        gold_spark = gold_spark.withColumn(_name, _col.cast(_type))
+
+    _method_field = gold_spark.schema["attribution_method"]
+    print(f"attribution_method: {_method_field.dataType.simpleString()}, "
+          f"nullable={_method_field.nullable}")
+    _not_nullable = [f.name for f in gold_spark.schema.fields
+                     if f.name in dict(ATTRIBUTION_PLACEHOLDERS) and not f.nullable]
+    assert not _not_nullable, f"attribution placeholders not nullable: {_not_nullable}"
 
     # The previous catalog, read before it is overwritten, for the plume-set comparison in
     # the last cell. On the first run after plume_id became a string this is the old
@@ -1355,9 +1429,8 @@ if len(ime_df) > 0:
         prev_catalog_pdf = None
 
     # overwriteSchema because plume_id and scene_id change type, bigint to string, on the
-    # first run after this change; Delta rejects a type change on a plain overwrite. It also
-    # drops 05's attribution columns until 05 runs again -- which is the order the pipeline
-    # runs in anyway, and 05 already writes with overwriteSchema.
+    # first run after this change; Delta rejects a type change on a plain overwrite. The
+    # attribution columns above keep the schema unchanged between this write and 05's.
     gold_spark.write \
         .format("delta") \
         .mode("overwrite") \
