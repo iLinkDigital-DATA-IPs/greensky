@@ -1326,7 +1326,8 @@ if len(ime_df) > 0:
     # Final columns for gold_plume_catalog, typed explicitly rather than inferred from pandas:
     # an inferred schema follows the pandas dtype, so a NaN in an integer column turns it into
     # a double on that run only, and that is a schema change. Types and order are the table's
-    # schema at version 24, attribution columns excluded (they are appended below).
+    # schema at version 24, attribution columns excluded (they are appended below), plus
+    # era5_u10 / era5_v10 at the end.
     from pyspark.sql.types import LongType, TimestampType
     GOLD_CATALOG_SCHEMA = StructType([
         StructField("plume_id", StringType()),
@@ -1357,13 +1358,24 @@ if len(ime_df) > 0:
         StructField("wind_confidence", StringType()),
         StructField("uncertainty_ratio", DoubleType()),
         StructField("confidence", StringType()),
+        # The plume's ERA5 10 m wind: the mean u (eastward) and v (northward) over its pixels,
+        # from step 7's wind_info. U_eff_ms is this vector's magnitude. 05 reads both by these
+        # names to get the direction the wind blows toward. They were computed here but never
+        # written, so 05 found neither and scored every plume against a fixed 180 degrees.
+        StructField("era5_u10", DoubleType()),
+        StructField("era5_v10", DoubleType()),
     ])
     gold_columns = GOLD_CATALOG_SCHEMA.fieldNames()
-    
-    # Only include columns that exist
-    available_columns = [c for c in gold_columns if c in ime_df.columns]
-    gold_pdf = ime_df[available_columns].copy()
-    gold_schema = StructType([GOLD_CATALOG_SCHEMA[c] for c in available_columns])
+
+    # Every schema column must exist in ime_df. This used to keep only the columns that did,
+    # so a column missing from ime_df was dropped without a word -- era5_u10 / era5_v10 were
+    # left out of the schema that way, and 05 fell back to a fixed wind direction.
+    _missing_cols = [c for c in gold_columns if c not in ime_df.columns]
+    assert not _missing_cols, (
+        f"ime_df lacks gold_plume_catalog column(s) {_missing_cols}; every column in "
+        "GOLD_CATALOG_SCHEMA must be computed before the write")
+    gold_pdf = ime_df[gold_columns].copy()
+    gold_schema = GOLD_CATALOG_SCHEMA
 
     # Keep NaN out of every non-float field, driven by the schema's types. A NaN in a string
     # field becomes None, i.e. NULL; left as a float it fails the explicit schema, or turns

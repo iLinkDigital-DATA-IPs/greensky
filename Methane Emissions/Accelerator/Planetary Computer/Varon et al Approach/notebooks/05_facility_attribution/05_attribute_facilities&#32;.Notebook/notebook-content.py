@@ -52,6 +52,12 @@ _catalog = spark.table("gold_plume_catalog")
 # The catalog's own Spark schema, kept so the write below reuses it rather than letting Spark
 # re-infer every column from pandas values.
 CATALOG_SCHEMA = _catalog.schema
+# The wind 04 writes for each plume. Without these columns every plume would score on distance
+# alone; that is a pipeline-order error, not weak wind, so it fails here rather than per plume.
+_missing_wind = [c for c in ("era5_u10", "era5_v10") if c not in _catalog.columns]
+assert not _missing_wind, (
+    f"gold_plume_catalog lacks {_missing_wind}. 04_derive_emissions writes them; rerun 04 "
+    "before 05.")
 plumes = _catalog.toPandas()
 print(f"Loaded {len(plumes)} plumes from gold_plume_catalog")
 print(f"Columns: {list(plumes.columns)}")
@@ -153,6 +159,9 @@ def angular_difference(a1, a2):
 # Attribution parameters
 search_radius_km = CONFIG["attribution_search_radius_km"]  # 30 km
 wind_sigma_deg = CONFIG["attribution_wind_sigma_deg"]  # 30 degrees
+# 04's own threshold: below it 04 calls the wind unusable and falls back to a fixed 48 h mixing
+# time. A wind too weak to set a mixing time is too weak to set a direction.
+min_wind_ms = CONFIG["min_wind_speed_ms"]
 
 fac_lats = permian_fac["facility_lat"].values
 fac_lons = permian_fac["facility_lon"].values
@@ -166,20 +175,22 @@ for _, plume in plumes.iterrows():
     plume_lon = plume["source_lon"]
     plume_id = plume["plume_id"]
 
-    # Get wind direction at plume (direction wind is blowing TO)
-    # ERA5 u10/v10: u=eastward, v=northward
-    # Wind blows FROM upwind direction
-    if "U_eff_ms" in plume and plume["U_eff_ms"] > 0:
-        # Wind direction the plume came from (upwind)
-        # atan2(u, v) gives the direction wind is blowing TO
-        # We need where it came FROM (add 180)
-        wind_to_deg = np.degrees(np.arctan2(
-            plume.get("era5_u10", 0) if "era5_u10" in plume.index else 0,
-            plume.get("era5_v10", 0) if "era5_v10" in plume.index else 0
-        )) % 360
-        upwind_dir = (wind_to_deg + 180) % 360
-    else:
-        upwind_dir = None
+    # Wind at the plume: 04's mean ERA5 u10 (eastward) and v10 (northward) over its pixels.
+    # atan2(u, v) is the direction the wind blows TOWARD, degrees clockwise from north.
+    #
+    # The source lies upwind and the plume drifts downwind of it, so the bearing FROM the
+    # source facility TO the plume equals that toward direction. Candidates are scored on
+    # their facility->plume bearing against wind_to_deg. This used to compare against the
+    # FROM direction (wind_to_deg + 180), which scores the facility on the downwind side
+    # highest; the missing u/v columns (wind fixed at 180) hid it.
+    #
+    # No usable wind -- absent, not finite, or at or below 04's min_wind_speed_ms -- means
+    # distance-only scoring, recorded as attribution_method = 'distance_only'. Never a
+    # default direction: a default of 0 is how every plume was scored against 180 degrees.
+    _u, _v = (float(plume[c]) if c in plume.index and pd.notna(plume[c]) else np.nan
+              for c in ("era5_u10", "era5_v10"))
+    wind_ok = bool(np.isfinite(_u) and np.isfinite(_v) and np.hypot(_u, _v) > min_wind_ms)
+    wind_to_deg = (np.degrees(np.arctan2(_u, _v)) % 360) if wind_ok else None
 
     # Score each facility
     candidates = []
@@ -193,14 +204,14 @@ for _, plume in plumes.iterrows():
         w_dist = np.exp(-dist**2 / (2.0 * 15.0**2))
 
         # Wind-direction weight
-        if upwind_dir is not None:
+        if wind_ok:
             # Bearing from facility to plume
             bearing = compute_bearing(fac_lats[i], fac_lons[i], plume_lat, plume_lon)
-            # Is the facility upwind of the plume?
-            theta = angular_difference(bearing, upwind_dir)
+            # Is the facility upwind of the plume? Then this bearing points downwind.
+            theta = angular_difference(bearing, wind_to_deg)
             w_wind = np.exp(-theta**2 / (2.0 * wind_sigma_deg**2))
         else:
-            w_wind = 1.0  # no wind info, equal weight
+            w_wind = 1.0  # no usable wind: distance only
 
         score = w_dist * w_wind
 
@@ -210,9 +221,9 @@ for _, plume in plumes.iterrows():
             "facility_lat": fac_lats[i],
             "facility_lon": fac_lons[i],
             "distance_km": dist,
-            "bearing_deg": bearing if upwind_dir is not None else None,
-            "upwind_dir_deg": upwind_dir,
-            "angular_offset_deg": theta if upwind_dir is not None else None,
+            "bearing_deg": bearing if wind_ok else None,
+            "wind_to_deg": wind_to_deg,
+            "angular_offset_deg": theta if wind_ok else None,
             "w_dist": w_dist,
             "w_wind": w_wind,
             "score": score,
@@ -238,7 +249,7 @@ for _, plume in plumes.iterrows():
             "attribution_probability": top["probability"],
             "attribution_distance_km": top["distance_km"],
             "attribution_angular_offset_deg": top["angular_offset_deg"],
-            "attribution_method": "wind_aware",
+            "attribution_method": "wind_aware" if wind_ok else "distance_only",
             "facilities_in_range": len(candidates),
             "second_facility_id": candidates[1]["facility_id"] if len(candidates) > 1 else None,
             "second_facility_probability": candidates[1]["probability"] if len(candidates) > 1 else None,
@@ -269,6 +280,8 @@ attribution_df = pd.DataFrame(attribution_results)
 print(f"Attribution complete for {len(attribution_df)} plumes")
 print(f"Plumes with facility match: {(attribution_df['facilities_in_range'] > 0).sum()}")
 print(f"Plumes with no match: {(attribution_df['facilities_in_range'] == 0).sum()}")
+print("Attribution method: " + ", ".join(
+    f"{m} {n}" for m, n in attribution_df["attribution_method"].value_counts().items()))
 
 # METADATA ********************
 
