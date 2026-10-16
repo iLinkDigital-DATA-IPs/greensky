@@ -27,26 +27,21 @@
 # MARKDOWN ********************
 
 # # 01b — Build Asset Topology
-#
 # Writes **`dim_equipment`** and **`dim_sensor`**, both hanging off `dim_facility` from
 # `01a`. Counts follow `N_FACILITIES` x `EQUIP_PER_FACILITY` / `SENSORS_PER_FACILITY`.
-#
 # ### No coordinates on assets
 # V1 wrote equipment geography twice — `silver.equipment_geo` carried `facility_lat`/`_lon`
 # copied off the facility, and `build_attribution` later rewrote both the copy and the
 # dimension from a different seed. That is how the estate ended up with two coordinate pairs
 # that disagreed.
-#
 # Here `dim_equipment` and `dim_sensor` carry **`facility_id` and nothing geographic**.
 # Anything needing an asset's position joins `dim_facility`. There is exactly one place a
 # coordinate can be edited, so the pairs cannot drift — and there is no `equipment_geo`
 # table to fall out of sync.
-#
 # ```sql
 # SELECT e.equipment_id, f.facility_lat, f.facility_lon
 # FROM dim_equipment e JOIN dim_facility f USING (facility_id)
 # ```
-#
 # ### Writes
 # `dim_equipment`, `dim_sensor`, both `mode("overwrite")`.
 
@@ -90,7 +85,6 @@ print(f"loaded {len(fac_pdf)} facilities from dim_facility (seed {TOPOLOGY_SEED}
 # MARKDOWN ********************
 
 # ### Generate equipment
-#
 # Age is drawn against each facility's own `commission_date`, so no asset can predate the
 # site it sits on. Two cohorts: a legacy tail (35 %, only where the facility is old enough)
 # and a newer population — this is V1's distribution, which was sound.
@@ -186,12 +180,10 @@ print("facilities of each type exist -- it is not expected to match any single v
 # MARKDOWN ********************
 
 # ### Asset count and mix, broken down by facility type
-#
 # The previous version of this notebook printed one global assets-per-facility distribution
 # and one global equipment-type distribution. That is exactly what hid the flat mix: pooled
 # across 150 facilities the eight types all landed between 11.6 % and 13.5 %, which looks
 # unremarkable until you notice it means every site has the same profile.
-#
 # Both breakdowns are per facility type here, and each facility's asset count is asserted
 # against **its own** range rather than the global bound.
 
@@ -312,18 +304,14 @@ print("OK  each facility type's mix is distinguishable from a uniform draw")
 # MARKDOWN ********************
 
 # ### Generate sensors
-#
 # `SENSORS_PER_FACILITY` instruments per site, placed on the highest-criticality assets —
 # V1's rule, and a sensible one: you monitor what matters.
-#
 # Three columns beyond V1's, consumed by `02e_gen_ch4_telemetry`:
-#
 # | column | meaning |
 # |---|---|
 # | `sigma_ppm` | plume sensitivity: ppm of enhancement per unit of 02e's leak latent, by `sensor_type`, ±20% per sensor |
 # | `exceedance_threshold_ppm` | `CH4_AMBIENT_REF_PPM + CH4_EXCEEDANCE_SIGMAS × sigma_ppm`, 15% tighter on `tier = 'critical'` |
 # | `tier` | `critical` for a sensor on a Critical asset, else `standard` |
-#
 # `reading_interval_hours` is `CH4_INTERVAL_HOURS` (1 h), which is what 02e generates. `status`
 # carries an exact 1.5% Faulty and 1.0% Decommissioned, ranked by a hash of `sensor_id`.
 
@@ -512,7 +500,6 @@ display(dim_equipment.limit(20))
 # MARKDOWN ********************
 
 # ### Verify the join path
-#
 # Asset geography comes from `dim_facility` and only from there. This is the query any
 # downstream notebook should use.
 

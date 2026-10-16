@@ -40,22 +40,18 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 02a — Build Asset Operating State
-#
-# Writes **`fact_asset_state`**: a **sparse interval table**, one row per state change per
+# # Writes **`fact_asset_state`**: a **sparse interval table**, one row per state change per
 # asset. Never one row per timestamp — an asset that runs untouched for three weeks is one
 # row, not 2,016.
-#
-# This is the first notebook governed by `DESIGN_NOTE_incremental_facts.md`, and the
+# # This is the first notebook governed by `DESIGN_NOTE_incremental_facts.md`, and the
 # two-pass structure in §2.3 is a requirement here, not a suggestion.
-#
-# ### State is generated from asset characteristics only
+# # ### State is generated from asset characteristics only
 # Type, age against expected life, leak propensity, inspection interval. This notebook does
 # **not** read `fact_emission_episode`, `gold_plume_catalog` or any detection-layer table.
 # The telemetry generator overlays episode effects separately. Keeping the two independent
 # is what stops the demo becoming circular — otherwise the operational data "discovers" an
 # episode that was written into it in the first place.
-#
-# ### The state machine
+# # ### The state machine
 # ```
 # Running --PM due-----> Shutdown(Scheduled PM) -> Maintenance(Scheduled PM) -> Startup -> Running
 # Running --corrective-> Shutdown(Corrective)   -> Maintenance(Corrective)   -> Startup -> Running
@@ -66,15 +62,13 @@ end_date = ""
 # A trip goes straight to `Down` with no `Shutdown` — that is what distinguishes it from a
 # planned stop. Every chain returns through `Startup`, so `Startup` only ever precedes
 # `Running` and `Shutdown` only ever follows it.
-#
-# ### Why re-running a day is safe
+# # ### Why re-running a day is safe
 # Every interval's duration is drawn **once, at the moment it opens**, from
 # `get_rng("state", equipment_id, start_ts)`. Closure is then a pure function of elapsed time
 # against that fixed duration — never a fresh draw on the day. The whole chain for an asset
 # is therefore determined by its first interval, which is why a backfill and the equivalent
 # sequence of incremental runs produce byte-identical tables.
-#
-# ### Writes
+# # ### Writes
 # `fact_asset_state` only, partitioned by `date_sk`, with `replaceWhere` scoped to the
 # affected partitions. No `dim_*` table is modified. No telemetry, alarms or maintenance
 # records — those are later notebooks.
@@ -110,13 +104,11 @@ end_date = ""
 # MARKDOWN ********************
 
 # ### Run mode
-#
-# `run_mode` arrives through the parameter cell at the top of the notebook, the only route by
+# # `run_mode` arrives through the parameter cell at the top of the notebook, the only route by
 # which Fabric passes pipeline parameters in; an empty `run_mode` raises. Optional `start_date`
 # / `end_date` there take precedence over the derived window. An incremental run on an empty or
 # absent table raises rather than guessing a window.
-#
-# What differs from V1: the incremental window is **not** anchored to `utcnow()`. V1 used the
+# # What differs from V1: the incremental window is **not** anchored to `utcnow()`. V1 used the
 # wall clock, which makes a rerun on a different day produce a different window and breaks
 # reproducibility. Here the window comes from the table's own watermark — the day after the
 # latest `date_sk` already written — so a rerun lands on the same window regardless of when
@@ -240,8 +232,7 @@ print(f"asset age at as-of: min {eq_pdf['age_years_at_asof'].min():.1f}y  "
 # MARKDOWN ********************
 
 # ### The state machine
-#
-# `step()` is the whole model. Given an asset and the interval currently open, it returns
+# # `step()` is the whole model. Given an asset and the interval currently open, it returns
 # that interval's duration and what follows. It is a **pure function** of
 # `(asset, state, cause, start_ts, seed)` — call it twice with the same arguments and it
 # returns the same answer, which is the property the whole idempotency argument rests on.
@@ -359,11 +350,9 @@ print("state machine defined -- step() is pure in (asset, state, cause, start_ts
 # MARKDOWN ********************
 
 # ### Pass 1 — advance, and Pass 2 — create
-#
-# **Backfill** seeds every asset at `Running` from the history anchor and walks forward to
+# # **Backfill** seeds every asset at `Running` from the history anchor and walks forward to
 # the window end.
-#
-# **Incremental** reads the open interval per asset, recomputes its fixed duration, closes it
+# # **Incremental** reads the open interval per asset, recomputes its fixed duration, closes it
 # if it has elapsed, and continues the chain — then opens whatever the window calls for. The
 # two produce the same rows because `step()` gives the same answer either way.
 
@@ -448,21 +437,17 @@ print(f"pass 2: {len(state_pdf):,} intervals generated "
 # MARKDOWN ********************
 
 # ### The `date_sk` wrinkle
-#
-# `date_sk` is the day the interval **started**. An interval that started before the window
+# # `date_sk` is the day the interval **started**. An interval that started before the window
 # and closes inside it therefore lives in a partition *outside* the window — and this run
 # rewrites that row, because `end_ts`, `duration_hours` and `is_open` all change.
-#
-# **Chosen: widen the `replaceWhere` predicate to cover every partition this run touches**,
+# # **Chosen: widen the `replaceWhere` predicate to cover every partition this run touches**,
 # rather than adding a `close_date_sk` column.
-#
-# Why. `replaceWhere` can only be scoped on partition columns, so a `close_date_sk` would
+# # Why. `replaceWhere` can only be scoped on partition columns, so a `close_date_sk` would
 # only help if the table were partitioned by it too — and partitioning by two date columns
 # for one interval means every row lands in a partition that does not contain its own start.
 # One partition column with one obvious meaning is easier to reason about and easier to
 # query: "intervals that began on day X" is the natural grain.
-#
-# The cost is that `replaceWhere` must cover data the run did not change, so those rows have
+# # The cost is that `replaceWhere` must cover data the run did not change, so those rows have
 # to be re-read and re-written unchanged. That is handled explicitly below: existing rows in
 # the affected range are read, the ones this run supersedes are dropped by `state_sk`, and
 # the union is written back. Skipping that step would silently delete them.

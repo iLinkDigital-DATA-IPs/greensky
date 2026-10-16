@@ -394,8 +394,7 @@ print(f"Written {len(map_df)} plume-to-site mappings")
 # MARKDOWN ********************
 
 # ### Validation: no column holds a null that is not NULL
-#
-# Run directly after the write, and before the lineage summary below, because that cell still
+# # Run directly after the write, and before the lineage summary below, because that cell still
 # references bronze_methane_pixels (a tracked known issue) and would stop the notebook first.
 
 # CELL ********************

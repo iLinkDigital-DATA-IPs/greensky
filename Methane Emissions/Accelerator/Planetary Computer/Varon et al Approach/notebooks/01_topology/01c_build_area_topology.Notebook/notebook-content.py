@@ -27,44 +27,37 @@
 # MARKDOWN ********************
 
 # # 01c — Build Area Topology
-#
 # Inserts the **process area** level between facility and asset. Real sites are organised
 # into process areas, SCADA tags are named and grouped by area, and operations teams triage
 # by area — so this level has to exist before any tag or telemetry layer sits on top of it.
-#
 # ```
 # dim_facility  →  dim_area  →  dim_equipment  →  dim_sensor
 # ```
-#
 # ### Writes
 # - **`dim_area`** — new table, one row per process area
 # - **`dim_equipment`** — rewritten with `area_sk` / `area_id` added. Additive only: every
 #   existing column is preserved, and that is asserted before the write.
-#
 # `dim_sensor` is **not** touched. A sensor's area comes from its asset, by join.
-#
 # ### Area geography
 # Each area sits 100–300 m from its facility centre on a deterministic bearing, so areas
 # within a site are distinguishable while the site still reads as one location.
-#
 # **These coordinates are for plausibility and for future asset-level attribution. They are
 # not something the detection layer can resolve.** A TROPOMI pixel is ~5.5 × 7.0 km, so an
 # entire facility — every area in it — sits inside a fraction of one pixel. Area geography is
 # three orders of magnitude below the instrument's resolving power. Any view that appears to
 # attribute a plume to an area rather than a site is showing an artefact of this offset, not
 # a measurement.
-#
 # ### Asset assignment
 # Every asset belongs to exactly one area **of its own facility**, respecting equipment type:
 # a Storage Tank lands in a Tank Farm, not a Compression Train. Where several of a facility's
 # areas accept an equipment type, the choice is deterministic from
 # `get_rng("area_assign", equipment_id)`.
-#
 # Where **none** accepts it, the asset falls back to the facility's primary area rather than
 # being dropped. This happens because `TYPE_EQUIPMENT_WEIGHTS` gives every equipment type a
 # non-zero weight at every facility type, independently of which areas that facility drew.
 # The rate is measured and the notebook **fails above 10 %** — over that, the `AREA_TYPES`
 # equipment lists are too narrow.
+
 
 # MARKDOWN ********************
 
@@ -142,11 +135,9 @@ print(f"dim_equipment columns before: {len(EQ_COLUMNS_BEFORE)}")
 # MARKDOWN ********************
 
 # ### Draw each facility's areas
-#
 # Mandatory areas first — the ones without which the site does not function — then distinct
 # optional types drawn by weight, and only then a repeat of a repeatable type (Compression
 # Train A, B) to pad out to the target count.
-#
 # Distinct types are exhausted before any repeat on purpose: each additional distinct area
 # accepts more equipment types, so preferring them minimises the fallback rate.
 
@@ -476,7 +467,6 @@ for c, n in area_pdf["criticality"].value_counts().items():
 # MARKDOWN ********************
 
 # ### Equipment mix within each area — one facility of each type
-#
 # The eyeball check: does the assignment read as sensible? Storage Tanks should be in Tank
 # Farms and Storage, Compressors in Compression Trains, Metering Stations in Metering.
 
@@ -559,7 +549,6 @@ display(dim_area.limit(20))
 # MARKDOWN ********************
 
 # ### Verify the join path
-#
 # Asset → area → facility, all the way through. Area geography lives on `dim_area` and
 # assets reach it by join, the same pattern asset geography uses for `dim_facility` —
 # there is no `silver.*` copy to drift out of sync.

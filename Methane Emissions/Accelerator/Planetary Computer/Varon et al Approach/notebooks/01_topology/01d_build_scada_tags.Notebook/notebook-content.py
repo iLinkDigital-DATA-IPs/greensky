@@ -27,20 +27,16 @@
 # MARKDOWN ********************
 
 # # 01d — Build SCADA Tag Registry
-#
 # Writes **`dim_scada_tag`**, the registry of process measurements — pressure, flow,
 # temperature, level, vibration, valve position, rpm, plus the combustion tags.
-#
 # **This is a second registry, not a replacement.** `dim_sensor` holds the 600 CH₄ detectors
 # and is left exactly as it is, because `gold.sensor_telemetry` depends on its schema. Two
 # registries keep that contract intact while giving process measurements somewhere of their
 # own to live.
-#
 # ```
 # dim_facility → dim_area → dim_equipment → ┬ dim_sensor      (CH₄ detectors, untouched)
 #                                           └ dim_scada_tag   (process measurements, new)
 # ```
-#
 # ### Not every asset is instrumented
 # An asset is instrumented when its type is instrumentable **and** it clears the criticality
 # bar, capped at `MAX_INSTRUMENTED_ASSETS_PER_FACILITY` per site. Valves and pipeline
@@ -48,15 +44,14 @@
 # separators, tanks and metering runs heavily and barely instrument pipe — and it is the
 # primary control on telemetry volume: at 15-minute cadence each 1,000 tags costs roughly
 # 2.9M rows per 30 days.
-#
 # Selection is deterministic: eligible assets rank by
 # `(criticality_rank, equipment_type_priority, equipment_id)` and the top N per facility are
 # taken with a **stable** sort. An unstable sort would let the instrumented set differ
 # between runs on ties.
-#
 # ### Writes
 # `dim_scada_tag` only. `dim_facility`, `dim_area`, `dim_equipment` and `dim_sensor` are read
 # and not modified. No telemetry, alarms or operating states — those are the next notebooks.
+
 
 # MARKDOWN ********************
 
@@ -124,7 +119,6 @@ print(f"dim_sensor is read for cross-reference only and is not modified by this 
 # MARKDOWN ********************
 
 # ### Select which assets are instrumented
-#
 # Eligibility is type plus criticality; the per-facility cap then decides which of the
 # eligible assets actually get instruments. The sort is `kind="mergesort"` — pandas' stable
 # sort — so ties break identically on every run.
@@ -189,7 +183,6 @@ if not (600 <= n_instr <= 900):
 # MARKDOWN ********************
 
 # ### Build the tags
-#
 # `tag_id` is `GS-0001.A1.PT-101` — facility, area ordinal, ISA instrument code, loop number.
 # The loop number is a single counter per **area**, so it is unique within its area
 # regardless of instrument code, and the whole `tag_id` is unique estate-wide because the
@@ -268,7 +261,6 @@ print(f"tags per instrumented asset: mean {len(tag_pdf)/len(instrumented):.1f}")
 # MARKDOWN ********************
 
 # ### Tier by asset criticality
-#
 # The hot share goes to the tags on the **most critical assets**, not to a random quarter of
 # the estate — that is how a historian is actually configured, and it means the
 # high-frequency data sits where an incident is most likely.
@@ -312,7 +304,6 @@ for c in ("Critical", "High", "Medium", "Low"):
 # MARKDOWN ********************
 
 # ## Projected telemetry volume
-#
 # Printed **before** the write, so an unreasonable configuration is visible before any
 # telemetry exists to be regretted.
 
@@ -584,7 +575,6 @@ print("  the two registries are independent by design; overlap is expected, not 
 # MARKDOWN ********************
 
 # ### One instrumented compressor, in full
-#
 # The naming eyeball check.
 
 # CELL ********************
@@ -671,7 +661,6 @@ display(dim_scada_tag.limit(20))
 # MARKDOWN ********************
 
 # ### Verify the join path
-#
 # tag → asset → area → facility, end to end.
 
 # CELL ********************

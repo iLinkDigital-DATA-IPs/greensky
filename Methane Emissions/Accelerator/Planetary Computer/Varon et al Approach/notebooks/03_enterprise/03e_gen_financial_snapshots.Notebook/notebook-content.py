@@ -40,23 +40,20 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 03e — Generate Production, Financial Impact and Facility Daily Snapshots
-#
-# Writes three tables. **`fact_production_daily`** is facility × day volumes. It exists mainly
+# # Writes three tables. **`fact_production_daily`** is facility × day volumes. It exists mainly
 # as the denominator of the dashboard's Methane Intensity %, which divides emissions by
 # `gross_gas_mcf`. **`fact_financial_impact`** holds what emissions and violations cost.
 # **`fact_facility_daily_snapshot`** is one row per facility per day, and the Executive
 # Overview binds to it. The first two feed the third. Every other table is read and never
 # modified.
-#
-# ### V1's convention, and what is kept
+# # ### V1's convention, and what is kept
 # There is no archived DAX in this repo. The V1 semantic model's measures were never
 # exported. The convention exists in three places: `gen_financial`'s header, which says
 # "attributed_kg = emission_rate_kg_s * 3600 * allocation_factor"; `build_snapshots`, which
 # computes `total_emissions_kg = SUM(rate x allocation) x 3600`; and the archived KQL
 # dashboard, which reads `total_emissions_kg`. **The shape is kept:
 # `attributed_kg = emission_rate_kg_h x duration_h x allocation_factor`.** Two inputs change.
-#
-# - **Duration.** V1's `x 3600` was an implicit one-hour duration. It was not measured. Here
+# # - **Duration.** V1's `x 3600` was an implicit one-hour duration. It was not measured. Here
 #   `duration_h` is the plume's own mixing time, `t_mix_s / 3600`, from 04. 04 computes
 #   `rate = IME / t_mix`, so rate × duration is exactly the IME: **the methane the satellite
 #   actually saw in the plume at overpass.** That is a floor, not an estimate of the whole
@@ -69,11 +66,9 @@ end_date = ""
 #   reports it. `attribution_probability` is not used as a split: the unassigned remainder
 #   would belong to no facility, and the plume would stop reconciling. Attribution
 #   uncertainty is therefore **not** in the band below. The run prints its distribution.
-#
-# All three factors are columns on every emission row, so any measure can recompute
+# # All three factors are columns on every emission row, so any measure can recompute
 # `attributed_emissions_kg` from them.
-#
-# ### Uncertainty: 04's Monte Carlo, not a confidence string
+# # ### Uncertainty: 04's Monte Carlo, not a confidence string
 # V1 invented a band. It turned `emission_rate_confidence` ('high' / 'medium' / 'low') into a
 # lognormal sigma and wrote P10/P90 as `total x exp(±1.2816 sigma)`. **That is gone.** 04
 # propagates retrieval noise and wind uncertainty through 500 samples, seeded per plume, and
@@ -81,8 +76,7 @@ end_date = ""
 # increasing linear functions of the rate. A fine does not depend on the rate. A percentile
 # of the rate is therefore exactly the same percentile of the impact. No sampling is
 # repeated and nothing is assumed.
-#
-# **The columns are `total_impact_usd_p5 / _p50 / _p95`, because that is what they hold.** 04
+# # **The columns are `total_impact_usd_p5 / _p50 / _p95`, because that is what they hold.** 04
 # writes the 5th and 95th percentiles, and a P10/P90 label on them would claim an 80%
 # interval that is really a 90% one. The V1 dashboard labels its tiles P10/P50/P90. Change
 # the labels to P5/P50/P95. Do not rerun 04 at 10/90: the detection layer's own
@@ -91,8 +85,7 @@ end_date = ""
 # estimate `emission_rate_kg_h`. The component columns (`lost_gas_value_usd` and the rest)
 # use the point estimate, as `attributed_emissions_kg` does, so `total_impact_usd_p50` is not
 # their sum. The run prints the gap.
-#
-# ### Money: components, each with its source
+# # ### Money: components, each with its source
 # - **Lost gas value**: the methane itself, as mcf, at the gas price. This is a real
 #   operational cost.
 # - **Fines**: `fact_compliance_event.fine_usd`, on its own row, **dated at the notice of
@@ -104,12 +97,10 @@ end_date = ""
 # - **CO₂e tonnes**: for reporting, not a cost.
 # - **Social cost**: a shadow price, **off by default**. Switched on, it is added to the
 #   totals, and `fine_scenario` says so on every row.
-#
-# The constants cell labels every number as a **rule**, a **physical constant**, a **market
+# # The constants cell labels every number as a **rule**, a **physical constant**, a **market
 # observation** (a dated price that moves), a **modelling choice**, or a **shadow price**,
 # as 03c does for regulations.
-#
-# ### Snapshots are point-in-time, so a past day never changes
+# # ### Snapshots are point-in-time, so a past day never changes
 # A snapshot row is the facility **as it stood at the end of that day**. It is computed from
 # event timestamps only, never from a current `status` column: created and closed times,
 # notice times, raised and cleared times, reading times, maintenance times, survey times.
@@ -121,14 +112,12 @@ end_date = ""
 # case), or a generator re-backfilled with new parameters. A 03e backfill is the remedy for
 # either. Where V1's semantics were not point-in-time, they change, and the column list
 # below says how.
-#
-# ### Writes
+# # ### Writes
 # All three tables are partitioned by `date_sk` and written with `replaceWhere` over the
 # run's window, **in both run modes**. A backfill replaces its window, not the whole table.
 # The sources keep a finite retention, and snapshot days that have aged out of it can no
 # longer be recomputed. A whole-table overwrite would delete them.
-#
-# ### Pipeline order
+# # ### Pipeline order
 # 03c → 03b → 03d → **03e**. 03e reads each one's output, and 03d must have run through the
 # sources' last day.
 
@@ -220,24 +209,20 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # MARKDOWN ********************
 
 # ### The model
-#
-# This cell is pure: no Spark, no table, no clock. `tools/harness/harness_financial.py`
+# # This cell is pure: no Spark, no table, no clock. `tools/harness/harness_financial.py`
 # executes it verbatim against `01_topology_config`. It also asserts that every definition
 # copied from 03b, 03c and 03d is identical to its source's text.
-#
-# **The risk score.** It ranks facilities, and a customer will ask how. It is 0–100: the sum
+# # **The risk score.** It ranks facilities, and a customer will ask how. It is 0–100: the sum
 # of five components, each a weight times a score in [0, 1] that saturates at a stated level.
 # Each component's points are stored on the row, so every score can be taken apart.
-#
-# | component | weight | score in [0, 1] | why |
+# # | component | weight | score in [0, 1] | why |
 # |---|---|---|---|
 # | condition | 30 | mean `equipment_condition_index` of the facility's assets, saturating at 0.19 | the shared degradation model: the asset 03a's hazard treats as likely to leak |
 # | emissions | 25 | attributed plumes in the trailing 30 days, saturating at 2 | 2 = a detection plus an earlier one, 03c's repetition rule: a release seen again was not fixed. One detection scores half |
 # | compliance | 20 | violation notices in the trailing 30 days, plus 0.5 per open state case, saturating at 1 | a notice is the regulator's finding; an open state case is one pending |
 # | maintenance | 15 | half the overdue-PM share (saturating at 20%, about twice the estate's ~11%), half LDAR leaks outstanding (saturating at 2) | a slipping backlog |
 # | open work | 10 | active open plus stalled-backlog tickets, saturating at 2 | work already raised against the site |
-#
-# **Saturation levels are calibrated on the realised inputs**, not chosen a priori. The first
+# # **Saturation levels are calibrated on the realised inputs**, not chosen a priori. The first
 # levels (condition 1.0, plumes 3, overdue 25%, LDAR 5, tickets 5) saturated far above anything
 # the data produced. Over 4,500 facility-days the score had p50 8, p99 29, max 43, and nothing
 # above 50. The condition index, for instance, spans 0.10-0.24 and never came near 1.0. From the
@@ -248,8 +233,7 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # slipping backlog and open work together, reaches the low 70s. Re-check against Fabric's
 # distribution before quoting a score. Calibration used one estate, and the component means
 # differ a little there.
-#
-# **Compliance is rare, by design, and kept at 20.** Violations are few: 3 in 30 days across 150
+# # **Compliance is rare, by design, and kept at 20.** Violations are few: 3 in 30 days across 150
 # facilities on Fabric, 1 offline. So the component is non-zero on a small share of
 # facility-days: 0.4% offline, on two facilities, half from a notice and half from an open
 # state case. A notice stays in the trailing window for 30 days. On every other day it contributes nothing, and a facility without a notice tops out
@@ -257,8 +241,7 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # receives, and when one exists it should move the facility up the list decisively: +20 takes
 # the worst offline day from 73 to 93. Scaling it to be "present" on typical days would mean
 # inventing a compliance signal where the regulator found none.
-#
-# V1 weighted health 40, 8 per open ticket, 12 per violation and 5 per active plume on
+# # V1 weighted health 40, 8 per open ticket, 12 per violation and 5 per active plume on
 # **that day**, capped at 100. A score driven by one day's plume count jumps with each
 # overpass. The trailing windows smooth that, and they are point-in-time like everything
 # else. OLRE reports are not in the compliance component, because every attributed plume
@@ -912,8 +895,7 @@ for _name, (_kind, _src) in CONSTANT_BASIS.items():
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# **The window follows the sources**, as in 03b: `sensor_telemetry` (the exceedance and offline
+# # **The window follows the sources**, as in 03b: `sensor_telemetry` (the exceedance and offline
 # columns need it), `fact_work_order_event` (tickets exist only from 03b's first day) and
 # `fact_asset_state`. A backfill covers the whole overlap, and an incremental run takes its last
 # day. 03d must have run through that last day, because the PM rebuild is checked against
@@ -1027,8 +1009,7 @@ print(f"sources span {SOURCE_START.date()}..{SOURCE_END.date()}  (sensor_telemet
 # MARKDOWN ********************
 
 # ### Load everything the model reads
-#
-# Every table is read whole. The trailing windows (30-day MTTR and risk, the 8-hour offline
+# # Every table is read whole. The trailing windows (30-day MTTR and risk, the 8-hour offline
 # lookback) and the carried state (open tickets, open cases, overdue PMs, LDAR repairs) reach
 # back before the window. All of it is small: ~1k tickets, ~100 compliance events, ~3k
 # maintenance records, ~7k alarms, and the ~400k CH₄ readings, which are three columns each.
@@ -1175,8 +1156,7 @@ print(f"{len(ce_pdf)} compliance events ({int((ce_pdf['status'] == 'Violation').
 # MARKDOWN ********************
 
 # ### Compute the window, and check the copies against their owners at the horizon
-#
-# The copies of 03d's PM state and LDAR repairs are checked against 03d's own snapshots. At
+# # The copies of 03d's PM state and LDAR repairs are checked against 03d's own snapshots. At
 # 03d's horizon, the rebuilt overdue flag and next-due instant must equal `fact_pm_schedule`
 # for every asset. The re-derived repairs must equal every survey's stored `leaks_repaired`
 # and `repair_cost_usd`. The copy of 03b's measures is checked against `open_measures()` on the
@@ -1238,8 +1218,7 @@ print(f"OK  at the horizon: the overdue rebuild equals fact_pm_schedule on all {
 # MARKDOWN ********************
 
 # ### Write the three tables
-#
-# Every table is written from Python rows against an explicit schema, so a missing value is a
+# # Every table is written from Python rows against an explicit schema, so a missing value is a
 # real NULL, never the string "NaN" (05's and 06's lesson). `replaceWhere` covers exactly the
 # window's days in both run modes. A table that does not exist yet is created, partitioned by
 # `date_sk`.
@@ -1311,8 +1290,7 @@ write_table(snap_rows, SNAP_TABLE)
 # MARKDOWN ********************
 
 # ### Validation — every check fails the run, none warns
-#
-# The checks read the tables back and compare them with the inputs. Where a check recomputes a
+# # The checks read the tables back and compare them with the inputs. Where a check recomputes a
 # measure, it does so independently. Open tickets are replayed from 03b's event log, which is
 # a different record from the `created_ts` / `closed_ts` the snapshot counted from.
 
@@ -1443,8 +1421,7 @@ print(f"OK  risk_score inside {RISK_RANGE} and equal to the sum of its points")
 # MARKDOWN ********************
 
 # ### Recomputing past days reproduces them exactly
-#
-# A sample of stored days is recomputed on its own, from the inputs as they stand now, and
+# # A sample of stored days is recomputed on its own, from the inputs as they stand now, and
 # compared with the stored rows, value for value. In an incremental run the sample is taken
 # from days **earlier runs** wrote, against upstream tables that have moved on since. That is
 # the real test of the point-in-time claim. In a backfill every day is this run's, so the

@@ -27,17 +27,13 @@
 # MARKDOWN ********************
 
 # # 07b — Detection Diagnostics
-#
-# Read-only diagnostic notebook. **Does not write any tables** — every cell only prints or
+# # Read-only diagnostic notebook. **Does not write any tables** — every cell only prints or
 # displays.
-#
-# Answers one question: are the 109 plumes in `gold_plume_catalog` real methane point
+# # Answers one question: are the 109 plumes in `gold_plume_catalog` real methane point
 # sources, or artefacts sitting at the TROPOMI instrument noise floor?
-#
-# **Inputs:** `gold_plume_catalog`, `gold_flagged_large_clusters`, `silver_plume_ready_pixels`,
+# # **Inputs:** `gold_plume_catalog`, `gold_flagged_large_clusters`, `silver_plume_ready_pixels`,
 # `validation_cams_plumes`, `validation_carbon_mapper_plumes`
-#
-# **Output:** none.
+# # **Output:** none.
 
 # CELL ********************
 
@@ -105,13 +101,11 @@ print(f"silver_plume_ready_pixels: {len(silver_pdf):,} pixels")
 # MARKDOWN ********************
 
 # ### Cell 1 — The discarded large clusters
-#
-# `gold_flagged_large_clusters` holds clusters rejected by `max_cluster_pixels` (see
+# # `gold_flagged_large_clusters` holds clusters rejected by `max_cluster_pixels` (see
 # `CONFIG['max_cluster_pixels']` in 00_config) in 04_derive_emissions. Hypothesis under
 # test: the real super-emitters are being discarded by the pixel cap, not the small
 # artefacts that end up in `gold_plume_catalog`.
-#
-# `gold_flagged_large_clusters` does not carry ERA5 wind columns (dropped at write time in
+# # `gold_flagged_large_clusters` does not carry ERA5 wind columns (dropped at write time in
 # 04_derive_emissions Step 10) — they are recovered here via an exact-match join back to
 # `silver_plume_ready_pixels` on `(latitude, longitude)`, the same pixel identity used
 # throughout the pipeline.
@@ -200,8 +194,7 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 2 — Accepted-plume enhancement vs instrument noise
-#
-# For each plume in `gold_plume_catalog`, back out the mean per-pixel CH₄ enhancement in
+# # For each plume in `gold_plume_catalog`, back out the mean per-pixel CH₄ enhancement in
 # ppb from `ime_kg`, `n_pixels`, and `PPB_TO_KG` (the same conversion factor as
 # 04_derive_emissions Step 6). Compare against ~10-20 ppb, the approximate TROPOMI
 # single-sounding XCH4 precision — enhancements at or below this band are not reliably
@@ -250,8 +243,7 @@ print(plumes_pdf["backed_out_mean_enh_ppb"].describe().to_string())
 # MARKDOWN ********************
 
 # ### Cell 3 — Comparison against CAMS/SRON
-#
-# **Note:** `validation_cams_plumes` covers 2021 (Schuit et al. 2023); `gold_plume_catalog`
+# # **Note:** `validation_cams_plumes` covers 2021 (Schuit et al. 2023); `gold_plume_catalog`
 # covers June-July 2026. There is no temporal overlap, so this is a **distribution**
 # comparison of typical emission-rate magnitude — not a matched, plume-to-plume comparison.
 
@@ -290,8 +282,7 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 4 — Comparison against Carbon Mapper, with spatial matching
-#
-# Same distribution comparison as Cell 3, using `validation_carbon_mapper_plumes`
+# # Same distribution comparison as Cell 3, using `validation_carbon_mapper_plumes`
 # (`cm_emission_rate`, already in kg/h). Additionally attempts nearest-neighbor spatial
 # matching within 5 km between Carbon Mapper plumes and `gold_plume_catalog` plumes,
 # **regardless of date** — this is a spatial hotspot check, not the 27-plume co-temporal
@@ -372,8 +363,7 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 5 — MAD threshold sensitivity
-#
-# Reproduces 04_derive_emissions Steps 1-2 (scene separation, kNN background estimation)
+# # Reproduces 04_derive_emissions Steps 1-2 (scene separation, kNN background estimation)
 # once against `silver_plume_ready_pixels`, then Steps 3-4 and 6-7 (candidate detection,
 # clustering, IME, emission rate) once per `mad_sigma` value. All of the logic in this cell
 # is duplicated from 04_derive_emissions — it must stay in sync with that notebook. Nothing
@@ -598,30 +588,23 @@ print(sweep_df.to_string(index=False))
 # MARKDOWN ********************
 
 # ### Cell 6 — Verdict (fill in)
-#
-# _To be completed after reviewing Cells 1-5._
-#
-# 1. **Pixel cap discarding real emitters?** Do any flagged large clusters (Cell 1) imply a
+# # _To be completed after reviewing Cells 1-5._
+# # 1. **Pixel cap discarding real emitters?** Do any flagged large clusters (Cell 1) imply a
 #    higher emission rate than the largest accepted plume? Are they spatially/physically
 #    plausible single sources, or diffuse regional enhancements?
-#
-# 2. **Noise floor.** What fraction of accepted plumes (Cell 2) have mean enhancement below
+# # 2. **Noise floor.** What fraction of accepted plumes (Cell 2) have mean enhancement below
 #    the ~10-20 ppb TROPOMI precision band? Does that change confidence in the 0.6-14.3 kg/h
 #    range reported in `changelog.Notebook`?
-#
-# 3. **CAMS comparison (Cell 3).** Is the gap between Green Sky and CAMS median emission
+# # 3. **CAMS comparison (Cell 3).** Is the gap between Green Sky and CAMS median emission
 #    rates consistent with a resolution/detection-threshold difference (CAMS only detects
 #    super-emitters), or does it suggest Green Sky is detecting something other than point
 #    sources?
-#
-# 4. **Carbon Mapper comparison (Cell 4).** How many spatial matches were found within 5 km?
+# # 4. **Carbon Mapper comparison (Cell 4).** How many spatial matches were found within 5 km?
 #    For matched pairs, is the rate ratio consistent with the resolution-dilution
 #    explanation in `changelog.Notebook`, or is it inconsistent enough to suggest false
 #    positives?
-#
-# 5. **MAD sensitivity (Cell 5).** How much does plume count and median emission rate change
+# # 5. **MAD sensitivity (Cell 5).** How much does plume count and median emission rate change
 #    between mad_sigma=2 and mad_sigma=5? A detection method whose output changes drastically
 #    over this range is more consistent with thresholding noise than with detecting real,
 #    discrete sources.
-#
-# 6. **Overall verdict:** _______________
+# # 6. **Overall verdict:** _______________

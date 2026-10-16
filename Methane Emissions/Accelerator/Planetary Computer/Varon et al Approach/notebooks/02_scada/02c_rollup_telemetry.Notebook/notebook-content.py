@@ -40,51 +40,39 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 02c — Roll Up SCADA Telemetry
-#
-# Writes **`scada_telemetry_hourly`** and **`scada_telemetry_daily`** from `scada_telemetry`.
+# # Writes **`scada_telemetry_hourly`** and **`scada_telemetry_daily`** from `scada_telemetry`.
 # This notebook **modifies nothing** — not the telemetry, not any `dim_*` table.
-#
-# ### Window
-#
-# Both rollups cover **exactly** the window `scada_telemetry` covers, set by
+# # ### Window
+# # Both rollups cover **exactly** the window `scada_telemetry` covers, set by
 # `ROLLUP_MATCH_RAW_WINDOW` in `01_topology_config` (the reasoning is recorded there). The
 # run fails at the start if the raw table is absent or covers any other range.
-#
-# ### Values come from Good readings only; counts come from every reading
-#
-# `value_avg`, `value_min`, `value_max` and `value_stddev` are over `quality_code = 'Good'`
+# # ### Values come from Good readings only; counts come from every reading
+# # `value_avg`, `value_min`, `value_max` and `value_stddev` are over `quality_code = 'Good'`
 # readings. A Bad reading is a rail value by construction in 02b — `normal_max + rail_span` or
 # below `normal_min` — and a single one would drag an hour's average far off. Substituted
 # (Maintenance) and Uncertain readings are excluded too: neither is a measurement of the
 # process. `sample_count` and the four quality counts cover **every** row, so `pct_good` is
 # meaningful.
-#
-# **Nulls are intentional, and asserted.** A bucket with no Good readings still has a row —
+# # **Nulls are intentional, and asserted.** A bucket with no Good readings still has a row —
 # its readings exist, they are just not trustworthy — with `sample_count` populated and every
 # value column null. `value_stddev` is also null for a single Good reading, where a sample
 # standard deviation is undefined. The validation asserts both rules exactly, so a null that
 # arrived any other way (an overflow, a join miss) fails the run rather than hiding in a chart.
-#
-# ### Missing hours produce no row
-#
-# An hour with no readings at all produces **no row**. Nothing is padded or fabricated; the
+# # ### Missing hours produce no row
+# # An hour with no readings at all produces **no row**. Nothing is padded or fabricated; the
 # absence is the signal. `expected_count` versus `sample_count` makes partial hours visible:
 # 4 of 12 means the tag was mostly offline.
-#
-# ### Day grain is built from the hourly table, and weighted
-#
-# The daily rollup reads the **written** hourly table, never raw, so the two cannot disagree.
+# # ### Day grain is built from the hourly table, and weighted
+# # The daily rollup reads the **written** hourly table, never raw, so the two cannot disagree.
 # The hourly table carries the sums behind each average — `value_sum_e6` and
 # `value_sumsq_e12`, the Good values and their squares in units of 1e-6 and 1e-12 — and the day
 # is computed from **summed sums**: `value_avg = Σ sum_h / Σ good_count_h`. That *is* the mean of
 # hourly averages weighted by `good_count`, so an hour with 2 Good readings counts one sixth as
 # much as one with 12. A flat mean of hourly averages is the usual way a two-level rollup goes
 # quietly wrong, and the validation includes a check chosen specifically to catch it.
-#
-# **Standard deviation** cannot be recovered from hourly standard deviations, so it is computed
+# # **Standard deviation** cannot be recovered from hourly standard deviations, so it is computed
 # from the carried sums: `n·Σx² − (Σx)²`, over `n(n−1)`. Two things make that safe here:
-#
-# - the sums are **exact integers** (values scaled by 1e6 — finer than the 0.001 finest tag
+# # - the sums are **exact integers** (values scaled by 1e6 — finer than the 0.001 finest tag
 #   resolution, asserted — so the long and `decimal(38,0)` sums round nothing). The textbook
 #   objection to this formula is cancellation in floating point; in exact arithmetic there is
 #   none, and a frozen tag's standard deviation comes out as exactly 0. (In the offline
@@ -94,14 +82,11 @@ end_date = ""
 #   partial aggregates are merged, which varies with file layout and task timing, so two runs
 #   can differ in the last bit. These cannot. That is what makes the determinism claim below
 #   literally true, not true to a tolerance.
-#
-# ### Run modes and the boundary
-#
-# `run_mode` follows 02d. **Backfill** rolls up the whole raw window. **Incremental** recomputes
+# # ### Run modes and the boundary
+# # `run_mode` follows 02d. **Backfill** rolls up the whole raw window. **Incremental** recomputes
 # whole days from the rollup's watermark: the **last day already rolled, re-rolled**, plus
 # anything after it. Buckets are always recomputed from raw, never updated.
-#
-# Hour buckets never cross midnight, and 02b writes raw one whole UTC day at a time with a
+# # Hour buckets never cross midnight, and 02b writes raw one whole UTC day at a time with a
 # `replaceWhere` on that `date_sk`, which is atomic. So every hour of a day is as complete as
 # it will ever be once its day exists. The final hour of the window is complete in raw on the
 # same terms — if a tag's last hour is short, it is short because the tag was offline, and it
@@ -275,12 +260,10 @@ print(f"raw window {RAW_START.date()}..{RAW_END.date()} ({TELEMETRY_RAW_DAYS} da
 # MARKDOWN ********************
 
 # ### Hourly rollup
-#
-# One row per `(tag_sk, bucket_ts)` with at least one reading. The denormalised columns are
+# # One row per `(tag_sk, bucket_ts)` with at least one reading. The denormalised columns are
 # grouping keys rather than `first()`, so a tag whose attributes varied within the window would
 # produce two rows for one bucket and fail the uniqueness check instead of silently picking one.
-#
-# `dominant_state` is the modal `operating_state`. Ties go to the earlier state in `STATES`
+# # `dominant_state` is the modal `operating_state`. Ties go to the earlier state in `STATES`
 # (Running first), so the choice is deterministic. The per-state counts are carried as columns
 # because the day's modal state has to be computed from them — a mode of hourly modes is not
 # the day's mode. `pct_time_running` is a share of readings; readings are evenly spaced, so it
@@ -388,8 +371,7 @@ hourly_out = hourly_src.select(*HOURLY_SCHEMA)
 # MARKDOWN ********************
 
 # ### Write the hourly table, then roll the day from what was written
-#
-# `replaceWhere` on the run window (§2.2 of the design note): re-running a day replaces that
+# # `replaceWhere` on the run window (§2.2 of the design note): re-running a day replaces that
 # day and never adds to it. The daily rollup is then built from the hourly **table**, not from
 # the in-memory frame, so what the day aggregates is exactly what a reader of the hourly table
 # sees. Finally, any rollup partition outside the raw window is deleted; that only happens
@@ -521,8 +503,7 @@ print("OK  min <= avg <= max; sample_count <= expected_count; every tag_sk resol
 # MARKDOWN ********************
 
 # ### Recompute from raw
-#
-# The hourly check samples 20 tag-hours at random. The daily check does not sample at random,
+# # The hourly check samples 20 tag-hours at random. The daily check does not sample at random,
 # because a random tag-day is one where most hours have the same `good_count`, and there a flat
 # mean of hourly averages and the correct weighted mean agree — the check would pass on the
 # bug it exists to catch. So it samples from tag-days where the two **differ**, selected from

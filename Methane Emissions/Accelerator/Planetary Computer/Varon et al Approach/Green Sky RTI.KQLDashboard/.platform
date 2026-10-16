@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "KQLDashboard",
+    "displayName": "Green Sky RTI",
+    "description": "Green Sky RTI board V2: Executive Overview, Facility Operations, README. Built from docs/rti_board_build_sheet.md."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b99f714e-df6b-bf5d-4653-783f18f4788a"
+  }
+}

@@ -27,28 +27,24 @@
 # MARKDOWN ********************
 
 # # 01a — Build Facility Topology
-#
 # Writes **`dim_facility`** (the enterprise facility master) and **`ref_facilities`** (the
 # projection `05_attribute_facilities` consumes).
-#
 # `ref_facilities` becomes a **generated table with a real upstream** rather than the EPA
 # scrape / `PB_nnn` grid fallback `05` builds today. Once this notebook has run, `05` should
 # read `ref_facilities` instead of regenerating it — its grid fallback is retired.
-#
 # ### One coordinate pair
 # `facility_lat` / `facility_lon`, written once, here. There is deliberately no
 # `latitude` / `longitude` pair: V1 carried both and nothing recorded which was authoritative.
 # `dim_equipment` (01b) stores no coordinates at all and joins on `facility_id`, so a second
 # pair cannot appear without someone adding a column on purpose. The last cell asserts this.
-#
 # ### Facility keys are `GS-nnnn`
 # Not V1's `FAC-nnnn`. 350 `FAC-` keys still exist in `Operations_LH` at different
 # coordinates from a different seed; a distinct prefix makes the break visible in any query
 # result that mixes the two.
-#
 # ### Writes
 # `dim_facility` and `ref_facilities`, both `mode("overwrite")` — the estate is regenerated
 # wholesale from `TOPOLOGY_SEED`, so a partial update has no meaning.
+
 
 # CELL ********************
 
@@ -64,7 +60,6 @@
 # MARKDOWN ********************
 
 # ### Operators
-#
 # Names stay generic (`Operator 01`). The estate is synthetic and must read as synthetic —
 # the accelerator's `bronze.facility_master` attributes invented emissions to named real
 # companies (Occidental, XTO Energy), which this model deliberately does not do.
@@ -94,7 +89,6 @@ print(dim_operator.to_string(index=False))
 # MARKDOWN ********************
 
 # ### Generate facilities
-#
 # Type first, then the name from the type. `name_descriptor` is persisted so validation does
 # not have to depend on string parsing — though the assertion cell below parses the name
 # anyway, because that is what actually catches a disagreement.
@@ -178,7 +172,6 @@ print(fac_pdf[["facility_id", "facility_name", "facility_type", "sub_basin",
 # MARKDOWN ********************
 
 # ### Geography check — band distribution and BBOX excursion
-#
 # This is the cell that would have caught the V1 defect. `FAC-0157` sat at latitude 29.48,
 # about 110 km south of the basin and 1.02° below the BBOX floor; the assertion below caps
 # any excursion at `OUTSIDE_MAX_DEG` (0.30°, ~33 km).
@@ -254,12 +247,10 @@ print(f"OK  no facility more than {OUTSIDE_MAX_DEG} deg outside the BBOX (worst 
 # MARKDOWN ********************
 
 # ### Name / type consistency
-#
 # Construction guarantees agreement — the descriptor is drawn from `TYPE_DESCRIPTORS[ftype]`.
 # The assertion is kept anyway, and deliberately validates by **parsing the generated name**
 # rather than by re-reading `name_descriptor`: a check that only compared the stored
 # descriptor to the map would pass even if the name string had been built from something else.
-#
 # `assert_descriptor_map_unique()` guards the other direction — a later edit that lists one
 # descriptor under two types would make every row pass a name-derived-from-type check while
 # reintroducing exactly the V1 ambiguity.
@@ -371,24 +362,21 @@ print("columns:", ", ".join(fac_pdf.columns))
 # MARKDOWN ********************
 
 # ### Attribution coverage — can every plume reach a facility?
-#
 # Runs **before the write**, so a coverage gap is visible in the same run that would
 # introduce it rather than after `05` has already failed to attribute anything.
-#
 # For every plume in `gold_plume_catalog`, the distance to the **nearest** facility. A plume
 # whose nearest facility is beyond `CONFIG["attribution_search_radius_km"]` cannot be
 # attributed by `05` at all: the candidate search returns nothing, so it exits with
 # `facilities_in_range = 0` before scoring or the upwind cone ever run. No amount of wind
 # geometry rescues it.
-#
 # The latitude comparison at the end is the part that matters. A bare count says coverage is
 # short; comparing the median latitude of uncovered plumes against covered ones says *where*,
 # which is what identifies a missing anchor. This is exactly how the northern gap was found —
 # uncovered plumes sat at median latitude 32.96 against 31.88 for covered ones, and the
 # `Northwest Shelf` anchor was added to close it.
-#
 # Read-only, and skipped cleanly when `gold_plume_catalog` is absent or empty so `01a` still
 # runs on a fresh workspace before any detection has happened.
+
 
 # CELL ********************
 
@@ -582,19 +570,15 @@ display(ref_facilities.limit(20))
 # MARKDOWN ********************
 
 # ### Is 150 the right scale?
-#
 # The estate is sized against the detection rate, not against V1. `N_FACILITIES` is the one
 # knob; this cell is the evidence for whether it is set correctly.
-#
 # The question is whether the **Facility Operations** dashboard page has anything to show.
 # With ~75 plumes over a 30-day window spread across a large estate, most facilities never
 # receive a detection and the page is empty for nearly all of them. What matters is the share
 # of facilities with at least one plume nearby, and how concentrated the detections are.
-#
 # 25 km is a reporting radius, not the attribution radius — `05` attributes with
 # `CONFIG["attribution_search_radius_km"]` (50 km) and weights by wind direction, so a
 # facility counted here has not necessarily been attributed a plume. Both radii are printed.
-#
 # Read-only: this cell writes nothing and is skipped cleanly when `gold_plume_catalog` is
 # absent or empty, so `01a` still runs on a fresh workspace before any detection has happened.
 

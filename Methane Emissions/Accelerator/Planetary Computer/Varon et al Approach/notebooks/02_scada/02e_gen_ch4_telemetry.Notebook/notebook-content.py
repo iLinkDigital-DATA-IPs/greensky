@@ -40,51 +40,38 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 02e — Generate CH₄ Detector Telemetry
-#
-# Writes **`sensor_telemetry`**: hourly readings from the 600 CH₄ detectors in `dim_sensor`,
+# # Writes **`sensor_telemetry`**: hourly readings from the 600 CH₄ detectors in `dim_sensor`,
 # over the same 30-day window as `scada_telemetry`. Reads `dim_sensor`, `dim_equipment`,
 # `dim_facility` and `fact_asset_state`; **modifies nothing else**.
-#
-# `dim_sensor` and `dim_scada_tag` stay separate registries — a methane detector is not a
+# # `dim_sensor` and `dim_scada_tag` stay separate registries — a methane detector is not a
 # process instrument — and this table keeps **V1's `gold.sensor_telemetry` contract exactly**,
 # because `build_snapshots` selects its columns by name:
-#
-# `sensor_id, equipment_sk, facility_sk, reading_ts, ch4_ppm, baseline_ppm, exceedance_flag,
+# # `sensor_id, equipment_sk, facility_sk, reading_ts, ch4_ppm, baseline_ppm, exceedance_flag,
 # wind_speed_ms, wind_dir_deg, sensor_status, ingest_ts`, plus `date_sk` (partition) and
 # `is_synthetic`.
-#
-# ### Cadence
-#
-# One hour (`CH4_INTERVAL_HOURS`). V1's 4 hours put two readings inside the dashboard's
+# # ### Cadence
+# # One hour (`CH4_INTERVAL_HOURS`). V1's 4 hours put two readings inside the dashboard's
 # 8-hour offline horizon, so one missed reading nearly tripped the KPI.
 # `dim_sensor.reading_interval_hours` now carries the same value, written by 01b and asserted
 # equal here.
-#
-# ### The value model
-#
-# `ch4_ppm = baseline_ppm + enhancement`, every term a pure function of `(sensor_id or
+# # ### The value model
+# # `ch4_ppm = baseline_ppm + enhancement`, every term a pure function of `(sensor_id or
 # facility_id, interval_index)` built from **02b's spectral synthesis, copied verbatim** — the
 # helper cell below names its source, and `tools/harness/harness_ch4.py` asserts the copy is
 # identical to 02b's text, so the two cannot drift into two formulations.
-#
-# **Baseline** — regional ambient, V1's 1.9–2.1 ppm scale: a pre-dawn diurnal peak (the
+# # **Baseline** — regional ambient, V1's 1.9–2.1 ppm scale: a pre-dawn diurnal peak (the
 # nocturnal boundary layer traps surface emissions), a basin-wide slow series, a small
 # per-facility one, and a ~10 ppb/yr trend. Its envelope is bounded analytically in
 # `01_topology_config` and sits inside 1.8–2.2 ppm by construction.
-#
-# **Enhancement** — `bg + leak`, both ≥ 0:
-#
-# - `bg` is a ≤ 0.02 ppm wander, so `ch4_ppm` is never exactly the baseline.
+# # **Enhancement** — `bg + leak`, both ≥ 0:
+# # - `bg` is a ≤ 0.02 ppm wander, so `ch4_ppm` is never exactly the baseline.
 # - `leak = sigma_ppm × max(0, z − onset)`, where `z` is the sensor's own spectral series with
 #   **time stretched ×8** (periods 13 h to 52 days) and `onset` is lowered by the sensor's
 #   relative risk and by its asset's state.
-#
-# ### Making exceedances real — the mechanism chosen
-#
-# `exceedance_flag = ch4_ppm > dim_sensor.exceedance_threshold_ppm`. The threshold sits
+# # ### Making exceedances real — the mechanism chosen
+# # `exceedance_flag = ch4_ppm > dim_sensor.exceedance_threshold_ppm`. The threshold sits
 # `sigma_ppm` above ambient, so flagging needs the latent about one unit past the onset.
-#
-# - **Clustered in time.** A flag is the latent crossing a level, and the latent is smooth.
+# # - **Clustered in time.** A flag is the latent crossing a level, and the latent is smooth.
 #   Unstretched, 02b's shortest harmonics (1.63 h, 4.37 h) are faster than the hourly cadence
 #   can follow: measured offline, the median exceedance run was **1 reading**, 65% of runs
 #   lasting one hour. Stretching the time argument ×8 — the same helper, a different clock,
@@ -101,30 +88,23 @@ end_date = ""
 #   an emission rather than inventing one.
 # - **Maintenance suppresses** the leak term — the asset is isolated and depressurised — and
 #   the row reads `sensor_status = 'Calibration'`.
-#
-# The realised rate is asserted inside 0.5–2% over the 30-day table (a single day swings with
+# # The realised rate is asserted inside 0.5–2% over the 30-day table (a single day swings with
 # whichever few sensors are mid-leak — 0.5% to 1.7% in the harness) and printed either way,
 # with its breakdown by state, risk and sensor type, so a miss says which lever moved.
-#
-# ### Gaps and status
-#
-# As 02b: Poisson outages on a fixed 45-day grid anchored at `TELEMETRY_EPOCH` (so an
+# # ### Gaps and status
+# # As 02b: Poisson outages on a fixed 45-day grid anchored at `TELEMETRY_EPOCH` (so an
 # incremental day sees the outages a backfill would), lognormal durations with a 6 h median,
 # 8× the rate on a Faulty sensor, and scattered 0.2% dropouts. Rows are **absent, not null**.
 # Decommissioned sensors emit nothing. Outages go through 02b's `merge_intervals` and
 # `assert_disjoint`. `sensor_status` is `Calibration` during Maintenance on the sensor's asset,
 # `Fault` on a Faulty sensor, otherwise `OK`.
-#
-# ### Wind
-#
-# Per facility, from the facility's own spectral series mixed with a basin-wide one, so wind
+# # ### Wind
+# # Per facility, from the facility's own spectral series mixed with a basin-wide one, so wind
 # varies across the basin and over time. The detection pipeline's weather tables are
 # **deliberately not read**: they sit on a 0.5° grid at a different cadence, and joining them
 # would couple the SCADA layer to the ingest layer for nothing a demo needs.
-#
-# ### Run modes
-#
-# As 02c: `run_mode` from the parameter cell at the top of the notebook (empty raises), with
+# # ### Run modes
+# # As 02c: `run_mode` from the parameter cell at the top of the notebook (empty raises), with
 # optional `start_date` / `end_date` overrides. Backfill is the 30-day raw window; incremental resumes
 # the day after the table's watermark, re-generating the last day when nothing is newer.
 # `replaceWhere` on `date_sk`. Every value is a function of the reading's own index, so
@@ -266,8 +246,7 @@ print(f"  end   from {_end_source}")
 # MARKDOWN ********************
 
 # ### Shared with 02b — copied verbatim, not reformulated
-#
-# Every definition in the next cell is copied **character for character** from
+# # Every definition in the next cell is copied **character for character** from
 # `02b_gen_scada_telemetry`: the SHA-256 row hash and its golden vectors, the spectral
 # synthesis, the slot grid, `merge_intervals` / `assert_disjoint`, and the hour-bucketed
 # half-open state join. Fabric notebooks cannot import from one another, so the choice was a
@@ -624,8 +603,7 @@ outage_dim = F.broadcast(spark.createDataFrame(
 # MARKDOWN ********************
 
 # ### Generate
-#
-# One row per live sensor per hour from its install, conditioned on its asset's state through
+# # One row per live sensor per hour from its install, conditioned on its asset's state through
 # 02b's bucketed half-open join, outages and dropouts removed, then the value model.
 
 # CELL ********************

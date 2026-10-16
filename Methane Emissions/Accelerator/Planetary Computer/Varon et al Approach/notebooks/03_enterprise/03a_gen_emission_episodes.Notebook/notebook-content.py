@@ -40,13 +40,11 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 03a — Generate Emission Episodes
-#
-# Writes **`fact_emission_episode`**: one row per leak episode. An asset starts emitting at
+# # Writes **`fact_emission_episode`**: one row per leak episode. An asset starts emitting at
 # some rate, for some duration, from some root cause, then stops. Intervals, not a time
 # series. Reads `dim_equipment`, `dim_facility`, `dim_area` and `fact_asset_state`;
 # **modifies nothing else**.
-#
-# ### Episodes are the cause, never an effect
+# # ### Episodes are the cause, never an effect
 # This is the hidden ground truth. Plumes, SCADA telemetry and CH₄ detector readings are
 # *observations* of it. So this notebook reads **no observation table**: not
 # `gold_plume_catalog`, not `gold_multi_gas_signatures`, not `scada_telemetry`, not
@@ -55,27 +53,23 @@ end_date = ""
 # "corroborating" one, would only be the generator finding what it had copied in. Every
 # table read goes through `read_input()`, which refuses those names, and the run fails if one
 # was read.
-#
-# The rate distribution *is* calibrated against the real TROPOMI catalogue, but only through
+# # The rate distribution *is* calibrated against the real TROPOMI catalogue, but only through
 # fixed constants written into this notebook: a floor, a median and a maximum measured once
 # on 2026-08-16..2026-09-15. They are never read from a table at run time. They also
 # calibrate the *shape* of the rate distribution, not the number or the timing of episodes,
 # so no individual episode is placed where a plume was seen.
-#
-# ### The hazard
+# # ### The hazard
 # V1's Weibull hazard, driven by the shared `equipment_condition_index` in
 # `01_topology_config` (age, service interval, manufacturer reliability, leak propensity), so
 # the maintenance generator that follows sees the same degraded assets. The hazard uses
 # `leak_propensity`, which describes **leaking**. It does not use `STATE_DUTY_FACTOR`, which
 # describes **stopping** and was added for 02a precisely because the two differ. A storage
 # tank rarely trips, but it leaks readily.
-#
-# ### Operating state
+# # ### Operating state
 # Episodes neither start nor continue during `Maintenance` or `Down` in `fact_asset_state`.
 # An asset that is not running is not leaking process gas. See the episode model below for
 # how an episode under way is handled when its asset stops.
-#
-# ### Writes
+# # ### Writes
 # `fact_emission_episode` only, partitioned by `date_sk`, with `replaceWhere`. No `dim_*`
 # table and no `fact_asset_state` row is modified. No plumes, telemetry or work orders.
 # Everything is synthetic.
@@ -111,8 +105,7 @@ end_date = ""
 # MARKDOWN ********************
 
 # ### Inputs, and the guard against reading observations
-#
-# The only tables this notebook may read are the estate and its operating state. Every read
+# # The only tables this notebook may read are the estate and its operating state. Every read
 # goes through `read_input()`. It refuses anything else outright, and the validation cell
 # fails the run if anything outside `INPUT_TABLES` was read at all.
 
@@ -175,40 +168,34 @@ print(f"refused           {len(OBSERVATION_TABLES)} observation tables")
 # MARKDOWN ********************
 
 # ### The episode model
-#
-# This cell is pure: no Spark, no table, no clock. `tools/harness/harness_episodes.py`
+# # This cell is pure: no Spark, no table, no clock. `tools/harness/harness_episodes.py`
 # executes it verbatim against `01_topology_config`, so the harness checks this code, not a
 # copy of it.
-#
-# **Onset.** For every asset and every UTC day, `get_rng("episode", equipment_id, day)` draws
+# # **Onset.** For every asset and every UTC day, `get_rng("episode", equipment_id, day)` draws
 # a Poisson count of onsets from that day's hazard, then each episode's parameters in a fixed
 # order. A day's episodes therefore depend only on the asset, the day and the seed. They do
 # not depend on how the run window was sliced, which is what makes a backfill equal to the
 # sequence of incremental days.
-#
-# **Hazard.** V1's Weibull, `h = (k/λ)(t/λ)^(k-1)` with `k = 1.8` and `λ = 0.9 × life`, is
+# # **Hazard.** V1's Weibull, `h = (k/λ)(t/λ)^(k-1)` with `k = 1.8` and `λ = 0.9 × life`, is
 # evaluated at the *condition-equivalent age* `t = cond × life`. `cond` is the shared
 # `equipment_condition_index`. The result is then scaled by `leak_propensity` and by
 # criticality, as in V1. `days_since_service` is measured from the end of the asset's last
 # `Maintenance` interval in `fact_asset_state`. Before the first one in the history, it
 # assumes the asset was mid-cycle at the history start, half an inspection interval since
 # service.
-#
-# **Operating state.** An onset drawn while the asset is in `Maintenance` or `Down` is
+# # **Operating state.** An onset drawn while the asset is in `Maintenance` or `Down` is
 # dropped. It is not moved: shifting it to the next Running interval would bunch onsets at
 # every restart. The draw happens anyway, so the random sequence is unaffected. **An episode
 # under way when its asset enters `Maintenance` or `Down` is truncated at that state change
 # and ends there.** It does not resume on restart. A stop is where a leak gets found and fixed,
 # and a Corrective or Scheduled PM visit is exactly that. `Standby`, `Startup` and
 # `Shutdown` still emit: the asset is pressurised.
-#
-# **Root cause** is weighted by equipment type, and only causes whose 02b signature touches
+# # **Root cause** is weighted by equipment type, and only causes whose 02b signature touches
 # at least one of that type's tags are allowed. Tank flashing is on storage tanks only,
 # unlit flare on flares only, compressor blowby on compressors only. Valve and Pipeline
 # Segment carry no tags, so their episodes are never corroborated by telemetry, whatever the
 # cause.
-#
-# **Rates are a two-component log-normal mixture**, explained in the calibration note
+# # **Rates are a two-component log-normal mixture**, explained in the calibration note
 # below.
 
 # CELL ********************
@@ -500,17 +487,14 @@ print("episode model defined -- a day's episodes are a pure function of "
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# `run_mode` from the parameter cell at the top of the notebook (empty raises), matching 02a,
+# # `run_mode` from the parameter cell at the top of the notebook (empty raises), matching 02a,
 # with optional `start_date` / `end_date` overrides. Both modes cover the same history as `fact_asset_state`: `STATE_HISTORY_DAYS`
 # back from `TOPOLOGY_AS_OF`.
-#
-# **Incremental follows `fact_asset_state`, not a watermark of its own.** Its window is the
+# # **Incremental follows `fact_asset_state`, not a watermark of its own.** Its window is the
 # last day of state history, the day after that table's latest `date_sk`. Episodes are sparse,
 # a few dozen a day estate-wide, so a watermark on this table's own `max(date_sk)` could land
 # on a day with no episodes and stop advancing, rerunning that day forever.
-#
-# **The `date_sk` question.** An episode that starts before the window and ends inside it
+# # **The `date_sk` question.** An episode that starts before the window and ends inside it
 # lives in a `date_sk` partition outside the window. 02a handled the same thing by widening
 # `replaceWhere` over every partition the run touches, then carrying the untouched rows it
 # swept in. **The widening fits here; the carrying is not needed.** The only thing about an
@@ -773,12 +757,10 @@ print(f"OK  no episode overlaps a Maintenance or Down interval ({len(ep):,} chec
 # MARKDOWN ********************
 
 # ### Calibration report
-#
-# The above-floor subset is compared with what TROPOMI saw over 2026-08-16..2026-09-15. The
+# # The above-floor subset is compared with what TROPOMI saw over 2026-08-16..2026-09-15. The
 # reference values below are constants measured once, for comparison only. Nothing is fitted
 # to them at run time, and the observed side is never adjusted.
-#
-# **Not a count fit.** TROPOMI sees an episode only if it is above the floor, a cloud-free
+# # **Not a count fit.** TROPOMI sees an episode only if it is above the floor, a cloud-free
 # overpass happens while it is active, the retrieval succeeds, and the plume is not rejected
 # as a striping artifact (115 of 164 clusters on this window). Those probabilities belong to
 # the detection layer. The count comparison below is a rough consistency check. The realised

@@ -40,45 +40,38 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 03b — Generate Work Orders
-#
-# Writes **`fact_work_order`** (one row per ticket) and **`fact_work_order_event`** (one row
+# # Writes **`fact_work_order`** (one row per ticket) and **`fact_work_order_event`** (one row
 # per status transition). The first backlog in the estate, and the first notebook to
 # implement `DESIGN_NOTE_incremental_facts.md` §2.3 as its main job rather than as a detail.
-#
-# ### Tickets come from symptoms, never from the leak
+# # ### Tickets come from symptoms, never from the leak
 # An operator cannot see a leak. They see what it does to the instruments, so every ticket
 # here comes from something observable:
-#
-# | source | raises a ticket when | priority |
+# # | source | raises a ticket when | priority |
 # |---|---|---|
 # | `Alarm` | P1 alarms, directly. P2 when it **recurs** (3 raises in 24 h on the tag) or **stands** 4 h, since a single warning does not dispatch a crew (`ALARM_P2_MODE`). P3 only when it recurs on the same tag (see the rule below). P4 never | the alarm's own |
 # | `Exceedance` | a CH₄ detector's `exceedance_flag` holds for `EXCEEDANCE_MIN_READINGS` consecutive readings. A single flagged reading does not | P2 |
 # | `Compliance` | a compliance case reaching **Violation** in `fact_compliance_event` (03c), at the instant of the finding. Reports and undecided cases raise nothing | P1 Critical, P2 Major |
 # | `SensorStatus` | a SCADA tag stays offline for `OFFLINE_TICKET_HOURS` with no Maintenance on its asset | P3 |
 # | `Trip` | an asset trips: a transition into `Down` with cause `Trip` in `fact_asset_state`, at the trip instant | by criticality: P1 Critical, P2 High, P3 Medium, P4 Low |
-#
-# **`fact_emission_episode` is never read.** It is the hidden ground truth. A ticket sourced
+# # **`fact_emission_episode` is never read.** It is the hidden ground truth. A ticket sourced
 # from an episode would make every downstream claim that "the work order responded to the
 # leak" circular. The generator would only be finding what it copied in. Every read goes
 # through `read_input()`, which refuses the table, and the validation fails the run if it was
 # read. `tools/harness/harness_work_orders.py` also checks statically that the name appears
 # nowhere in the code outside the refusal list.
-#
-# **So some real leaks get no ticket at all.** That is correct, not a defect. A leak on a
+# # **So some real leaks get no ticket at all.** That is correct, not a defect. A leak on a
 # valve, a pipeline segment or any other uninstrumented asset raises no alarm, no detector
 # covers it, and no operator knows it is there. That coverage gap is what the platform exists
 # to close. The satellite layer sees what the SCADA layer cannot, so any "the ticket
 # responded to the leak" story has to be told only where the symptoms were observable.
-#
-# ### Two passes, and closure fixed at creation
+# # ### Two passes, and closure fixed at creation
 # Pass 1 advances the tickets that are not yet closed. Pass 2 creates the window's new ones.
 # A ticket's resolution time, response time, stall flag and cost are drawn **once**, from
 # `get_rng("work_order", work_order_id)`, and never again. Whether a ticket closes on a given
 # day is therefore a function of elapsed time only, and a backfill equals the sequence of
 # incremental days. This notebook exists to avoid V1's defect, which decided open versus
 # closed at creation and never revisited it.
-#
-# ### Writes
+# # ### Writes
 # `fact_work_order` and `fact_work_order_event`, both partitioned by `date_sk` and written with
 # `replaceWhere`. No `dim_*` table, no alarm or telemetry table, and no state table is modified.
 
@@ -113,8 +106,7 @@ end_date = ""
 # MARKDOWN ********************
 
 # ### Inputs, and the guard against reading the ground truth
-#
-# Every table read goes through `read_input()`. It refuses `fact_emission_episode` outright
+# # Every table read goes through `read_input()`. It refuses `fact_emission_episode` outright
 # and anything not in `INPUT_TABLES`. The validation cell fails the run if anything outside
 # the declared inputs was read. `fact_compliance_event` is written by 03c, which must run
 # before 03b in the daily pipeline so its statuses are as of the same horizon.
@@ -193,39 +185,33 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # MARKDOWN ********************
 
 # ### The work-order model
-#
-# This cell is pure: no Spark, no table, no clock. `tools/harness/harness_work_orders.py`
+# # This cell is pure: no Spark, no table, no clock. `tools/harness/harness_work_orders.py`
 # executes it verbatim against `01_topology_config`, so the harness checks this code, not a
 # copy of it.
-#
-# **Sources.** `build_sources()` turns the upstream tables into candidate tickets, each with
+# # **Sources.** `build_sources()` turns the upstream tables into candidate tickets, each with
 # the instant an operator would raise it (`trigger_ts`). Every trigger is knowable at that
 # instant from data that already exists by then. An alarm raises on its Nth breaching
 # reading. An exceedance run triggers on its Nth consecutive flagged reading. A tag has been
 # offline for `OFFLINE_TICKET_HOURS` when that many hours pass with no reading. That is what
 # lets an incremental run and a backfill see the same sources for the same day.
-#
-# **The P3 recurrence rule.** A P3 alarm raises a ticket when it is the
+# # **The P3 recurrence rule.** A P3 alarm raises a ticket when it is the
 # `P3_RECURRENCE_COUNT`-th P3 raise on the **same tag** within the trailing
 # `P3_RECURRENCE_HOURS`, counting itself. So the rule is three within 24 h. A single repeat of a
 # warning inside a day happens by chance on a tag that sits near its limit. Three is a
 # pattern worth a technician. On the offline source stream three-in-24 h passes 18 P3 alarms
 # a month and two-in-24 h passes 247, so the count is the sensitive knob.
-#
-# **Dedup.** A candidate does not open a second ticket on an asset that already has one open
+# # **Dedup.** A candidate does not open a second ticket on an asset that already has one open
 # at the same or higher urgency. It is absorbed, and the run counts it. A P1 trip arriving
 # while a P3 ticket is open on the asset still gets its own P1 ticket. `DEDUP_COOLDOWN_HOURS`
 # optionally extends "open" past closure, so a repeat alarm soon after a fix is treated as the
 # same unresolved problem. It defaults to 0; the calibration below says what each setting
 # buys.
-#
-# **The plan.** `ticket_plan()` draws, in a fixed order from
+# # **The plan.** `ticket_plan()` draws, in a fixed order from
 # `get_rng("work_order", work_order_id)`: the stall flag, the resolution duration (log-normal
 # per priority, solved so its mean and SLA-breach share hit the design-note targets), the
 # response delay as a share of it, and the cost. It is drawn once and never re-drawn. Pass 1
 # re-derives it from the stored `work_order_id` and asserts it matches the stored row.
-#
-# **Status as of an instant.** A ticket is `Open` from `created_ts`, `In Progress` from
+# # **Status as of an instant.** A ticket is `Open` from `created_ts`, `In Progress` from
 # `created_ts + respond`, and `Closed` at `created_ts + resolution`. A stalled ticket goes In
 # Progress and never closes. Pass 1 instead **cancels** it at `created_ts +
 # WO_CANCEL_AFTER_DAYS` (60), with a note, so the stalled population is bounded rather than
@@ -966,21 +952,17 @@ for _p in WO_PRIORITIES:
 # MARKDOWN ********************
 
 # ### Calibration: the arrival rate, measured before choosing anything
-#
-# Per §3 of the design note, the open population converges to `λ × T`. Both are measurable.
-#
-# **The raw arrival rate is far above the target.** On this window `fact_scada_alarm` holds
+# # Per §3 of the design note, the open population converges to `λ × T`. Both are measurable.
+# # **The raw arrival rate is far above the target.** On this window `fact_scada_alarm` holds
 # 7,415 alarms, and 1,043 P1 plus 3,099 P2 raise directly. That is **138 candidates a day from
 # alarms alone**, before exceedances, offline tags and compliance. At the design note's mean
 # resolutions, weighted by that P1:P2 mix, T is about 1.9 days, so raw candidates would hold
 # roughly **260 tickets open**. The target is 40-100.
-#
-# **Dedup does most of the work, but not enough.** Measured by running this notebook's model
+# # **Dedup does most of the work, but not enough.** Measured by running this notebook's model
 # cell over an offline source stream built from the real 5,042-tag estate, 02a's state
 # machine, 02b's value model and 02d's debounce, plus 02e's CH₄ model and 02b's outage grid.
 # 30 days; "open" is the non-stalled mean over the last 14:
-#
-# | rule | tickets/day | open | predicted λ×T |
+# # | rule | tickets/day | open | predicted λ×T |
 # |---|---|---|---|
 # | no dedup (raw candidates) | 108 | ~260 | — |
 # | **one open ticket per asset, every P2 raises (the default)** | **53** | **125** | 124 |
@@ -988,13 +970,11 @@ for _p in WO_PRIORITIES:
 # | + 168 h cooldown | 30 | 73 | 72, still rising at day 30 |
 # | P2 gated: 3 raises in 24 h on the tag, or standing 4 h | 18 | 60 | 58 |
 # | P2 gated + 72 h cooldown | 17 | 53 | 54 |
-#
-# That stream omits 02b's episode overlay. It reproduces P2 closely (2,622 against 3,099), but
+# # That stream omits 02b's episode overlay. It reproduces P2 closely (2,622 against 3,099), but
 # gives 105 P1 against 1,043: nearly all real trips come from episode signatures. Episode
 # trips cluster on one asset for the episode's duration, so dedup collapses most of them, but
 # they will still add to every row above in Fabric.
-#
-# **The binding constraint is P2 itself.** 245 critical assets raise ~11 P2 warnings each a
+# # **The binding constraint is P2 itself.** 245 critical assets raise ~11 P2 warnings each a
 # month. With every P2 a candidate, one open ticket per asset still leaves ~39 P2 alarm
 # tickets a day on their own, twice the whole 10-20 budget. A cooldown is a dedup rule, and even a week of
 # it leaves 30 a day. **Only gating P2 reaches the target, and it is applied**
@@ -1006,18 +986,15 @@ for _p in WO_PRIORITIES:
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# `run_mode` from the parameter cell at the top of the notebook (empty raises), with optional
+# # `run_mode` from the parameter cell at the top of the notebook (empty raises), with optional
 # `start_date` / `end_date` overrides, as 02a and 03a do.
-#
-# **The window follows the sources.** Work orders can only be derived where the alarms, the
+# # **The window follows the sources.** Work orders can only be derived where the alarms, the
 # CH₄ readings, the tag telemetry and the operating state all exist:
 # `SOURCE_START..SOURCE_END` is the overlap of `scada_telemetry`, `sensor_telemetry` and
 # `fact_asset_state`. A backfill runs both passes day by day across all of it, starting with no
 # tickets. An incremental run takes the last source day, like 03a. Rerunning it replaces that
 # day and changes nothing else.
-#
-# **Sources are always built over the whole retention**, in both modes. That covers the P3
+# # **Sources are always built over the whole retention**, in both modes. That covers the P3
 # recurrence window, an exceedance run that started before the window, and the ongoing-outage
 # scan. They are small: a few thousand alarms, ~5k flagged CH₄ readings, a few thousand status
 # events. The window only selects which triggers pass 2 acts on.
@@ -1128,8 +1105,7 @@ print(f"sources span {SOURCE_START.date()}..{SOURCE_END.date()}  (scada_telemetr
 # MARKDOWN ********************
 
 # ### Load the estate and build the sources
-#
-# The ongoing-outage scan is the one read of `scada_telemetry`: each live tag's last reading in
+# # The ongoing-outage scan is the one read of `scada_telemetry`: each live tag's last reading in
 # the final `OFFLINE_SCAN_DAYS`. It is one aggregate over partition-pruned days. A tag whose
 # last reading is more than `SENSOR_OFFLINE_MULTIPLE` cadences before the horizon is in an
 # outage that `fact_sensor_status_event` cannot show yet, because 02d derives an outage from
@@ -1267,16 +1243,14 @@ print(f"  Compliance: {COMPLIANCE_NOTE}")
 # MARKDOWN ********************
 
 # ### Pass 1 and pass 2
-#
-# **Pass 1's read.** Pass 1 needs the tickets that were not closed when the window began.
+# # **Pass 1's read.** Pass 1 needs the tickets that were not closed when the window began.
 # After a rerun, the stored table is as of a later horizon than that. A plain
 # `status != 'Closed'` would miss every ticket the window itself closed. It would then fail to
 # re-emit those closures, and the event table's `replaceWhere` would delete them.
 # `prior_from_table()` therefore selects on timestamps: created before the window, and not
 # closed before it. `harness_work_orders.py` carries the `status != 'Closed'` version as a
 # negative control and shows it breaks a rerun.
-#
-# **The write, and whether 02a's widening fits.** It does. A ticket's row lives in the
+# # **The write, and whether 02a's widening fits.** It does. A ticket's row lives in the
 # partition of the day it was created. Pass 1 changes rows created before the window, when
 # they go In Progress, close or cross their SLA. So the `replaceWhere` range is widened back to
 # the oldest partition holding a changed row. Inside that range, rows the run did not change
@@ -1284,12 +1258,10 @@ print(f"  Compliance: {COMPLIANCE_NOTE}")
 # widen the range. A stalled ticket changes three times (In Progress, breach, and its
 # cancellation 60 days on) and then never again. On its cancellation day the range reaches
 # back 60 days to its partition, and no further.
-#
-# `fact_work_order_event` needs no widening. An event's `date_sk` is its own day. Every event
+# # `fact_work_order_event` needs no widening. An event's `date_sk` is its own day. Every event
 # in the window is a transition this run emits, so `replaceWhere` over exactly the window's
 # days replaces them all.
-#
-# A backfill overwrites both tables whole. It renumbers from `WO-000001`, and any older ticket
+# # A backfill overwrites both tables whole. It renumbers from `WO-000001`, and any older ticket
 # would collide with that.
 
 # CELL ********************
@@ -1403,8 +1375,7 @@ write_fact(event_pdf[EVENT_COLS], EVENT_SCHEMA, EVENT_TABLE, WS_SK, WE_SK)
 # MARKDOWN ********************
 
 # ### Validation — every check fails the run, none warns
-#
-# Run over the **whole** tables as written, not only this run's rows. The steady-state checks
+# # Run over the **whole** tables as written, not only this run's rows. The steady-state checks
 # only mean something over the trajectory, and an incremental run's single day is one point
 # on it.
 
@@ -1590,31 +1561,25 @@ print("OK  every ticket's events agree with its row; only Open -> In Progress ->
 # MARKDOWN ********************
 
 # ### Steady state — the trajectory, not a day
-#
-# `expected = λ × T`. λ is non-stalled tickets created per day over the trend window. T is the
+# # `expected = λ × T`. λ is non-stalled tickets created per day over the trend window. T is the
 # mean **planned** resolution of non-stalled tickets, re-derived from each plan. Using
 # realised closures instead would be censored: a long ticket still open at the horizon has no
 # resolution yet, so T would read short. Stalled tickets are excluded from both sides. They
 # never close, so their drain is the 60-day exit rather than the resolution model, and
 # counting them would mix the two.
-#
-# **Two dashboard measures, observable and never summed** (`open_measures()`):
-#
-# - **Active open**: Open or In Progress, and within SLA. This is work a planner will
+# # **Two dashboard measures, observable and never summed** (`open_measures()`):
+# # - **Active open**: Open or In Progress, and within SLA. This is work a planner will
 #   schedule, and it is the KPI.
 # - **Stalled backlog**: Open or In Progress, and past SLA. This is work that needs
 #   escalation.
-#
-# Adding the two together would hide the second. A growing escalation backlog would look like
+# # Adding the two together would hide the second. A growing escalation backlog would look like
 # a slightly busy planner. Cancelled tickets are in neither.
-#
-# **The steady-state checks stay generator-side.** λ×T is a property of the resolution model,
+# # **The steady-state checks stay generator-side.** λ×T is a property of the resolution model,
 # so it is judged on non-stalled tickets, as above. The generator-side stalled count converges
 # to `stall arrivals/day × WO_CANCEL_AFTER_DAYS`, and only reaches that after 60 days of
 # history. The run prints the observable split, the generator split and their cross-tab
 # side by side. See the note at `open_measures()` for why the two disagree.
-#
-# The warm-up is excluded. A backfill starts with no tickets, so the population rises for
+# # The warm-up is excluded. A backfill starts with no tickets, so the population rises for
 # about one P3 lifetime before it levels. The trend is fitted over the final
 # `TREND_WINDOW_DAYS` only, and only once `WARMUP_DAYS` of history precede them.
 

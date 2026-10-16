@@ -40,20 +40,17 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 03d — Generate Maintenance, Inspections and LDAR
-#
-# Writes four tables. **`fact_pm_schedule`** is what V1 never had: without a `next_due_ts`
+# # Writes four tables. **`fact_pm_schedule`** is what V1 never had: without a `next_due_ts`
 # there is nothing to be overdue against. The other three are **`fact_maintenance`**,
 # **`fact_inspection`** and **`fact_ldar_survey`**. V1 generated completed events only, so no
 # work ever fell due without being done. Here every backlog has an inflow and an outflow
 # (design note §2.3).
-#
-# ### Maintenance is aligned to `fact_asset_state` — the reconciliation chosen
+# # ### Maintenance is aligned to `fact_asset_state` — the reconciliation chosen
 # 02a already decides when an asset is down for maintenance. It runs each asset to the next
 # point on its PM calendar (`pm_phase_days`, copied verbatim below), then Shutdown →
 # Maintenance(Scheduled PM) → Startup. After a trip it also takes the asset into
 # Maintenance(Corrective). **This notebook does not invent maintenance downtime.**
-#
-# - A **PM visit** is a 02a `Scheduled PM` Maintenance interval. Its record is stamped at the
+# # - A **PM visit** is a 02a `Scheduled PM` Maintenance interval. Its record is stamped at the
 #   interval's end, and its downtime is the interval's duration. Completion is uncertain:
 #   the visit completes the PM with probability `PM_ON_TIME_COMPLETION`. An incomplete visit
 #   is still recorded, with `is_completed = false`, and `next_due_ts` does not advance.
@@ -67,27 +64,23 @@ end_date = ""
 #   the same `fact_asset_state`. A corrective record with **zero downtime** is work done
 #   on-line, with the asset running. It is legitimate, and the run counts it. It is never
 #   presented as downtime.
-#
-# So every preventive record coincides exactly with a Maintenance interval, and every
+# # So every preventive record coincides exactly with a Maintenance interval, and every
 # corrective record's downtime is time the asset was actually down. The validation checks
 # both against `fact_asset_state`. What a user comparing the tables will still see: some
 # 02a `Corrective` Maintenance intervals have no maintenance record. That is a trip whose
 # repair no work order covered, or whose ticket has not closed yet. The run counts them.
-#
-# ### Inspections and LDAR read condition, never the ground truth
+# # ### Inspections and LDAR read condition, never the ground truth
 # The leak-found probability rises with `equipment_condition_index`, the model shared with
 # 03a's hazard. It is evaluated with days-since-service measured from the asset's last
 # Maintenance interval in `fact_asset_state`, exactly as 03a does. **`fact_emission_episode`
 # is never read.** An inspector finds what the asset's condition makes likely, not what the
 # hidden ground truth says is there.
-#
-# ### LDAR carries a real backlog
+# # ### LDAR carries a real backlog
 # Leaks found at a survey are repaired over the following days. Each leak's repair delay is
 # drawn once at detection. `leaks_repaired` and `leaks_outstanding` on a survey row are as
 # of the run's horizon, so detected minus repaired is a genuine outstanding count with a
 # genuine lag, not V1's within-survey ratio.
-#
-# ### Pipeline order
+# # ### Pipeline order
 # 03c → 03b → **03d**. 03d reads closed work orders, so 03b runs first each day.
 
 # MARKDOWN ********************
@@ -177,20 +170,16 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # MARKDOWN ********************
 
 # ### The maintenance model
-#
-# This cell is pure: no Spark, no table, no clock. `tools/harness/harness_maintenance.py`
+# # This cell is pure: no Spark, no table, no clock. `tools/harness/harness_maintenance.py`
 # executes it verbatim against `01_topology_config`.
-#
-# Every event is **knowable at its timestamp** from data that exists by then:
-#
-# - A PM record, at its Maintenance interval's end.
+# # Every event is **knowable at its timestamp** from data that exists by then:
+# # - A PM record, at its Maintenance interval's end.
 # - A corrective record, at its work order's close.
 # - An inspection, at its calendar instant, or, if the asset is stopped then, when it
 #   restarts.
 # - A survey, at its calendar instant.
 # - A leak repair, at the delay drawn when the leak was found.
-#
-# Every draw is keyed on the event's own identity: (asset, calendar index), (work order),
+# # Every draw is keyed on the event's own identity: (asset, calendar index), (work order),
 # (facility, survey index), (survey, leak). Nothing depends on how the run window was sliced.
 
 # CELL ********************
@@ -1009,8 +998,7 @@ print("03d model defined -- PM visits are 02a's Scheduled PM intervals; completi
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# **The window ends where every input exists: `SOURCE_END = min(scada_telemetry,
+# # **The window ends where every input exists: `SOURCE_END = min(scada_telemetry,
 # sensor_telemetry, fact_asset_state)`**, 03b's rule and 03e's. Every end here is the exclusive
 # end of a half-open window, `max(date_sk) + 1 day`. PM visits are `fact_asset_state`'s
 # Maintenance intervals, but corrective records come from 03b's closed work orders, and 03b
@@ -1025,8 +1013,7 @@ print("03d model defined -- PM visits are 02a's Scheduled PM intervals; completi
 # day kept 12 of its 22 records and lost all 10 corrective ones, and a later run never revisits
 # it. A `>= end - 2 days` guard on the work-order events let it through, so that check is
 # now exact.
-#
-# A backfill covers the whole state history (`STATE_HISTORY_DAYS`) up to `SOURCE_END` and runs
+# # A backfill covers the whole state history (`STATE_HISTORY_DAYS`) up to `SOURCE_END` and runs
 # both passes day by day. An incremental run takes the last day, and rerunning it replaces
 # that day. Corrective records need closed work orders, which exist only over 03b's retention,
 # so days before it carry preventive work only. That is stated, not hidden.
@@ -1171,8 +1158,7 @@ print(f"{len(wo_pdf):,} work orders from {WO_START.date()} ({int((wo_pdf['status
 # MARKDOWN ********************
 
 # ### Pass 1 and pass 2
-#
-# Pass 1's carried state is read on timestamps, as of the window start, never from a snapshot
+# # Pass 1's carried state is read on timestamps, as of the window start, never from a snapshot
 # or a status column. After a rerun those describe a later horizon. The PM state comes from
 # `fact_maintenance`. Pending follow-ups come from `fact_inspection`, re-derivable from
 # `inspection_sk` alone. Survey plans are regenerated from the calendar and checked against
@@ -1259,8 +1245,7 @@ print("OK  rerunning the window from the same prior state reproduces it exactly"
 # MARKDOWN ********************
 
 # ### Write the four tables
-#
-# `fact_maintenance` and `fact_inspection` hold events that never change once written, so
+# # `fact_maintenance` and `fact_inspection` hold events that never change once written, so
 # `replaceWhere` covers exactly the window's days. `fact_ldar_survey` rows change as repairs
 # complete, so, as in 03b, the range widens back to the oldest changed survey, and untouched
 # rows in it are carried. **`fact_pm_schedule` is a snapshot, overwritten in full** each run,
@@ -1336,16 +1321,13 @@ write_table(pm_pdf, PM_TABLE, PM_COLS, full=True)
 # MARKDOWN ********************
 
 # ### Validation — every check fails the run, none warns
-#
-# **The consistency check chosen, in place of "no maintenance on an asset Running
+# # **The consistency check chosen, in place of "no maintenance on an asset Running
 # throughout":**
-#
-# - Every **preventive** record ends exactly at a Maintenance interval on its asset in
+# # - Every **preventive** record ends exactly at a Maintenance interval on its asset in
 #   `fact_asset_state`, with `downtime_hours` equal to that interval's length.
 # - Every **corrective** record's `downtime_hours` equals the asset's actual Down and
 #   Maintenance time over its work order's life, recomputed here from `fact_asset_state`.
-#
-# A corrective record with zero downtime is on-line work, and it is counted. So no record
+# # A corrective record with zero downtime is on-line work, and it is counted. So no record
 # claims downtime the asset did not have. A record can still exist with the asset running,
 # but only as on-line work, with zero downtime.
 
@@ -1503,10 +1485,8 @@ print("OK  inspection results consistent; LDAR repaired + outstanding = detected
 # MARKDOWN ********************
 
 # ### Backlogs — the trajectory, not a day
-#
-# Two backlogs, and one number for each that a dashboard should bind to.
-#
-# - **Overdue PMs now** is `fact_pm_schedule`, as of the horizon: the count of `is_overdue`.
+# # Two backlogs, and one number for each that a dashboard should bind to.
+# # - **Overdue PMs now** is `fact_pm_schedule`, as of the horizon: the count of `is_overdue`.
 #   It is **the dashboard figure**.
 # - **Overdue PMs by day** is rebuilt from `fact_maintenance`, to judge the trajectory. It is
 #   the same quantity, the assets whose `next_due_ts` had passed at each day's end, so its
@@ -1516,8 +1496,7 @@ print("OK  inspection results consistent; LDAR repaired + outstanding = detected
 # - **Outstanding LDAR leaks** start from zero at the first survey, so their checks wait out
 #   `WARMUP_DAYS`. Cumulative repaired must reach `LDAR_REPAIR_BAND[0]` of cumulative
 #   detected `LDAR_REPAIR_LAG_DAYS` earlier, the design note's "≥70% with lag".
-#
-# A backlog fails on any of: a net rise over the last `NET_WINDOW_DAYS` of `NET_RISE_MAX_SHARE`
+# # A backlog fails on any of: a net rise over the last `NET_WINDOW_DAYS` of `NET_RISE_MAX_SHARE`
 # or more of the entries into it; every weekly mean in that window above the last; (LDAR) repairs
 # falling below `LDAR_REPAIR_BAND[0]` of detections `LDAR_REPAIR_LAG_DAYS` earlier, or more than
 # `AGED_OUTSTANDING_MAX` of the leaks aged `AGED_MIN_DAYS`-`NET_WINDOW_DAYS` days still unrepaired;

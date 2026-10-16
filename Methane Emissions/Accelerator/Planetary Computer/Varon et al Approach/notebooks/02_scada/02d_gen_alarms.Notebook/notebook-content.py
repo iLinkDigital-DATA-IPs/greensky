@@ -40,50 +40,39 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 02d — Derive SCADA Alarms and Sensor Status
-#
-# Writes **`fact_scada_alarm`** and **`fact_sensor_status_event`**, both derived entirely from
+# # Writes **`fact_scada_alarm`** and **`fact_sensor_status_event`**, both derived entirely from
 # `scada_telemetry`. This notebook **modifies nothing** — not the telemetry, not
 # `fact_asset_state`, not any `dim_*` table.
-#
-# ### Alarms are derived, never generated
-#
-# Every alarm here comes from scanning `value_num` against that tag's own limits in
+# # ### Alarms are derived, never generated
+# # Every alarm here comes from scanning `value_num` against that tag's own limits in
 # `dim_scada_tag`. There is **no independent random alarm stream**. That is the whole point:
 # the dashboard shows alarms and trends side by side, and a user who drills from an alarm into
 # the trend has to find the excursion sitting there in the data. An alarm generated beside the
 # telemetry rather than from it would be a lie that the demo's own chart disproves.
-#
-# The same property makes the table trivially idempotent — see the boundary note below.
-#
-# ### The four suppressions, and why each exists
-#
-# **Debounce.** A breach raises only after `ALARM_DEBOUNCE_SAMPLES` consecutive readings. A
+# # The same property makes the table trivially idempotent — see the boundary note below.
+# # ### The four suppressions, and why each exists
+# # **Debounce.** A breach raises only after `ALARM_DEBOUNCE_SAMPLES` consecutive readings. A
 # single spike is noise. Without it the 0.5% Bad-quality rail values alone would raise tens of
 # thousands of alarms — 02b puts those deliberately out of range, which is exactly what a
 # naive scan would call an excursion.
-#
-# **Deadband.** An alarm clears only once the value is back inside the limit by
+# # **Deadband.** An alarm clears only once the value is back inside the limit by
 # `ALARM_DEADBAND_PCT` of the normal span, held for the same count. Without hysteresis a value
 # sitting on the threshold produces chatter.
-#
-# **Quality.** `Bad` readings never raise — a rail value is an instrument fault, not a process
+# # **Quality.** `Bad` readings never raise — a rail value is an instrument fault, not a process
 # excursion — and neither do `Substituted` ones, which are Maintenance substitutions.
 # `Uncertain` readings neither raise nor clear: they extend whatever state is current.
-#
-# **State.** No alarm on an asset that is `Down` or `Maintenance`. A stopped compressor reads
+# # **State.** No alarm on an asset that is `Down` or `Maintenance`. A stopped compressor reads
 # zero flow, which is roughly 40 sigma below `normal_min` **by design** — alarming on it would
 # bury every real signal under state artefacts. `Standby` additionally suppresses `flow` and
 # `rpm`, which go to zero there for the same reason.
-#
-# **Startup and Shutdown are suppressed too — chosen, not assumed.** A ramp legitimately
+# # **Startup and Shutdown are suppressed too — chosen, not assumed.** A ramp legitimately
 # crosses limits on its way between the stopped and running profiles: 02b interpolates the two
 # profiles with a smoothstep across the interval, so a compressor coming up passes through
 # every value between 250 psig and 1000 psig. Those crossings are the transition working
 # correctly, not an excursion, and an operator does not want an alarm per start. The cost is
 # that a genuine failure *during* a start is invisible to this notebook; that is the right
 # trade at this fidelity, and the place to revisit it is a start-permissive alarm group.
-#
-# ### What this notebook does NOT do
+# # ### What this notebook does NOT do
 # No rollups — that is `02c`. No alarm is invented, and no `dim_*` or upstream fact table is
 # touched.
 
@@ -118,52 +107,42 @@ end_date = ""
 # MARKDOWN ********************
 
 # ### Run mode, and the boundary problem
-#
-# `run_mode` follows 02b: from the parameter cell at the top of the notebook (empty raises), with
+# # `run_mode` follows 02b: from the parameter cell at the top of the notebook (empty raises), with
 # `start_date` / `end_date` overrides, and an incremental window taken from the table's own
 # watermark rather than `utcnow()`. With no watermark, an incremental run raises.
-#
-# **The boundary problem.** An alarm raised before the window and cleared inside it has a
+# # **The boundary problem.** An alarm raised before the window and cleared inside it has a
 # `raised_ts` outside the window, so its partition is not in the run's `replaceWhere` scope.
 # The same applies to an outage spanning midnight in `fact_sensor_status_event`.
-#
-# `02a` solved this by widening the `replaceWhere` predicate to every partition the run
+# # `02a` solved this by widening the `replaceWhere` predicate to every partition the run
 # touches, then **reading back** the rows it did not regenerate and writing them out unchanged
 # — necessary there because a state interval's future depends on a chain that was decided when
 # it opened, and cannot be recovered from anything else.
-#
-# **Neither 02a's approach nor a lookback window fits here.** The obvious idea — scan a few
+# # **Neither 02a's approach nor a lookback window fits here.** The obvious idea — scan a few
 # days before the window so any straddling alarm is recomputed — is wrong, and it is worth
 # saying exactly why, because it looks right:
-#
-# > The debounce machine raises on the **Nth consecutive** breaching reading. Its output
+# # > The debounce machine raises on the **Nth consecutive** breaching reading. Its output
 # > therefore depends on where each *run* of breaches began, not merely on whether an alarm was
 # > open. A scan whose first reading lands in the middle of a breach run sees a shorter run and
 # > raises late, or never. With a run of 8 breaches starting at slot 10 and a debounce of 3, a
 # > full scan raises at slot 12; scans beginning at slots 11, 12 and 13 raise at 13, 14 and 15.
 # > No alarm is open at any of those edges — the run simply started earlier than the scan.
 # > **No lookback length fixes this in general, because any edge can land mid-run.**
-#
-# Verified in the offline harness: with a 7-day lookback, 119 of 400 simulated months
+# # Verified in the offline harness: with a 7-day lookback, 119 of 400 simulated months
 # disagreed with their backfill.
-#
-# **Chosen: always derive from the full telemetry retention, in both run modes, and rewrite
+# # **Chosen: always derive from the full telemetry retention, in both run modes, and rewrite
 # every alarm partition.** `scada_telemetry` keeps `TELEMETRY_RAW_DAYS` (30) of history, so
 # there is no edge to straddle — the scan starts where the data starts. Backfill and
 # incremental become *identical by construction* rather than by argument, which is a much
 # stronger property than a lookback can offer.
-#
-# The cost is negligible and the volumes are why this is the right call rather than a
+# # The cost is negligible and the volumes are why this is the right call rather than a
 # concession: `fact_scada_alarm` is hundreds of rows, `fact_sensor_status_event` a few
 # thousand, and the validation below has to re-read the telemetry anyway. Partial
 # recomputation of a derived table this small buys nothing and costs correctness.
-#
-# **What `run_mode` still controls** is `WINDOW_END`, the "now" anchor for acknowledgement —
+# # **What `run_mode` still controls** is `WINDOW_END`, the "now" anchor for acknowledgement —
 # and that is the §2.3 drain. Each daily run acknowledges the alarms whose fixed delay has
 # elapsed by its own window end, so the acknowledged population advances day by day while the
 # derivation underneath it stays constant.
-#
-# The alternative that *would* allow a bounded scan is a stored sessioniser checkpoint per
+# # The alternative that *would* allow a bounded scan is a stored sessioniser checkpoint per
 # `(tag, alarm_type)` — last action, run length, in-alarm flag — carried between runs. That is
 # real streaming state, it would make the table no longer a pure function of the telemetry, and
 # at 30 days of retention it is not worth the machinery.
@@ -370,8 +349,7 @@ print(f"neutral quality (neither raises nor clears): {', '.join(ALARM_NEUTRAL_QU
 # MARKDOWN ********************
 
 # ### The tag limit table
-#
-# One row per `(tag, alarm_type)` that the tag actually has a limit for. `alarm_lo` and
+# # One row per `(tag, alarm_type)` that the tag actually has a limit for. `alarm_lo` and
 # friends are nullable per tag — vibration has no low trip, a flare header has no low-flow
 # trip — and a null limit must produce no rows rather than a comparison against null.
 
@@ -427,13 +405,11 @@ print(f"  criticality mix: "
 # MARKDOWN ********************
 
 # ### Where the alarms can come from — read this before trusting the rate
-#
-# Alarms are derived, so the achievable rate is a property of **the telemetry and the limits**,
+# # Alarms are derived, so the achievable rate is a property of **the telemetry and the limits**,
 # not of anything this notebook chooses. The table below is the diagnostic for that: it prints
 # how far each limit sits from the tag's centre in units of the process standard deviation
 # 02b actually generates (`PROCESS_SD_FRACTION x half_band`, currently `0.25 x half_band`).
-#
-# A limit at 3 sigma is breached by roughly 1 reading in 740. A limit at 7 sigma is breached by
+# # A limit at 3 sigma is breached by roughly 1 reading in 740. A limit at 7 sigma is breached by
 # roughly 1 in 3e11 — which, against 15.5M readings, is never. If the printed median sits above
 # about 4 sigma, essentially no alarm in the table comes from a process excursion, and the
 # alarm rate is being set by state anchors and episodes instead. The validation below fails on
@@ -486,22 +462,18 @@ if Z_MEDIAN > 4.0:
 # MARKDOWN ********************
 
 # ### Classify every reading
-#
-# Each reading gets one of three actions per `(tag, alarm_type)`:
-#
-# | action | meaning |
+# # Each reading gets one of three actions per `(tag, alarm_type)`:
+# # | action | meaning |
 # |---|---|
 # | `+1` breach | value is past the limit, and the reading is eligible to raise |
 # | `-1` clear | value is back inside the limit by the deadband |
 # | `0` neutral | inside the limit but within the deadband, or a quality/state suppression |
-#
-# Suppression by **state** is a `-1`, not a `0`: an asset going `Down` is a legitimate reason
+# # Suppression by **state** is a `-1`, not a `0`: an asset going `Down` is a legitimate reason
 # to drop an open alarm, and leaving it open through a maintenance outage is exactly the stale
 # alarm that makes a real alarm list useless. Suppression by **quality** is a `0`: a Bad
 # reading tells you nothing about the process either way, so it must not clear an alarm any
 # more than it may raise one.
-#
-# The scan is narrowed to tags that breach *something*, which is what keeps the window
+# # The scan is narrowed to tags that breach *something*, which is what keeps the window
 # functions off 15.5M rows. A tag that never crosses a limit cannot produce an alarm, so
 # excluding it early changes no result.
 
@@ -565,17 +537,14 @@ scan = scan.join(F.broadcast(live_pairs), ["tag_sk", "alarm_type"], "inner")
 # MARKDOWN ********************
 
 # ### Sessionise: debounce, deadband, and collapsing to alternating raise/clear
-#
-# Neutral readings are dropped — they neither raise nor clear, so removing them from the
+# # Neutral readings are dropped — they neither raise nor clear, so removing them from the
 # sequence is exactly what "extend whatever state is current" means. What remains alternates
 # between runs of breach and runs of clear.
-#
-# A run of `ALARM_DEBOUNCE_SAMPLES` breaches produces a **raise candidate**, at the timestamp
+# # A run of `ALARM_DEBOUNCE_SAMPLES` breaches produces a **raise candidate**, at the timestamp
 # of the Nth reading. A run of that many clears produces a **clear candidate**. Candidates can
 # repeat — a short clear run that never reaches the debounce count leaves the alarm open, and
 # the next long breach run produces a second raise candidate while one is already open.
-#
-# Collapsing to the alternating subsequence fixes that in one window pass: keep a candidate
+# # Collapsing to the alternating subsequence fixes that in one window pass: keep a candidate
 # only when it differs in kind from the previous one. That is the whole state machine, with no
 # iteration and no ordering dependence beyond the window itself.
 
@@ -629,15 +598,13 @@ print(f"process alarms (Hi/HiHi/Lo/LoLo): {proc_alarms.count():,}")
 # MARKDOWN ********************
 
 # ### Quality and frozen alarms
-#
-# `BadQuality` uses the same machine with `Bad` as the breach condition. With 02b drawing its
+# # `BadQuality` uses the same machine with `Bad` as the breach condition. With 02b drawing its
 # 0.5% Bad readings independently per row, `ALARM_DEBOUNCE_SAMPLES` consecutive Bad readings is
 # about a 1-in-8-million event, so this type is expected to be **near empty**. That is reported
 # rather than tuned away: it becomes a real population the moment 02b grows a correlated
 # instrument fault — a transmitter stuck at the rail for an hour — and lowering the threshold
 # now would only manufacture alarms out of independent noise.
-#
-# `Frozen` catches a tag holding one value, which 02b produces deliberately for ~0.3% of tags.
+# # `Frozen` catches a tag holding one value, which 02b produces deliberately for ~0.3% of tags.
 # Binary tags are excluded: a flare pilot reading 1 for thirty days is a working pilot, and
 # only `Running` readings count, because a stopped asset's zero flow is constant on purpose.
 
@@ -684,12 +651,10 @@ print(f"total alarms before enrichment: {N_RAW_ALARMS:,}")
 # MARKDOWN ********************
 
 # ### Peak value, priority, keys, chattering and acknowledgement
-#
-# `alarm_sk` is `stable_key("alarm", tag_id, alarm_type, raised_ts)` — the same SHA-256
+# # `alarm_sk` is `stable_key("alarm", tag_id, alarm_type, raised_ts)` — the same SHA-256
 # construction `01_topology_config` uses, computed in Spark so the telemetry is never collected.
 # Golden vectors guard the two implementations against drifting apart, as in 02b.
-#
-# **Acknowledgement is the one thing here that is not intrinsic to the telemetry**, and it is
+# # **Acknowledgement is the one thing here that is not intrinsic to the telemetry**, and it is
 # where §2.3 of `DESIGN_NOTE_incremental_facts.md` applies. The delay is drawn **once, from
 # `(alarm_sk, seed)`, keyed on priority**, and never re-drawn; the run then acknowledges any
 # alarm whose delay has elapsed against the window end. Re-running a day therefore produces
@@ -922,14 +887,12 @@ print(f"alarms enriched: {N_ALARMS:,}")
 # MARKDOWN ********************
 
 # ### `fact_sensor_status_event` — derived from gaps, so it agrees by construction
-#
-# A tag with no reading for more than `SENSOR_OFFLINE_MULTIPLE` cadences has gone offline; its
+# # A tag with no reading for more than `SENSOR_OFFLINE_MULTIPLE` cadences has gone offline; its
 # next reading brings it back. Because both come from the telemetry itself, the "Sensors
 # Offline (no data in last 8 hours)" tile is computable and **non-zero** — V1's generator
 # emitted a row for every sensor at every slot, which made that KPI permanently zero and the
 # whole panel decorative.
-#
-# The status a gap maps to is derived where it can be: a gap that coincides with a
+# # The status a gap maps to is derived where it can be: a gap that coincides with a
 # `Maintenance` interval on the asset is `Calibration`, a gap on a tag whose registry status is
 # `Faulty` is `Faulty`, and everything else is `Offline`. The *cause* of an unplanned gap is
 # the one thing the telemetry cannot tell us — a missing reading looks the same whether the
@@ -1041,8 +1004,7 @@ for r in (status_out.groupBy("to_status").count().orderBy(F.desc("count")).colle
 # MARKDOWN ********************
 
 # ### Write both tables
-#
-# `replaceWhere` covers the whole retention, because the scan does. Every row in the range is
+# # `replaceWhere` covers the whole retention, because the scan does. Every row in the range is
 # regenerated from telemetry that this run did not modify, so the rewrite reproduces the
 # previous content exactly wherever nothing upstream changed -- no read-back merge, and no
 # partition left holding a row the current derivation would not produce.
@@ -1124,8 +1086,7 @@ write_fact(status_out, STATUS_TABLE, N_STATUS)
 # MARKDOWN ********************
 
 # ### Validation — every check fails the run, none warns
-#
-# The first check is the one that matters: it re-reads the telemetry and proves that every
+# # The first check is the one that matters: it re-reads the telemetry and proves that every
 # alarm has the breaching readings behind it. That is what separates a derived alarm table
 # from an invented one, and no other check here substitutes for it.
 

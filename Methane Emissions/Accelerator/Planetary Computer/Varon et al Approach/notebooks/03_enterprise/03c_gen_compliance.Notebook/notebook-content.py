@@ -40,11 +40,9 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 03c — Generate Compliance Events
-#
-# Writes **`dim_regulation`** (the rules events are evaluated against) and
+# # Writes **`dim_regulation`** (the rules events are evaluated against) and
 # **`fact_compliance_event`** (one row per reportable event, carrying its case status).
-#
-# ### What a regulator sees
+# # ### What a regulator sees
 # A regulator sees reports and observations, never the leak itself. So every event here comes
 # from something observed: an attributed TROPOMI plume, a sustained run on a facility's own
 # CH₄ detectors, or a standing alarm on a flare. **`fact_emission_episode` is never read.** It
@@ -52,13 +50,11 @@ end_date = ""
 # that a regulator acted on a real release circular. Every read goes through `read_input()`,
 # which refuses the table, and `tools/harness/harness_compliance.py` checks statically that
 # the name appears nowhere in the code outside the refusal list.
-#
-# ### Regulatory framing, checked 2026-09-29
+# # ### Regulatory framing, checked 2026-09-29
 # Every figure below is either a rule, with where it comes from, or a **modelling choice**,
 # labelled as one. They were checked against public sources on 2026-09-29, not taken from V1,
 # and should be re-checked before anything here is shown as current law.
-#
-# - **EPA Waste Emissions Charge.** The implementing rule was disapproved under the
+# # - **EPA Waste Emissions Charge.** The implementing rule was disapproved under the
 #   Congressional Review Act (joint resolution passed February–March 2025, signed). The One Big
 #   Beautiful Bill Act (signed 2025-07-04) then delayed the statutory charge itself to calendar
 #   year 2034. So **no federal per-tonne fee applies** to this window, and the default fine
@@ -84,14 +80,12 @@ end_date = ""
 #   are assessed under Tex. Nat. Res. Code §81.0531–81.0533. **This notebook models no
 #   specific SWR 32 exception or penalty figure.** The state path uses modelling thresholds,
 #   labelled as such.
-#
-# ### Reports are many; violations are few
+# # ### Reports are many; violations are few
 # TROPOMI only sees releases of roughly 3 t/h and up, 30 times the 100 kg/h reporting threshold,
 # so any real rate threshold is crossed by everything it detects. **Every attributed plume is
 # a reportable OLRE**, and none is a violation for its rate alone. A plume escalates to a
 # **state case** only on evidence beyond its rate:
-#
-# - **Repetition**: an earlier detection within 5 km of the same source location, attributed
+# # - **Repetition**: an earlier detection within 5 km of the same source location, attributed
 #   to the same facility, in the trailing 30 days. A release reported once and seen again was
 #   not fixed. Repetition is judged on **location**, not facility. Attributing at a median
 #   21 km means one nearby facility collects plumes from several distinct sources. On the
@@ -102,17 +96,14 @@ end_date = ""
 # - **Persistence**: the facility's own CH₄ detectors have been in a continuous exceedance
 #   run for at least 24 h at the moment of detection. This is on-site corroboration, not an
 #   inference from a 5.5 km pixel.
-#
-# A state case is also opened when a flare alarm stands for 24 h: unlit (stack temperature
+# # A state case is also opened when a flare alarm stands for 24 h: unlit (stack temperature
 # below its trip) for venting, or over-range flow for flaring. Each case is then reviewed, and
 # most, not all, end in a violation. The fine appears only if the review finds one.
-#
-# **Violation means a notice of violation issued at inspection** (7–35 days after the report,
+# # **Violation means a notice of violation issued at inspection** (7–35 days after the report,
 # a modelling choice). The formal penalty process that can follow takes months and is not
 # modelled. `fine_usd` is the proposed penalty on the notice. Modelling the full process would
 # leave no decided case inside a 30-day retention, and every dashboard tile would read zero.
-#
-# ### Status progresses: design note §2.3
+# # ### Status progresses: design note §2.3
 # The event is point-in-time; its status is not: **Reported → Under Review → Closed**, or
 # **→ Violation**. The whole progression is drawn once at creation from
 # `get_rng("compliance", compliance_id)`: the report delay, the review duration, the outcome,
@@ -123,8 +114,7 @@ end_date = ""
 # 60-day rule, on regulatory timescales. Cancelled cases are never counted as open, and are
 # reported separately. Stalled cases are excluded from
 # the steady-state checks and reported separately.
-#
-# ### Writes
+# # ### Writes
 # `dim_regulation` (whole-table overwrite; four rows) and `fact_compliance_event`, partitioned
 # by `date_sk` with `replaceWhere`. `gold_plume_catalog`, every other `dim_*` table and every
 # telemetry table are read and never modified.
@@ -214,19 +204,15 @@ print(f"refused           {', '.join(GROUND_TRUTH_TABLES)}")
 # MARKDOWN ********************
 
 # ### The compliance model
-#
-# This cell is pure: no Spark, no table, no clock. `tools/harness/harness_compliance.py`
+# # This cell is pure: no Spark, no table, no clock. `tools/harness/harness_compliance.py`
 # executes it verbatim against `01_topology_config`.
-#
-# **Every event is knowable at its `event_ts`** from data that exists by then:
-#
-# - An OLRE, at the plume's detection.
+# # **Every event is knowable at its `event_ts`** from data that exists by then:
+# # - An OLRE, at the plume's detection.
 # - A state case, at the same instant, with repetition judged on earlier detections only and
 #   persistence on detector readings up to it.
 # - A flare case, 24 h after the alarm raised, if it has not cleared.
 # - A facility exceedance, at its 24th consecutive flagged hour.
-#
-# That is what lets an incremental run see the same events for the same day as a backfill.
+# # That is what lets an incremental run see the same events for the same day as a backfill.
 
 # CELL ********************
 
@@ -686,8 +672,7 @@ print(f"fine scenario: {ACTIVE_FINE_SCENARIO}  (per-tonne charge: "
 # MARKDOWN ********************
 
 # ### Run mode and window
-#
-# As 03b: the window follows the sources. A backfill runs from `SOURCE_START`. An incremental
+# # As 03b: the window follows the sources. A backfill runs from `SOURCE_START`. An incremental
 # run takes the last source day, and rerunning it replaces that day. Sources are built over
 # the whole retention in both modes. Repetition needs the trailing 30 days of plumes, and
 # persistence needs detector runs that began before the window.
@@ -840,8 +825,7 @@ print("  NSPS OOOOb super-emitter program: 0 events -- not in force until 2027-0
 # MARKDOWN ********************
 
 # ### The threshold question, measured
-#
-# V1 treated every plume above 100 kg/h as a federal violation. The table below is why that
+# # V1 treated every plume above 100 kg/h as a federal violation. The table below is why that
 # cannot be right: TROPOMI's floor is ~3 t/h, so any threshold at or below it is crossed by
 # every detection. A rate cut **inside** the detected range, say 25 t/h, would be a line
 # drawn through the measurement noise. The IME rate's own p5–p95 spread is printed beside it,
@@ -883,8 +867,7 @@ print(f"chosen: every attributed plume >= {OLRE_THRESHOLD_KG_H:.0f} kg/h is REPO
 # MARKDOWN ********************
 
 # ### Pass 1 and pass 2, and the write
-#
-# Pass 1 reads the cases undecided when the window began, selected on timestamps as in 03b.
+# # Pass 1 reads the cases undecided when the window began, selected on timestamps as in 03b.
 # A case's row lives in its event day's partition, so a decision reached today rewrites a row
 # up to ~95 days old. The `replaceWhere` range widens back to it, and `merge_for_write()`
 # carries the untouched rows in that range.
@@ -1095,16 +1078,13 @@ print(f"OK  no case open past the {CE_CANCEL_AFTER_DAYS}-day exit; every Cancell
 # MARKDOWN ********************
 
 # ### Steady state and distributions
-#
-# Three populations, reported apart and never summed:
-#
-# - **Open**: Reported or Under Review, not stalled. This is the KPI, and it converges to
+# # Three populations, reported apart and never summed:
+# # - **Open**: Reported or Under Review, not stalled. This is the KPI, and it converges to
 #   `λ × T`.
 # - **Stalled open**: stalled and not yet at the exit. It converges to
 #   `stall arrivals/day × 120` once 120 days of history exist.
 # - **Cancelled**: stalled cases that reached the 120-day exit. It is cumulative, and never open.
-#
-# Open cases, Reported or Under Review and not stalled, converge to `λ × T`, with T the
+# # Open cases, Reported or Under Review and not stalled, converge to `λ × T`, with T the
 # mean planned time to decision. State cases take up to ~37 days to decide, so the population
 # needs about 60 days to level. On a 30-day retention the check is printed and **not
 # asserted**.

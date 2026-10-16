@@ -40,25 +40,21 @@ end_date = ""
 # MARKDOWN ********************
 
 # # 07c — Quantification Diagnostics
-#
-# Read-only diagnostic notebook. **Does not write any tables** — every cell only prints or
+# # Read-only diagnostic notebook. **Does not write any tables** — every cell only prints or
 # plots.
-#
-# **Updated for the corrected pipeline.** Since this notebook was first written,
+# # **Updated for the corrected pipeline.** Since this notebook was first written,
 # `04_derive_emissions` gained across-track destriping (per `(stac_id, ground_pixel)`
 # detector column) and collinear-cluster rejection, and a units error was fixed:
 # `DRY_AIR_COLUMN` held the dry-air column in molecules/cm² but was multiplied by a pixel
 # area in m², so every `ime_kg` and every emission rate was low by a factor of 10⁴. The
 # physical constants now live in `00_config` and are shared by 04, 07b and this notebook —
 # see the unit-error note there for the derivation.
-#
-# The question the notebook originally asked — where the ~100x gap against Carbon Mapper
+# # The question the notebook originally asked — where the ~100x gap against Carbon Mapper
 # came from — is answered: it was the units error, not plume geometry and not the length
 # scale `L`. The catalogue now holds 75 plumes, median 29.4 t/h (min 3.2, max 131.5),
 # against a pre-correction median of 4.3 kg/h. The job now is to confirm the corrected
 # pipeline is sound and that the new rate scale is defensible.
-#
-# - **Cell 0** — did destriping work? Detector-column and granule composition per plume.
+# # - **Cell 0** — did destriping work? Detector-column and granule composition per plume.
 # - **Cells 1-2** — plume geometry and background contamination (original questions).
 # - **Cells 3-4** — background/`L` sweep and Carbon Mapper matched pairs, kept structurally
 #   unchanged from the pre-correction run so the two are directly comparable. Both sides are
@@ -67,11 +63,9 @@ end_date = ""
 # - **Cell 6** — external validation of the corrected rate scale against CAMS (primary
 #   benchmark) and Carbon Mapper, plus a detection-density check.
 # - **Cell 7** — the two remaining tracked biases, quantified against this catalogue.
-#
-# **Inputs:** `gold_plume_catalog`, `silver_plume_ready_pixels`, `validation_cams_plumes`,
+# # **Inputs:** `gold_plume_catalog`, `silver_plume_ready_pixels`, `validation_cams_plumes`,
 # `validation_carbon_mapper_plumes`
-#
-# **Output:** none.
+# # **Output:** none.
 
 # CELL ********************
 
@@ -223,8 +217,7 @@ except Exception:
 
 # ### Shared computation — scene separation, both background methods, and plume-membership
 # ### reconstruction (computed once here, cached, and reused by every cell below)
-#
-# Reproduces 04_derive_emissions Steps 1-4 (scene separation, kNN background, MAD candidate
+# # Reproduces 04_derive_emissions Steps 1-4 (scene separation, kNN background, MAD candidate
 # detection, Union-Find clustering) against `silver_plume_ready_pixels`, all duplicated from
 # that notebook and flagged inline — must stay in sync with it. Also computes an alternative
 # annulus background per pixel (Cell 2's hypothesis). Reconstructed clusters are matched back
@@ -579,20 +572,17 @@ if unmatched_plume_ids:
 # MARKDOWN ********************
 
 # ### Cell 0 — Did destriping work? Detector-column and granule composition
-#
-# `04_derive_emissions` now destripes per `(stac_id, ground_pixel)` and rejects clusters
+# # `04_derive_emissions` now destripes per `(stac_id, ground_pixel)` and rejects clusters
 # whose pixels fit a line too well or come from a single physical detector column,
 # `(orbit, ground_pixel)`. This cell checks what survived.
-#
-# **Detector columns per plume.** A real plume is a patch of air and should span several
+# # **Detector columns per plume.** A real plume is a patch of air and should span several
 # across-track detector columns. A stripe is one column by construction. Any accepted plume
 # with exactly one distinct `(orbit, ground_pixel)` pair is an artifact that got through
 # rejection, and is flagged explicitly below. The `(stac_id, ground_pixel)` count is shown
 # next to it. It is not a column count: the NRTI and OFFL granules of one orbit carry the
 # same column under two stac_ids. Counting pairs is how PL-059118a52421, a single
 # column seen in two granules, was once reported here as a clean pass.
-#
-# **Granules per plume.** `03_join_data` deduplicates on `(orbit, latitude, longitude)`, so
+# # **Granules per plume.** `03_join_data` deduplicates on `(orbit, latitude, longitude)`, so
 # there are no exact coordinate duplicates. But NRTI and OFFL geolocate the same ground
 # slightly differently, so the same physical pixel can appear twice at coordinates a few
 # metres apart and survive dedup. A plume drawing pixels from two granules would then carry
@@ -738,8 +728,7 @@ plt.show()
 # MARKDOWN ********************
 
 # ### Cell 1 — Plume geometry audit
-#
-# For each reconstructed accepted plume: pixel count, maximum pairwise distance between
+# # For each reconstructed accepted plume: pixel count, maximum pairwise distance between
 # member pixels, mean nearest-neighbour distance between member pixels, the number of pixel
 # pairs closer than 8 km (a proxy for true adjacency given ~5.5 km TROPOMI pixel spacing),
 # and `L_m` as currently computed by `sqrt(n_pixels * pixel_area)`. The question: are these
@@ -811,8 +800,7 @@ plt.show()
 # MARKDOWN ********************
 
 # ### Cell 2 — Background method comparison
-#
-# The current `estimate_background` takes the 15th percentile of the 30 nearest neighbours.
+# # The current `estimate_background` takes the 15th percentile of the 30 nearest neighbours.
 # With ~5.5 km pixel spacing that neighbourhood spans roughly 30 km — comparable to the
 # plume itself — so plume pixels may be contaminating their own background. Compares against
 # an annulus background (15th percentile of same-scene pixels 25-100 km away, computed in
@@ -870,8 +858,7 @@ plt.show()
 # MARKDOWN ********************
 
 # ### Cell 3 — Rate recomputation under each hypothesis
-#
-# Recomputes `ime_kg` and `emission_rate_kg_h` for all reconstructed plumes under four
+# # Recomputes `ime_kg` and `emission_rate_kg_h` for all reconstructed plumes under four
 # combinations of background method and `L`: (a) current kNN background, current
 # `L = sqrt(n_pixels * pixel_area)`; (b) annulus background, current `L`; (c) kNN
 # background, `L` = maximum pairwise distance between member pixels; (d) annulus background,
@@ -971,18 +958,15 @@ print(summary_df.to_string(index=False))
 # MARKDOWN ********************
 
 # ### Cell 4 — Matched-pair comparison against Carbon Mapper
-#
-# Spatial matching (nearest Carbon Mapper plume within 5 km, regardless of date) is
+# # Spatial matching (nearest Carbon Mapper plume within 5 km, regardless of date) is
 # duplicated from `07b_detection_diagnostics.Notebook` Cell 4 — must stay in sync with that
 # notebook, since notebooks don't share in-memory state and each run recomputes its own
 # match set. For each of the four combinations from Cell 3, reports the median ratio of
 # Carbon Mapper rate to Green Sky rate over the matched pairs.
-#
-# **Note:** this matching has no date constraint, and Carbon Mapper's aircraft and EMIT
+# # **Note:** this matching has no date constraint, and Carbon Mapper's aircraft and EMIT
 # instruments have far lower detection limits than TROPOMI, so exact agreement is not the
 # target.
-#
-# **The ~157x baseline this cell was written against no longer applies.** That gap was the
+# # **The ~157x baseline this cell was written against no longer applies.** That gap was the
 # cm²/m² units error, now fixed, and the ratio has inverted — Green Sky rates now sit
 # above Carbon Mapper's, which is what a coarser instrument with a higher detection limit
 # should show. The cell is left structurally unchanged so the four combinations stay
@@ -1051,8 +1035,7 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 5 — Single-plume deep dive
-#
-# Picks the accepted plume with the highest `emission_rate_kg_h`. Plots its scene's raw CH₄
+# # Picks the accepted plume with the highest `emission_rate_kg_h`. Plots its scene's raw CH₄
 # field as a scatter over lat/lon coloured by value, with the plume's member pixels marked,
 # alongside enhancement under the kNN background and under the annulus background on a
 # shared colour scale. For visual judgement of whether the enhancement pattern looks like a
@@ -1137,26 +1120,22 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 6 — External validation at the corrected scale
-#
-# The rate distribution is now ~10⁴ larger than in the pre-correction run, so the external
+# # The rate distribution is now ~10⁴ larger than in the pre-correction run, so the external
 # benchmarks mean something different: the question is no longer "why are we 100x low" but
 # "is this scale right".
-#
-# **CAMS is the primary benchmark.** `validation_cams_plumes` is the Schuit et al. (2023)
+# # **CAMS is the primary benchmark.** `validation_cams_plumes` is the Schuit et al. (2023)
 # TROPOMI plume catalogue. It is derived from the same instrument, so it shares the same
 # detection limit, the same ~5.5 km ground sampling, the same retrieval, and the same
 # underlying physics. Whatever TROPOMI can and cannot see, both catalogues inherit equally.
 # Agreement with CAMS on both magnitude and count is the real test.
-#
-# **Carbon Mapper is a weaker benchmark and should not be read as ground truth.** Its
+# # **Carbon Mapper is a weaker benchmark and should not be read as ground truth.** Its
 # plumes come from targeted aircraft surveys and EMIT, whose detection limits are far
 # lower — tens to low hundreds of kg/h against TROPOMI's several t/h. It therefore
 # legitimately sees a population of sources TROPOMI physically cannot, so its rate
 # distribution is expected to sit lower and a ratio away from 1.0 is not by itself an
 # error. The matched pairs in Cell 4 also carry no date constraint, so a "match" pairs a
 # Green Sky plume with whatever Carbon Mapper saw at that location at any time.
-#
-# **Detection density** is a separate check from magnitude: 75 plumes above ~3 t/h, in a
+# # **Detection density** is a separate check from magnitude: 75 plumes above ~3 t/h, in a
 # 30-day window, over one basin. Normalising both catalogues per unit area per day tests
 # whether the *count* is believable independently of whether the *rates* are.
 
@@ -1312,18 +1291,15 @@ elif len(cams_rates_kgh):
 # MARKDOWN ********************
 
 # ### Cell 7 — Remaining known biases, quantified against this catalogue
-#
-# Two tracked issues still inflate the current rates. This cell estimates each one against
+# # Two tracked issues still inflate the current rates. This cell estimates each one against
 # the actual 75 plumes rather than in the abstract. **It changes nothing** —
 # `04_derive_emissions` is untouched; this only measures what correcting them would do.
-#
-# **Bias 1 — pixel area.** `PIXEL_AREA_M2` uses the pre-August-2019 TROPOMI along-track
+# # **Bias 1 — pixel area.** `PIXEL_AREA_M2` uses the pre-August-2019 TROPOMI along-track
 # size of 7 km. From August 2019 the along-track sampling improved to 5.5 km, so for 2026
 # data the pixel is 5.5 x 5.5 km, not 5.5 x 7.0. The area enters twice and partly cancels:
 # `ime_kg` scales linearly with pixel area, while `L_m = sqrt(n_pixels * area)` scales with
 # its square root, and rate = IME / (L / U). Net, rate scales as sqrt(area ratio).
-#
-# **Bias 2 — multi-granule double counting.** Plumes identified in Cell 0 as drawing pixels
+# # **Bias 2 — multi-granule double counting.** Plumes identified in Cell 0 as drawing pixels
 # from more than one granule may be counting the same ground twice, because NRTI and OFFL
 # geolocate identically-sourced pixels a few metres apart and so survive the
 # `(orbit, latitude, longitude)` dedup in `03_join_data`. Recomputed here keeping only the
@@ -1455,64 +1431,50 @@ else:
 # MARKDOWN ********************
 
 # ### Cell 8 — Findings (fill in)
-#
-# _To be completed after reviewing Cells 0-7._
-#
-# **Note on run-to-run variability — resolved.** The Monte Carlo in `04_derive_emissions`
+# # _To be completed after reviewing Cells 0-7._
+# # **Note on run-to-run variability — resolved.** The Monte Carlo in `04_derive_emissions`
 # Step 8 used to draw from the unseeded `np.random`, so p5, p95, `uncertainty_ratio` and
 # `confidence` moved between runs on an identical plume set (confidence 63/12, then 66/9).
 # It is now seeded per plume from `plume_id` (`mc_seed` in `00_config`), so those columns
 # are reproducible, and 04 fails if a rerun on the same input changes any plume's p50.
 # Figures quoted from catalogs written before that change will not match current ones —
 # the draws changed once, when the seed was introduced.
-#
-# 1. **Destriping (Cell 0).** How many detector columns does a typical accepted plume
+# # 1. **Destriping (Cell 0).** How many detector columns does a typical accepted plume
 #    span? Did any plume survive with a single `(orbit, ground_pixel)` column — i.e. did a
 #    striping artifact get through rejection? If so, is the collinearity threshold too
 #    loose, or did the cluster pick up one stray pixel from a neighbouring column and so
 #    dodge the single-column test?
-#
-# 2. **Granule composition (Cell 0).** How many plumes draw on more than one granule, and
+# # 2. **Granule composition (Cell 0).** How many plumes draw on more than one granule, and
 #    what share of accepted-plume pixels do they hold? Is NRTI/OFFL double counting a
 #    material effect on this catalogue or a negligible one?
-#
-# 3. **Geometry (Cell 1).** Are the plumes spatially contiguous (mean nearest-neighbour
+# # 3. **Geometry (Cell 1).** Are the plumes spatially contiguous (mean nearest-neighbour
 #    distance well under the 12 km connection radius, most pixel pairs under 8 km), or are
 #    they scattered pixels stitched together by the connection radius alone?
-#
-# 4. **Background contamination (Cell 2).** Does the annulus background still differ
+# # 4. **Background contamination (Cell 2).** Does the annulus background still differ
 #    meaningfully from the kNN background now that both are destriped? If the kNN
 #    background is pulling in plume pixels themselves, kNN enhancement should be
 #    systematically lower than annulus enhancement — is that what the histogram shows?
-#
-# 5. **Rate sensitivity (Cell 3).** Which single change — background method or `L` — moves
+# # 5. **Rate sensitivity (Cell 3).** Which single change — background method or `L` — moves
 #    the median rate the most? Now that the units error is out of the way, are these
 #    second-order effects or do they still move the answer by a factor that matters?
-#
-# 6. **Matched-pair ratio (Cell 4).** What is the median Carbon Mapper / Green Sky ratio
+# # 6. **Matched-pair ratio (Cell 4).** What is the median Carbon Mapper / Green Sky ratio
 #    now, and in which direction? Remember Carbon Mapper's detection limit is far lower, so
 #    a ratio below 1.0 is expected rather than alarming.
-#
-# 7. **Visual check (Cell 5).** Does the highest-rate plume look like a coherent downwind
+# # 7. **Visual check (Cell 5).** Does the highest-rate plume look like a coherent downwind
 #    plume, or like noise that happened to cluster? Do its member pixels spread across
 #    several detector columns and scanlines, or line up along one?
-#
-# 8. **Magnitude against CAMS (Cell 6).** How close is the median to the CAMS median?
+# # 8. **Magnitude against CAMS (Cell 6).** How close is the median to the CAMS median?
 #    CAMS is the like-for-like benchmark — same instrument, same detection limit — so
 #    what does the ratio say about whether the corrected scale is right?
-#
-# 9. **Detection density (Cell 6).** Is 75 plumes in 30 days over the Permian plausible
+# # 9. **Detection density (Cell 6).** Is 75 plumes in 30 days over the Permian plausible
 #    against CAMS's own density? If the densities disagree by a large factor, is that the
 #    detection threshold, the observation-day coverage neither figure corrects for, or a
 #    genuine difference between 2021 and 2026?
-#
-# 10. **Remaining biases (Cell 7).** How large is the combined effect of the pixel-area and
+# # 10. **Remaining biases (Cell 7).** How large is the combined effect of the pixel-area and
 #     multi-granule corrections? Is it big enough to change the conclusion drawn in 8 and
 #     9, or does the answer hold either way?
-#
-# 11. **Overall verdict:** _______________
-#
-# 12. **Next actions:** _______________
+# # 11. **Overall verdict:** _______________
+# # 12. **Next actions:** _______________
 
 # CELL ********************
 

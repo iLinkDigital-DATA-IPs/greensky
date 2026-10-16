@@ -7,48 +7,44 @@
 # META     "name": "synapse_pyspark"
 # META   },
 # META   "dependencies": {
-# META     "lakehouse": {}
+# META     "lakehouse": {
+# META       "default_lakehouse_name": "",
+# META       "default_lakehouse_workspace_id": ""
+# META     }
 # META   }
 # META }
 
 # MARKDOWN ********************
 
 # # ⚠ Attach `GreenSky_Lakehouse` before running
-#
 # **This notebook has no lakehouse bound.** It profiles `GreenSky_Lakehouse`, which lives in
 # workspace `060ba34b-f1a3-4509-a6e2-36d1e736a8eb` — **a different workspace from
 # Green Sky - Dev (`640876ea-6158-4ffd-8598-5eb210e088a0`)**, where this notebook syncs. That
 # is why the binding is left empty: a cross-workspace lakehouse GUID in source would not
 # survive Git sync cleanly.
-#
 # Before running, attach `GreenSky_Lakehouse` manually in the Fabric UI
 # (**Explorer → Lakehouses → Add**). Without it every `spark.table(...)` call fails, though
 # the notebook degrades gracefully — each table is reported as `MISSING` rather than raising.
-#
 # The notebook resolves tables through the `LAKEHOUSE = "GreenSky_Lakehouse"` constant in
 # Cell 1, not through the default-lakehouse binding, so the name in that constant is what
 # must match whatever you attach.
-#
 # **It writes nothing.** No `saveAsTable`, no `write`, no DDL, no temp views — every cell
 # only reads and prints. It is safe to run against the live lakehouse.
+
 
 # MARKDOWN ********************
 
 # # survey_greensky_lakehouse
-#
 # **Read-only profiling of `GreenSky_Lakehouse`.** This notebook writes nothing — no
 # `saveAsTable`, no `write`, no temp views persisted. Every cell only reads and prints.
-#
 # Companion to `GREENSKY_LAKEHOUSE_SURVEY.md` at the repo root, which covers the static
 # analysis. This notebook answers the questions that static analysis cannot:
-#
 # 1. Which tables actually exist, in which schemas, and how many rows do they hold?
 # 2. Is `bronze.scada_realtime` a real time series or a stub? What is its true sampling
 #    interval, and how many tags and facilities does it cover?
 # 3. Is `bronze.facility_master` real or synthetic?
 # 4. Do the `gold` dimensions hold rows at all, given that every delta write for them is
 #    commented out in `Nb_Gold`?
-#
 # Tables are discovered with `SHOW TABLES IN <schema>`, not hard-coded. Missing schemas and
 # unreadable tables are reported and skipped, never fatal.
 
@@ -161,7 +157,6 @@ print("This notebook performs no writes.")
 # MARKDOWN ********************
 
 # ## Cell 2 — Discover schemas and tables
-#
 # Schemas come from `SHOW SCHEMAS`, falling back through `SHOW DATABASES` and finally the
 # hard-coded candidate list. Tables come from `SHOW TABLES IN <schema>` in every case.
 
@@ -237,7 +232,6 @@ if MISSING_SCHEMAS:
 # MARKDOWN ********************
 
 # ## Cell 3 — Row count, column count, full schema
-#
 # One `count()` per table. Tables that cannot be read are recorded as `MISSING` and skipped
 # by every later cell.
 
@@ -289,14 +283,11 @@ for schema, table in INVENTORY:
 # MARKDOWN ********************
 
 # ## Cell 4 — Per-column profile
-#
 # Null rate and distinct count for every column; min / median / max for numerics; the five
 # most common values for strings.
-#
 # Distinct counts use `approx_count_distinct` (rsd 2 %) in a single aggregation pass —
 # exact `countDistinct` on every column of a large table is a shuffle per column. The
 # `scada_realtime` cell below re-does the counts that matter **exactly**.
-#
 # Complex columns (struct / array / map / binary) get null rate only.
 
 # CELL ********************
@@ -416,11 +407,9 @@ for fqn, info in PROFILE.items():
 # MARKDOWN ********************
 
 # ## Cell 5 — Timestamp columns
-#
 # For every column that looks like a timestamp — native `date` / `timestamp`, plus string and
 # integer columns whose name hints at time and which parse — report min, max, span, and the
 # **modal interval between consecutive values**.
-#
 # The interval is computed over *distinct* values rather than rows, so a table with many rows
 # per timestamp (`scada_realtime` has one row per tag per tick) still reports the true clock
 # cadence rather than zero.
@@ -545,11 +534,9 @@ for fqn, info in PROFILE.items():
 # MARKDOWN ********************
 
 # ## Cell 6 — `bronze.scada_realtime` deep dive
-#
 # The question this cell exists to answer: **is this a real time series or a stub?** The Data
 # Agent's `userDescription` claims 15-minute SCADA intervals; nothing in the repo corroborates
 # that.
-#
 # Counts here are **exact**, not approximate. The sampling interval is measured per series —
 # one `(facility_id, equipment_tag, measurement_type)` triple — because a global interval over
 # interleaved tags would understate it.
@@ -698,7 +685,6 @@ else:
 # MARKDOWN ********************
 
 # ## Cell 7 — `bronze.facility_master` deep dive
-#
 # Row count, coordinate ranges, and whether the facility names look real or generated from a
 # template. The synthetic-name heuristic strips trailing digits and separators from each name
 # and counts how many distinct stems remain: a handful of stems covering every row means a
@@ -818,9 +804,7 @@ else:
 # MARKDOWN ********************
 
 # ## Cell 8 — Summary
-#
 # One line per table: name, row count, date range where one exists, and a one-word verdict.
-#
 # | Verdict | Meaning |
 # |---|---|
 # | `MISSING` | table could not be read |

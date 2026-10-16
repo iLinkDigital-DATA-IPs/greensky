@@ -728,3 +728,217 @@ print(f"  EMIT: {'check results above' if emit_collection_id else 'not available
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
+
+# CELL ********************
+
+df = spark.read.table("gold_plume_catalog")
+print(len(df.columns), "columns")
+print([c for c in df.columns if c.startswith("era5")])
+print("rows:", df.count(), "distinct plume_id:", df.select("plume_id").distinct().count())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+b = spark.read.table("bronze_ch4_pixels")
+print("bronze rows:", b.count())
+print("distinct stac_id:", b.select("stac_id").distinct().count())
+b.groupBy("stac_id").count().orderBy("count", ascending=False).show(10, False)
+
+s = spark.read.table("silver_plume_ready_pixels")
+print("silver rows:", s.count())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+b = spark.read.table("bronze_ch4_pixels")
+w = b.filter((F.col("datetime") >= "2026-08-16") & (F.col("datetime") < "2026-09-16"))
+print("window rows:", w.count(), "| window granules:", w.select("stac_id").distinct().count())
+dupes = w.groupBy("stac_id","latitude","longitude","datetime").count().filter("count > 1")
+print("duplicated pixel keys:", dupes.count())
+dupes.orderBy("count", ascending=False).show(5, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+old = {"PL-f8ec764f9cdf","PL-3d0e59779a8a","PL-bd75ec23b1ae","PL-881dbf57ee04",
+"PL-b8b3b93d5e01","PL-da0edd6bd41e","PL-290605ca1745","PL-fba050bced02",
+"PL-8a46231dbd67","PL-772b132551d7","PL-f19b099ff53b","PL-ee07d05aa443",
+"PL-fc6e6c832a11","PL-094e1a99c910","PL-d95d056e7d0c","PL-4aa750c5e496",
+"PL-73b184bbb246","PL-8640819172c0","PL-9af924cd9b69","PL-63d41dc780bc",
+"PL-5e5dc7a6da41","PL-88f5ee2613f7","PL-f52a4cb34f9a","PL-fd527423a15b",
+"PL-2c80a662469b","PL-d6024ee3f97a","PL-d7f86d52a89e","PL-c0958f29f551",
+"PL-4891ab2feb97","PL-dd9cfda8fa72","PL-634b8c756084","PL-cecdbc4553e4",
+"PL-875fc7e65934","PL-b823142179bc","PL-771b55350b6c","PL-140fdf382e6b",
+"PL-3df7b6aaabdf","PL-8e95c5889a52","PL-62f209476b54","PL-84d936fc5c16",
+"PL-e7c7f1b2ad9d","PL-7f0d68b5329a","PL-19aafb474281","PL-38ec1f72dd88",
+"PL-3965e3d50edb","PL-561a8947191b","PL-a336625b917d","PL-c39055b1ca19",
+"PL-f1714a3e7a5e"}
+
+new = set(spark.read.table("gold_plume_catalog").select("plume_id").toPandas()["plume_id"])
+print("baseline:", len(old), "| now:", len(new))
+print("added:", sorted(new - old))
+print("removed:", sorted(old - new))
+print("kept:", len(new & old))
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+spark.sql("DESCRIBE HISTORY bronze_ch4_pixels") \
+     .select("version","timestamp","operation","operationMetrics") \
+     .orderBy("version", ascending=False).show(6, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+spark.read.table("gold_plume_catalog") \
+     .filter(F.col("plume_id") == "PL-bfdb1e16e469") \
+     .select("plume_id","scene_id","stac_id","detection_date","source_lat","source_lon",
+             "n_pixels","emission_rate_kg_h","attributed_facility_id",
+             "attribution_method","attribution_probability","attribution_distance_km",
+             "t_mix_method","confidence") \
+     .show(1, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+for t in ["silver_plume_ready_pixels", "bronze_weather", "bronze_era5_wind"]:
+    print("===", t)
+    spark.sql(f"DESCRIBE HISTORY {t}") \
+         .select("version","timestamp","operation","operationMetrics") \
+         .orderBy("version", ascending=False).show(3, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+a = spark.read.format("delta").option("versionAsOf", 5).table("silver_plume_ready_pixels")
+b = spark.read.format("delta").option("versionAsOf", 6).table("silver_plume_ready_pixels")
+
+px = ["latitude","longitude","datetime","stac_id","ch4","qa_value"]
+print("pixel-set rows only in v6:", b.select(*px).subtract(a.select(*px)).count())
+print("pixel-set rows only in v5:", a.select(*px).subtract(b.select(*px)).count())
+
+print("full-row diff v6-v5:", b.subtract(a).count())
+print("columns:", b.columns)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+
+a = spark.read.format("delta").option("versionAsOf", 5).table("silver_plume_ready_pixels")
+b = spark.read.format("delta").option("versionAsOf", 6).table("silver_plume_ready_pixels")
+
+only_v6 = b.subtract(a)
+only_v5 = a.subtract(b)
+
+print("=== only in v6 (new run) ===")
+only_v6.select("stac_id","latitude","longitude","datetime","ch4","qa_value",
+               "weather_dist_km","weather_weight") \
+       .orderBy("latitude").show(60, False)
+
+print("=== only in v5 (12 Oct) ===")
+only_v5.select("stac_id","latitude","longitude","datetime","ch4","qa_value",
+               "weather_dist_km","weather_weight") \
+       .orderBy("latitude").show(60, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+only_v6.filter((F.col("stac_id").contains("20260819T193848")) &
+               (F.abs(F.col("latitude") - 31.108) < 0.3) &
+               (F.abs(F.col("longitude") + 103.654) < 0.3)).show(10, False)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+k = ["stac_id","latitude","longitude","datetime"]
+print("same key, different values:", only_v6.select(*k).intersect(only_v5.select(*k)).count())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# CELL ********************
+
+from pyspark.sql import functions as F
+b = spark.read.table("bronze_ch4_pixels")
+w = b.filter((F.col("datetime") >= "2026-08-16") & (F.col("datetime") < "2026-09-16"))
+
+d = w.groupBy("latitude","longitude","ch4").agg(
+        F.countDistinct("stac_id").alias("n_granules"),
+        F.collect_set("processing_mode").alias("modes"))
+print("pixels in >1 granule:", d.filter("n_granules > 1").count())
+d.filter("n_granules > 1").show(5, False)
+print("by mode:", w.groupBy("processing_mode").agg(F.countDistinct("stac_id"), F.count("*")).show())
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }

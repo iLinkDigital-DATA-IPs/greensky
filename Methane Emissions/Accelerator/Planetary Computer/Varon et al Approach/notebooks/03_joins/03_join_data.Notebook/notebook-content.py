@@ -177,8 +177,7 @@ except Exception:
 # MARKDOWN ********************
 
 # ### Diagnostic: duplication check on bronze_ch4_pixels (pre-join):
-#
-# Checks whether duplicate pixel rows already exist in bronze before any join. Includes a
+# # Checks whether duplicate pixel rows already exist in bronze before any join. Includes a
 # distinct count on (orbit, latitude, longitude) alongside the (stac_id, ...) counts,
 # because NRTI and OFFL items for the same orbit carry different stac_ids for the same
 # physical pixel -- a dedup key that includes stac_id would silently miss that overlap.
@@ -322,8 +321,7 @@ print(f"Expansion factor: {joined_count / in_window_count:.1f}x over {in_window_
 # MARKDOWN ********************
 
 # ### Diagnostic: duplication check after the weather join (pre nearest-station selection):
-#
-# Same checks as above, run on the joined (fanned-out) table. distinct_orbit_lat_lon
+# # Same checks as above, run on the joined (fanned-out) table. distinct_orbit_lat_lon
 # should be unchanged from the pre-join check -- same set of physical pixels, just
 # multiplied across weather stations -- if it grew, the join itself is introducing
 # duplication rather than the expected one-pixel-to-many-weather-stations fan-out.

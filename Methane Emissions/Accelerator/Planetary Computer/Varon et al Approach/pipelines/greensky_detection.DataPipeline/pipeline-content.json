@@ -4,8 +4,6 @@
     "activities": [
       {
         "type": "IfCondition",
-        "name": "validate_parameters",
-        "description": "Fails the run before any notebook starts if run_mode is not exactly 'incremental' or 'backfill', or pipeline_date is not empty / yyyy-MM-dd. The notebooks treat any other run_mode as backfill.",
         "typeProperties": {
           "expression": {
             "value": "@and(or(equals(pipeline().parameters.run_mode, 'incremental'), equals(pipeline().parameters.run_mode, 'backfill')), or(empty(pipeline().parameters.pipeline_date), equals(length(pipeline().parameters.pipeline_date), 10)))",
@@ -15,7 +13,6 @@
           "ifFalseActivities": [
             {
               "type": "Fail",
-              "name": "fail_invalid_parameters",
               "typeProperties": {
                 "message": {
                   "value": "@concat('greensky_detection: invalid parameters run_mode=[', pipeline().parameters.run_mode, '] pipeline_date=[', pipeline().parameters.pipeline_date, ']. run_mode must be incremental or backfill; pipeline_date must be empty or yyyy-MM-dd.')",
@@ -23,16 +20,17 @@
                 },
                 "errorCode": "INVALID_PARAMETERS"
               },
+              "name": "fail_invalid_parameters",
               "dependsOn": []
             }
           ]
         },
+        "name": "validate_parameters",
+        "description": "Fails the run before any notebook starts if run_mode is not exactly 'incremental' or 'backfill', or pipeline_date is not empty / yyyy-MM-dd. The notebooks treat any other run_mode as backfill.",
         "dependsOn": []
       },
       {
         "type": "TridentNotebook",
-        "name": "02_ingest_tropomi_ch4",
-        "description": "STAC search + download. Retry-safe: skips stac_ids already in bronze_ch4_pixels.",
         "typeProperties": {
           "notebookId": "6626b463-aa9b-9a92-427f-d594a2df7384",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -67,6 +65,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "02_ingest_tropomi_ch4",
+        "description": "STAC search + download. Retry-safe: skips stac_ids already in bronze_ch4_pixels.",
         "dependsOn": [
           {
             "activity": "validate_parameters",
@@ -78,8 +78,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_02_ingest_tropomi_ch4",
-        "description": "Surfaces that 02_ingest_tropomi_ch4 died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 02_ingest_tropomi_ch4 failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('02_ingest_tropomi_ch4').error.message)",
@@ -87,6 +85,8 @@
           },
           "errorCode": "STEP_FAILED_02_ingest_tropomi_ch4"
         },
+        "name": "fail_02_ingest_tropomi_ch4",
+        "description": "Surfaces that 02_ingest_tropomi_ch4 died, and why.",
         "dependsOn": [
           {
             "activity": "02_ingest_tropomi_ch4",
@@ -98,8 +98,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "02_ingest_tropomi_no2",
-        "description": "STAC search + download. Retry-safe: skips stac_ids already in bronze_no2_pixels.",
         "typeProperties": {
           "notebookId": "5068ff56-c924-80ea-4498-575a4c9da805",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -134,6 +132,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "02_ingest_tropomi_no2",
+        "description": "STAC search + download. Retry-safe: skips stac_ids already in bronze_no2_pixels.",
         "dependsOn": [
           {
             "activity": "validate_parameters",
@@ -145,8 +145,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_02_ingest_tropomi_no2",
-        "description": "Surfaces that 02_ingest_tropomi_no2 died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 02_ingest_tropomi_no2 failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('02_ingest_tropomi_no2').error.message)",
@@ -154,6 +152,8 @@
           },
           "errorCode": "STEP_FAILED_02_ingest_tropomi_no2"
         },
+        "name": "fail_02_ingest_tropomi_no2",
+        "description": "Surfaces that 02_ingest_tropomi_no2 died, and why.",
         "dependsOn": [
           {
             "activity": "02_ingest_tropomi_no2",
@@ -165,8 +165,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "02_ingest_weather_data",
-        "description": "Open-Meteo. Retry-safe: overwrite, then append only grid points still missing.",
         "typeProperties": {
           "notebookId": "1c92277e-81a1-998d-4b87-2421999dd82d",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -201,6 +199,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "02_ingest_weather_data",
+        "description": "Open-Meteo. Retry-safe: overwrite, then append only grid points still missing.",
         "dependsOn": [
           {
             "activity": "validate_parameters",
@@ -212,8 +212,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_02_ingest_weather_data",
-        "description": "Surfaces that 02_ingest_weather_data died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 02_ingest_weather_data failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('02_ingest_weather_data').error.message)",
@@ -221,6 +219,8 @@
           },
           "errorCode": "STEP_FAILED_02_ingest_weather_data"
         },
+        "name": "fail_02_ingest_weather_data",
+        "description": "Surfaces that 02_ingest_weather_data died, and why.",
         "dependsOn": [
           {
             "activity": "02_ingest_weather_data",
@@ -232,8 +232,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "02b_ingest_era5",
-        "description": "Reads a NetCDF from Files/reference; overwrites bronze_era5_wind.",
         "typeProperties": {
           "notebookId": "d0580000-af42-ba0c-411d-956edea505d0",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -268,6 +266,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "02b_ingest_era5",
+        "description": "Reads a NetCDF from Files/reference; overwrites bronze_era5_wind.",
         "dependsOn": [
           {
             "activity": "validate_parameters",
@@ -279,8 +279,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_02b_ingest_era5",
-        "description": "Surfaces that 02b_ingest_era5 died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 02b_ingest_era5 failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('02b_ingest_era5').error.message)",
@@ -288,6 +286,8 @@
           },
           "errorCode": "STEP_FAILED_02b_ingest_era5"
         },
+        "name": "fail_02b_ingest_era5",
+        "description": "Surfaces that 02b_ingest_era5 died, and why.",
         "dependsOn": [
           {
             "activity": "02b_ingest_era5",
@@ -299,8 +299,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "03_join_data",
-        "description": "Overwrites silver_plume_ready_pixels.",
         "typeProperties": {
           "notebookId": "d7d92141-3166-a747-42f3-a5267785880e",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -335,6 +333,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "03_join_data",
+        "description": "Overwrites silver_plume_ready_pixels.",
         "dependsOn": [
           {
             "activity": "02_ingest_tropomi_ch4",
@@ -364,8 +364,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_03_join_data",
-        "description": "Surfaces that 03_join_data died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 03_join_data failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('03_join_data').error.message)",
@@ -373,6 +371,8 @@
           },
           "errorCode": "STEP_FAILED_03_join_data"
         },
+        "name": "fail_03_join_data",
+        "description": "Surfaces that 03_join_data died, and why.",
         "dependsOn": [
           {
             "activity": "03_join_data",
@@ -384,8 +384,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "04_derive_emissions",
-        "description": "Overwrites gold_plume_catalog. Heaviest step (clustering + Monte Carlo).",
         "typeProperties": {
           "notebookId": "d99cc0f8-e346-a406-4767-cfb90b64fb97",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -420,6 +418,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "04_derive_emissions",
+        "description": "Overwrites gold_plume_catalog. Heaviest step (clustering + Monte Carlo).",
         "dependsOn": [
           {
             "activity": "03_join_data",
@@ -431,8 +431,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_04_derive_emissions",
-        "description": "Surfaces that 04_derive_emissions died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 04_derive_emissions failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('04_derive_emissions').error.message)",
@@ -440,6 +438,8 @@
           },
           "errorCode": "STEP_FAILED_04_derive_emissions"
         },
+        "name": "fail_04_derive_emissions",
+        "description": "Surfaces that 04_derive_emissions died, and why.",
         "dependsOn": [
           {
             "activity": "04_derive_emissions",
@@ -451,8 +451,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "04b_Multi_Gas_Cross_Correlation",
-        "description": "Reads gold_plume_catalog, writes gold_multi_gas_signatures.",
         "typeProperties": {
           "notebookId": "82309064-92e3-92f2-4c1a-901c35fa9818",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -487,6 +485,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "04b_Multi_Gas_Cross_Correlation",
+        "description": "Reads gold_plume_catalog, writes gold_multi_gas_signatures.",
         "dependsOn": [
           {
             "activity": "04_derive_emissions",
@@ -498,8 +498,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_04b_Multi_Gas_Cross_Correlation",
-        "description": "Surfaces that 04b_Multi_Gas_Cross_Correlation died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 04b_Multi_Gas_Cross_Correlation failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('04b_Multi_Gas_Cross_Correlation').error.message)",
@@ -507,6 +505,8 @@
           },
           "errorCode": "STEP_FAILED_04b_Multi_Gas_Cross_Correlation"
         },
+        "name": "fail_04b_Multi_Gas_Cross_Correlation",
+        "description": "Surfaces that 04b_Multi_Gas_Cross_Correlation died, and why.",
         "dependsOn": [
           {
             "activity": "04b_Multi_Gas_Cross_Correlation",
@@ -518,8 +518,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "05_attribute_facilities",
-        "description": "Rewrites gold_plume_catalog with overwriteSchema, so it must not run concurrently with 04b, which reads it. Notebook folder name has a trailing space.",
         "typeProperties": {
           "notebookId": "3ccd40df-fa70-9ced-479b-959e343d12a0",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -554,6 +552,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "05_attribute_facilities",
+        "description": "Rewrites gold_plume_catalog with overwriteSchema, so it must not run concurrently with 04b, which reads it. Notebook folder name has a trailing space.",
         "dependsOn": [
           {
             "activity": "04b_Multi_Gas_Cross_Correlation",
@@ -565,8 +565,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_05_attribute_facilities",
-        "description": "Surfaces that 05_attribute_facilities died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 05_attribute_facilities failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('05_attribute_facilities').error.message)",
@@ -574,6 +572,8 @@
           },
           "errorCode": "STEP_FAILED_05_attribute_facilities"
         },
+        "name": "fail_05_attribute_facilities",
+        "description": "Surfaces that 05_attribute_facilities died, and why.",
         "dependsOn": [
           {
             "activity": "05_attribute_facilities",
@@ -585,8 +585,6 @@
       },
       {
         "type": "TridentNotebook",
-        "name": "06_temporal_persistence",
-        "description": "Writes gold_emission_sites and gold_plume_site_mapping.",
         "typeProperties": {
           "notebookId": "3ff6d29b-3742-8e9a-47af-75d00e30e8a3",
           "workspaceId": "00000000-0000-0000-0000-000000000000",
@@ -621,6 +619,8 @@
           "secureInput": false,
           "secureOutput": false
         },
+        "name": "06_temporal_persistence",
+        "description": "Writes gold_emission_sites and gold_plume_site_mapping.",
         "dependsOn": [
           {
             "activity": "05_attribute_facilities",
@@ -632,8 +632,6 @@
       },
       {
         "type": "Fail",
-        "name": "fail_06_temporal_persistence",
-        "description": "Surfaces that 06_temporal_persistence died, and why.",
         "typeProperties": {
           "message": {
             "value": "@concat('greensky_detection: step 06_temporal_persistence failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), formatDateTime(pipeline().TriggerTime, 'yyyy-MM-dd'), pipeline().parameters.pipeline_date), '): ', activity('06_temporal_persistence').error.message)",
@@ -641,6 +639,8 @@
           },
           "errorCode": "STEP_FAILED_06_temporal_persistence"
         },
+        "name": "fail_06_temporal_persistence",
+        "description": "Surfaces that 06_temporal_persistence died, and why.",
         "dependsOn": [
           {
             "activity": "06_temporal_persistence",

@@ -286,8 +286,7 @@
 # MARKDOWN ********************
 
 # ### 2026-09-10 -- Day 6 (In Progress)
-#
-# #### Created (Notebooks)
+# # #### Created (Notebooks)
 # - 07b_detection_diagnostics: read-only diagnostic notebook (writes no tables) testing
 #   whether the 109 plumes in gold_plume_catalog are real methane point sources or
 #   artefacts at the TROPOMI instrument noise floor. Cells: discarded large-cluster audit
@@ -304,8 +303,7 @@
 #   kNN background against an alternative annulus background (25-100 km ring), recomputes
 #   emission rate under four background/L combinations, and does a single-plume visual
 #   deep dive.
-#
-# #### Findings (07b/07c diagnostics)
+# # #### Findings (07b/07c diagnostics)
 # - 07b: plume enhancements are real (mean ~32 ppb, above the TROPOMI noise floor); the
 #   discarded large clusters are not the missing super-emitters; emission rate is nearly
 #   insensitive to mad_sigma (plume count moves ~44x across sigma 2->5, median rate only
@@ -314,15 +312,13 @@
 # - 07c: found duplicate pixel rows in accepted plumes -- e.g. plume 88 had 13 member
 #   rows across 7 unique locations, each location appearing twice with near-identical CH4
 #   (1931.955 vs 1931.908 ppb at the same lat/lon).
-#
-# #### Root Cause: NRTI/OFFL Overlap
+# # #### Root Cause: NRTI/OFFL Overlap
 # 02_ingest_tropomi_ch4 ingests both NRTI and OFFL processing modes. The same orbit is
 # delivered as two separate STAC items with different stac_ids, covering the same
 # physical pixels with slightly different retrievals -- exactly matching the 07c finding.
 # Deduplicating on stac_id (or any key that includes it) is a silent no-op here, since the
 # stac_ids differ for what is physically the same detector cell.
-#
-# #### Fixed
+# # #### Fixed
 # - bronze_ch4_pixels (02_ingest_tropomi_ch4): added scanline, ground_pixel,
 #   n_ground_pixels, processing_mode, orbit columns. scanline/ground_pixel are TROPOMI
 #   PRODUCT-group dimension coordinates and come from ds.to_dataframe().reset_index()
@@ -343,20 +339,17 @@
 #   over NRTI, then highest qa_value, then weather_dist_km ascending, then latitude
 #   ascending -- no arbitrary dropDuplicates. scanline, ground_pixel, n_ground_pixels,
 #   processing_mode, and orbit are now carried through to silver_plume_ready_pixels.
-#
-# #### Documentation
+# # #### Documentation
 # - Added ARCHITECTURE.md at the repo root: full notebook table (purpose/inputs/outputs),
 #   bronze -> silver -> gold Mermaid lineage diagram, exact column lists for every table
 #   as derived from the code that writes it (not from filenames or docs), a
 #   dependency-ordered execution sequence with parallelism notes, and every hard-coded
 #   constant found outside 00_config with file:line references.
-#
-# #### Backlog
+# # #### Backlog
 # - 02_ingest_tropomi_no2 was NOT changed -- no scanline / ground_pixel /
 #   n_ground_pixels / processing_mode / orbit columns yet. Deferred because NO2 is only
 #   used for co-location in 04b, not detection; noted in CLAUDE.md Known Issues.
-#
-# #### Remaining for Day 6
+# # #### Remaining for Day 6
 # - [ ] Re-run 02_ingest_tropomi_ch4 and 03_join_data end to end and confirm the
 #       duplication diagnostics + dedup actually collapse the NRTI/OFFL overlap
 # - [ ] Re-run 04_derive_emissions on the deduplicated silver table and compare against
@@ -368,8 +361,7 @@
 # MARKDOWN ********************
 
 # ### 2026-09-11 -- Day 7 (In Progress)
-#
-# #### Fixed: IME units error (10,000x understatement of every emission rate)
+# # #### Fixed: IME units error (10,000x understatement of every emission rate)
 # DRY_AIR_COLUMN = 2.12e25 is the dry-air column in molecules per SQUARE CENTIMETRE, but
 # it was commented "molecules/m^2" and multiplied by PIXEL_AREA_M2, an area in SQUARE
 # METRES. Since 1 m^2 = 1e4 cm^2, every ime_kg and every emission rate produced before
@@ -384,8 +376,7 @@
 # an explicit step (DRY_AIR_COLUMN_PER_CM2 -> DRY_AIR_COLUMN_PER_M2 = * 1e4) so the
 # mistake stays visible in the code rather than disappearing into a new magic number.
 # PPB_TO_KG moves from 0.021740 to 217.400332 kg per ppb per pixel.
-#
-# #### Changed: 00_config
+# # #### Changed: 00_config
 # - New "Physical constants for the IME conversion" cell. PIXEL_AREA_M2, AVOGADRO, M_CH4,
 #   M_AIR, DRY_AIR_COLUMN_PER_CM2, DRY_AIR_COLUMN_PER_M2 and PPB_TO_KG now live here as
 #   module-level names (following the BBOX precedent), so %run 00_config supplies them and
@@ -400,8 +391,7 @@
 #   to a per-pixel column if wanted (units need checking -- Open-Meteo reports hPa).
 # - The destripe_* and collinearity_* keys were already present and were verified, not
 #   re-added.
-#
-# #### Changed: 04_derive_emissions -- across-track destriping (new Step 2b)
+# # #### Changed: 04_derive_emissions -- across-track destriping (new Step 2b)
 # Addresses the 07c finding that the highest-rate accepted plume was seven perfectly
 # collinear, evenly spaced pixels stepping 0.049 deg in latitude (the along-track pixel
 # size) -- one detector column, not a plume.
@@ -420,8 +410,7 @@
 # - Diagnostics per scene: granules, (stac_id, ground_pixel) groups, groups skipped, and
 #   min/median/max correction in ppb; then the overall correction distribution and the
 #   count exceeding destripe_max_correction_ppb.
-#
-# #### Changed: 04_derive_emissions -- collinearity rejection
+# # #### Changed: 04_derive_emissions -- collinearity rejection
 # - principal_axis() now returns both the axis vector and the variance-explained fraction
 #   from one PCA; Step 5's inline PCA was replaced by a call to it, so plume orientation
 #   and the collinearity test are the same fit read two ways.
@@ -435,8 +424,7 @@
 # - The test runs before the aspect-ratio filter. The accepted set is identical either
 #   way; going first means striping artefacts land in gold_rejected_collinear instead of
 #   being dropped silently by the shape filter.
-#
-# #### Changed: 04_derive_emissions -- summary and pixel area
+# # #### Changed: 04_derive_emissions -- summary and pixel area
 # - Summary cell now reports plume count and median rate before/after destriping and
 #   before/after collinearity rejection, all on the same size + shape basis, plus the
 #   granules-per-scene distribution (per-granule destriping groups get smaller and their
@@ -445,13 +433,11 @@
 #   PIXEL_AREA_M2 / 1e6, so the pixel area has one definition. Value bit-identical
 #   (38.5 km^2). Commented that plume_area_km2 feeds L_m, L_m feeds t_mix, and t_mix
 #   divides IME -- so an inconsistency there propagates into every emission rate.
-#
-# #### Changed: 07b_detection_diagnostics
+# # #### Changed: 07b_detection_diagnostics
 # - Local PPB_TO_KG / PIXEL_AREA_M2 / DRY_AIR_COLUMN / AVOGADRO / M_CH4 definitions
 #   removed; all come from 00_config now. The comment records that this duplication is
 #   what let the cm^2/m^2 error sit in three notebooks at once.
-#
-# #### Changed: 07c_quantification_diagnostics
+# # #### Changed: 07c_quantification_diagnostics
 # - Constants and the three remaining (5.5 * 7.0) literals replaced by the 00_config
 #   values, each site commented with the duplication history.
 # - The shared reconstruction cell gained Step 2b destriping and the collinearity /
@@ -482,11 +468,9 @@
 #   Step 8 is unseeded, so p5/p95, uncertainty_ratio and confidence vary run to run
 #   (63 high / 12 medium moved to 66 high / 9 medium across two runs on an identical plume
 #   set); emission_rate_kg_h itself is deterministic.
-#
-# #### Catalogue state after the corrections
+# # #### Catalogue state after the corrections
 # - 75 plumes, median 29.4 t/h, min 3.2 t/h, max 131.5 t/h (previous median 4.3 kg/h).
-#
-# #### Verification performed
+# # #### Verification performed
 # All changes were exercised offline against synthetic pixels, not in Fabric. The 04
 # harness built a scene containing a 60-scanline stripe, a stripe too short to destripe,
 # and genuine compact plumes: destriping removed the long stripe (105 -> 20 candidates,
@@ -496,8 +480,7 @@
 # gold plume matched its reconstruction, confirming 04 and 07c stayed in sync. 07c Cell 7
 # reproduces the catalogue median exactly and its pixel-area result (0.886x, -11.4%)
 # matches the analytic sqrt(0.7857) = 0.8864.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - CLAUDE.md Known Issues still says observed rates are "~100x below the 100 kg/h NSPS
 #   OLRE threshold". With the units fix that inverts -- the catalogue now sits well above
 #   it. The entry is tracked, so it was left for review rather than edited.
@@ -510,15 +493,13 @@
 #   requested. It can only remove clusters 04 also rejected, so it cannot cause a gold
 #   plume to go unmatched; it makes n_reconstructed mean the same thing as 04's accepted
 #   count.
-#
-# #### Backlog
+# # #### Backlog
 # - gold_rejected_collinear added to the CLAUDE.md table list.
 # - The Monte Carlo in 04 Step 8 should take a seed from CONFIG so confidence and the
 #   p5/p95 bounds are reproducible.
 # - Per-pixel dry-air column from surface_pressure, replacing the sea-level constant
 #   (~9% high over the Permian).
-#
-# #### Remaining for Day 7
+# # #### Remaining for Day 7
 # - [ ] Run 00_config, 04_derive_emissions and 07c in Fabric and confirm the destriping
 #       diagnostics, the PPB_TO_KG assertion and gold_rejected_collinear behave as the
 #       offline harnesses predict
@@ -534,11 +515,9 @@
 # MARKDOWN ********************
 
 # ### 2026-09-15 -- Day 8 (Completed)
-#
-# Two pieces of groundwork, both read-only or additive: a survey of the accelerator's
+# # Two pieces of groundwork, both read-only or additive: a survey of the accelerator's
 # enterprise model, and the design note that governs every fact generator built after it.
-#
-# #### Added: GREENSKY_LAKEHOUSE_SURVEY.md
+# # #### Added: GREENSKY_LAKEHOUSE_SURVEY.md
 # Static analysis of GreenSky_Lakehouse -- the accelerator model behind the Data Agent and
 # the RTI dashboard -- ahead of designing a replacement SCADA layer. It is a DIFFERENT
 # WORKSPACE (060ba34b-...) from Green Sky - Dev (640876ea-...), so it shares no tables with
@@ -559,8 +538,7 @@
 # - Recorded three incompatible facility business keys for the same basin -- FAC-0001 (V1
 #   Operations_LH), WP-001 (accelerator), PB_001 (V2 ref_facilities) -- with nothing mapping
 #   between them. That is what forced the key decision in Day 9's rebuild.
-#
-# #### Added: survey_greensky_lakehouse notebook
+# # #### Added: survey_greensky_lakehouse notebook
 # Read-only profiling to answer what static analysis cannot: row counts, null rates,
 # distinct counts, timestamp ranges and modal sampling intervals, plus a deep dive on
 # scada_realtime (is it a real 15-minute series or a stub?) and facility_master (are the
@@ -570,8 +548,7 @@
 # binding dropped to an empty object -- a cross-workspace GUID does not survive Git sync, so
 # GreenSky_Lakehouse is attached by hand before a run. A markdown cell at the top states the
 # workspace split, the manual attach step and that the notebook writes nothing.
-#
-# #### Added: DESIGN_NOTE_incremental_facts.md
+# # #### Added: DESIGN_NOTE_incremental_facts.md
 # The agreed model for how enterprise fact generators behave on daily runs. Status: proposed.
 # Three requirements: topology is a setup-only pipeline the daily run reads and never writes;
 # fact writes are window-scoped and idempotent via replaceWhere on a date_sk partition; and
@@ -585,11 +562,9 @@
 # MARKDOWN ********************
 
 # ### 2026-09-16 -- Day 9 (Completed)
-#
-# Rebuilt the enterprise facility and asset topology from scratch in notebooks/01_topology.
+# # Rebuilt the enterprise facility and asset topology from scratch in notebooks/01_topology.
 # The V1 model in Operations_LH is replaced, not extended, and remains reference-only.
-#
-# #### Why the V1 model could not be repaired
+# # #### Why the V1 model could not be repaired
 # Three defects, one of them mis-diagnosed until the V1 code was read properly:
 # - dim_facility carried TWO coordinate pairs -- latitude/longitude from dim_build and
 #   facility_lat/facility_lon written later by build_attribution, which overwrote the
@@ -605,8 +580,7 @@
 #   argument for a rebuild rather than a repair.
 # - facility_name and facility_type were drawn independently, producing "Odessa Processing
 #   Plant" typed Gathering System.
-#
-# #### Added: 01_topology_config
+# # #### Added: 01_topology_config
 # Seeds, geography, taxonomy and helpers. TOPOLOGY_SEED = 20260915, deliberately distinct
 # from V1's MASTER_SEED. get_rng(*parts) is the only route randomness takes; a bare
 # default_rng anywhere in 01_topology is a bug.
@@ -621,8 +595,7 @@
 #   it is not in the future. NOTE: this was already a fixed literal when it was flagged as a
 #   moving-date defect -- the value simply happened to equal that day's date. The assertion
 #   and the comment were added; no bug was fixed.
-#
-# #### Added: 01a_build_facility_topology
+# # #### Added: 01a_build_facility_topology
 # Writes dim_facility and ref_facilities. One coordinate pair, facility_lat/facility_lon,
 # written once. 150 facilities -- not V1's 350 -- sized against the detection rate so the
 # Facility Operations dashboard page is not empty for most sites.
@@ -633,8 +606,7 @@
 #   its nearest facility, the share beyond attribution_search_radius_km, and the median
 #   latitude of uncovered versus covered plumes. The latitude comparison is what makes a
 #   directional gap visible rather than just a count.
-#
-# #### Added: 01b_build_asset_topology
+# # #### Added: 01b_build_asset_topology
 # Writes dim_equipment and dim_sensor. Assets carry NO geography and reach it by joining
 # facility_id -- V1's silver.equipment_geo copied facility coordinates onto equipment and the
 # copy then diverged. Asserted: no lat/lon-shaped column on either table.
@@ -648,15 +620,13 @@
 #   24%, two points apart over ~500 assets, so which lands on top is noise. It now checks each
 #   share against 3 sigma on a binomial, plus that the dominant share clears 1.4x the uniform
 #   12.5% -- the test a uniform draw actually fails.
-#
-# #### Changed: 05_attribute_facilities
+# # #### Changed: 05_attribute_facilities
 # The EPA Envirofacts scrape, the BBOX filter, the PB_nnn grid fallback and the
 # ref_facilities write were removed (-171 lines) and replaced by a read plus a guard that
 # fails if PB_nnn keys are ever found in the table. Necessary, not opportunistic: with 01a
 # writing ref_facilities and 05 also writing it, running 05 afterwards would have replaced
 # the real topology with grid points. 05 now has no network dependency.
-#
-# #### Anchor and radius work, in two passes
+# # #### Anchor and radius work, in two passes
 # - A fourth anchor, Northwest Shelf, closes a northern coverage gap: 32 of 75 plumes had
 #   facilities_in_range = 0, all with a nearest facility beyond 50 km, sitting at median
 #   latitude 32.96 against 31.88 for attributed plumes. Weights rebalanced to
@@ -674,8 +644,7 @@
 #   facility 159.6 km -> 79.3 km, nothing now beyond 100 km. Mean nearest-neighbour spacing
 #   9.8 -> 13.1 km against a 50 km attribution radius, which confirms density was never the
 #   constraint -- the problem was four islands with voids between them.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - Realised band split is 113/30/7 at N=150. The +/-1 is integer rounding on 150 * 0.75,
 #   not sampling noise.
 # - An earlier harness shaped its synthetic plume catalogue to match a reported northern skew
@@ -687,11 +656,9 @@
 # MARKDOWN ********************
 
 # ### 2026-09-17 -- Day 10 (Completed)
-#
-# Added the process-area level, the SCADA tag registry, and the first fact generator governed
+# # Added the process-area level, the SCADA tag registry, and the first fact generator governed
 # by DESIGN_NOTE_incremental_facts.md.
-#
-# #### Added: 01c_build_area_topology
+# # #### Added: 01c_build_area_topology
 # Writes dim_area (558 areas, 16 types) and adds area_sk / area_id to dim_equipment. The
 # hierarchy becomes facility -> area -> asset, which SCADA tag naming and operations triage
 # both need.
@@ -714,8 +681,7 @@
 #   Gathering System gains Field Compression and moves 2-4 -> 3-5 areas with Metering
 #   mandatory (the scoped four areas left 22% of its assets homeless); Central Delivery Point
 #   gains Utilities; Tank Farm accepts Flare.
-#
-# #### Added: 01d_build_scada_tags
+# # #### Added: 01d_build_scada_tags
 # Writes dim_scada_tag -- 3,965 process-measurement tags on 662 instrumented assets. A
 # SECOND registry: dim_sensor keeps its 600 CH4 detectors and its contract untouched, because
 # gold.sensor_telemetry depends on its schema.
@@ -733,8 +699,7 @@
 #   assertion. The two tiers contribute almost exactly equal row counts, so HOT_TAG_SHARE and
 #   the cadences are the effective levers, not tag count. Storage figures are explicitly
 #   labelled an assumption, not a measurement.
-#
-# #### Added: 02a_build_asset_state
+# # #### Added: 02a_build_asset_state
 # Writes fact_asset_state, a sparse interval table -- one row per state change, never one row
 # per timestamp. 20,264 intervals over 90 days, ~6,755 per 30 days against a 200k cap. First
 # notebook to implement the design note's two-pass structure.
@@ -757,22 +722,19 @@
 #   dropped by state_sk, and the union written back; skipping that would silently delete them.
 # - The incremental window comes from the table's own watermark, max(date_sk) + 1, NOT from
 #   utcnow() as the V1 notebooks use. The wall clock makes a rerun land on a different window.
-#
-# #### Two guards caught their own bugs
+# # #### Two guards caught their own bugs
 # - Churn was measured on rows WRITTEN, which on a one-day incremental includes the rows the
 #   widened replaceWhere range sweeps in. Scaling those to 30 days reported 446k against a
 #   200k cap. Now measured on intervals opened within the window.
 # - The availability upper bound of 0.9999 failed a CORRECT run: over one day, Pipeline
 #   Segment sat at exactly 100% because no static asset changed state. Bound raised to 1.0;
 #   the meaningful guard was always the lower one.
-#
-# #### Tuned once, on evidence
+# # #### Tuned once, on evidence
 # Maintenance dwell was first set at 3-14h (PM) and 6-40h (corrective) and produced 98.8%
 # availability with NO equipment type inside the 92-97% target -- the event rate was right,
 # each event was too short. Raised to 6-24h and 12-72h, reflecting the time to mobilise a
 # crew and parts to a remote pad. Compressor now 95.2%, Pump 96.8%.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - Static equipment sits above the 92-97% band -- Pipeline Segment 99.4%, Storage Tank
 #   99.0%. Left there: a storage tank with a 365-day inspection interval genuinely does not
 #   stop often, and forcing it into band would mean inventing downtime.
@@ -782,8 +744,7 @@
 #   so tier correlates perfectly with criticality rather than partially.
 # - 3 facilities carry no SCADA tags at all -- they hold no instrumentable asset at Critical
 #   or High.
-#
-# #### Remaining
+# # #### Remaining
 # - [ ] Nothing in 01_topology or 02_scada has been run in Fabric. Every figure above is from
 #       the offline harness with Spark stubbed.
 # - [ ] 01a's coverage cell needs a real gold_plume_catalog to size N_FACILITIES properly;
@@ -794,10 +755,8 @@
 # MARKDOWN ********************
 
 # ### 2026-09-22 -- Day 11 (Completed)
-#
-# SCADA telemetry and the alarms derived from it, plus an offline tools/ directory.
-#
-# #### Added: 02b_gen_scada_telemetry
+# # SCADA telemetry and the alarms derived from it, plus an offline tools/ directory.
+# # #### Added: 02b_gen_scada_telemetry
 # Writes scada_telemetry, Spark-native, partitioned by date_sk and written one day at a time
 # with replaceWhere.
 # - Values are a pure function of (tag, interval_index): deterministic spectral synthesis
@@ -811,8 +770,7 @@
 # - On Fabric: 15,479,087 rows over 30 days from 3,895 of 3,965 tags (978 hot at 300 s,
 #   2,917 standard at 900 s). Quality Good 95.1%, Substituted 3.3%, Uncertain 1.1%,
 #   Bad 0.5%. Offline share 2.035% from 2,966 outage intervals plus 47 decommissioned tags.
-#
-# #### Fixed in 02b, three accounting bugs
+# # #### Fixed in 02b, three accounting bugs
 # - Overlapping outages matched a reading twice through the half-open interval join,
 #   inflating the slot count and double-counting offline seconds. A Faulty tag draws
 #   Poisson(8) arrivals per 45-day slot, so overlaps were not rare. merge_intervals now
@@ -825,8 +783,7 @@
 #   was invisible on whole days, where midnight divides both cadences, and undercounted by
 #   exactly one slot per outage interval. slot_ceil is now used at both ends, and cadences
 #   are asserted to divide 86,400.
-#
-# #### Added: 02d_gen_alarms
+# # #### Added: 02d_gen_alarms
 # Writes fact_scada_alarm and fact_sensor_status_event, both derived entirely from
 # scada_telemetry. There is no independent alarm stream: every alarm has breaching readings
 # behind it, so drilling from an alarm to its trend finds the excursion.
@@ -841,8 +798,7 @@
 #   normal band edge sat at 4.0 sigma, the process never crossed it, and the alarm table came
 #   out effectively empty. At 0.33 the band edge is at 3.03 sigma.
 # - On Fabric: 3,942 alarms and 5,447 sensor status events.
-#
-# #### Fixed in 02d: alarm_sk
+# # #### Fixed in 02d: alarm_sk
 # - The 63-bit reduction was written % F.lit(2**63). 2**63 is one past Long.MAX_VALUE, so
 #   Spark could not build the literal and the golden-vector check failed at construction.
 #   The modulus is now a string cast to decimal(20,0), shared with event_sk as sk_from_sha,
@@ -854,8 +810,7 @@
 #   key, and uniqueness is asserted before the write, not three sections into validation.
 # - event_sk was checked and is unique. A tag cannot leave and return at one instant, by
 #   construction.
-#
-# #### Added: tools/
+# # #### Added: tools/
 # Offline checks, none of which run in Fabric.
 # - lint_lit.py flags integer literals outside the Java long range, the one Spark-side
 #   defect detectable without a JVM. It catches the % F.lit(2**63) bug above.
@@ -871,11 +826,9 @@
 # MARKDOWN ********************
 
 # ### 2026-09-25 -- Day 12 (Completed)
-#
-# Two validation fixes in 02d, telemetry rollups, the CH4 detector telemetry, and stable
+# # Two validation fixes in 02d, telemetry rollups, the CH4 detector telemetry, and stable
 # plume identifiers with a reproducible Monte Carlo.
-#
-# #### Fixed in 02d validation
+# # #### Fixed in 02d validation
 # - Sections 1 and 2 joined alarms to telemetry with tag_sk unqualified on both sides, which
 #   throws AMBIGUOUS_REFERENCE on Spark. Both sides are now aliased and every column
 #   reference is qualified. This had been patched by hand in the Fabric session; the repo now
@@ -886,8 +839,7 @@
 #   coalesce(sum(...), 0), because sum() over an all-null group is null and null < N is not
 #   true -- moving the bound alone would still have dropped the alarm.
 #   harness_alarm_backing.py reproduces both failure modes and asserts the fix.
-#
-# #### Added: 02c_rollup_telemetry
+# # #### Added: 02c_rollup_telemetry
 # Writes scada_telemetry_hourly and scada_telemetry_daily, over exactly the raw window
 # (ROLLUP_MATCH_RAW_WINDOW in 01_topology_config records why).
 # - Value columns are over Good readings only; counts are over every reading. A bucket with
@@ -899,8 +851,7 @@
 #   where a double sum(x^2) formula gave ~3e-5 -- and makes every aggregate independent of
 #   Spark's merge order.
 # - On Fabric: scada_telemetry_hourly holds 2.56M rows.
-#
-# #### Added: 02e_gen_ch4_telemetry
+# # #### Added: 02e_gen_ch4_telemetry
 # Writes sensor_telemetry for the 600 CH4 detectors, keeping V1's gold.sensor_telemetry
 # columns exactly (build_snapshots selects them by name), plus date_sk and is_synthetic.
 # - Hourly, replacing V1's 4 hours, which left two readings inside the 8-hour offline horizon.
@@ -921,8 +872,7 @@
 #   top 10% hold 75%, runs have a median of 6 h, minimum lag-1 autocorrelation 0.80, offline
 #   share 1.98%, and a non-zero 8-hour KPI at every probe. The rate and offline bands are
 #   asserted over the whole 30-day table, since single days ran 0.5-1.7%.
-#
-# #### Fixed: plume_id and scene_id are content-derived
+# # #### Fixed: plume_id and scene_id are content-derived
 # Removes the "iteration-order counters" known issue. 04 overwrote gold_plume_catalog with
 # counters on every run, silently invalidating gold_plume_site_mapping,
 # gold_multi_gas_signatures and 05's attribution.
@@ -939,8 +889,7 @@
 # - 04 asserts plume_id unique and never numeric, and records each run's input fingerprint
 #   and plume_id set in gold_plume_id_runs. A rerun on the same input fails if the set
 #   changes. That check fires only on Fabric.
-#
-# #### Fixed: the Monte Carlo is seeded per plume
+# # #### Fixed: the Monte Carlo is seeded per plume
 # - Step 8 drew from the unseeded global np.random, so p5/p50/p95, uncertainty_ratio and
 #   confidence moved on every run: confidence 66/9 then 65/10 on identical input, and one
 #   plume's p95 26,385.68 -> 26,126.62 kg/h. gen_financial consumes those bounds directly.
@@ -952,8 +901,7 @@
 # - 04 re-runs the Monte Carlo for five plumes and asserts identical percentiles.
 #   gold_plume_id_runs also records each plume's p50, and a rerun on the same input fails if
 #   any p50 moves by more than 1e-9 relative.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - 02e's harness uses a synthetic registry and state history, because the real ones live in
 #   OneLake. Its rates show the mechanism works; Fabric's figures will differ somewhat.
 # - 04's "same 75 plumes" check against the pre-change catalog is print-only. 04 cannot tell
@@ -961,8 +909,7 @@
 #   correct run.
 # - The first 04 run after the seeding change differs from the existing catalog's bounds,
 #   once. It has no seeded run to compare against.
-#
-# #### Remaining
+# # #### Remaining
 # - [ ] Run on Fabric: 01b, then 01c (01b rewrites dim_equipment without 01c's area columns),
 #       then 02e in backfill mode.
 # - [ ] Run 04 twice unchanged. The first run should print 75 of 75 against the old catalog;
@@ -975,11 +922,9 @@
 # MARKDOWN ********************
 
 # ### 2026-09-28 -- Day 13 (In Progress)
-#
-# The single-column striping hole in 04, closed in two steps, a false alarm in 03's row
+# # The single-column striping hole in 04, closed in two steps, a false alarm in 03's row
 # count, and the first enterprise fact generator: 03a, the hidden emission episodes.
-#
-# #### Fixed: 04's single-column rejection keys on the physical column
+# # #### Fixed: 04's single-column rejection keys on the physical column
 # - The test rejected a cluster whose pixels all shared one (stac_id, ground_pixel). stac_id
 #   names a granule, not a detector column, and the NRTI and OFFL granules of one orbit carry
 #   the same column. A stripe drawn from both granules had two pairs and escaped. That is how
@@ -997,8 +942,7 @@
 #   too much.
 # - 07c Cell 0 counted pairs, so it reported "rejection did its job" on this very case. It
 #   now reports physical columns and pairs side by side.
-#
-# #### Fixed: single-column rejection by dominance, not unanimity (detection v3)
+# # #### Fixed: single-column rejection by dominance, not unanimity (detection v3)
 # - PL-059118a52421 still survived: 14 of its 15 pixels sit on (45136, 65), stepping
 #   0.049 deg in latitude over 33 km, and one stray pixel from the adjacent column defeated a
 #   test that required every pixel on one column.
@@ -1013,8 +957,7 @@
 #   Fabric copy of 04 only; it was synced into the repo first (3997882), then built on. Four
 #   scratch query cells from that Fabric session were removed. One looked up
 #   PL-059118a52421 with .collect()[0] and would have raised once the fix worked.
-#
-# #### Fixed: 03's nearest-station count
+# # #### Fixed: 03's nearest-station count
 # - 03 printed "Should match original methane count: 70,126" against 34,604.
 #   bronze_ch4_pixels is cumulative across ingests while weather and ERA5 cover only
 #   CONFIG's window, so the two could never match.
@@ -1023,8 +966,7 @@
 #   -- the key the nearest-station window partitions on, so a pixel duplicated across two
 #   overlapping granules is not counted as a loss. The expansion factor now divides by the
 #   in-window count too; it had understated stations per pixel by about half.
-#
-# #### Added: 03a_gen_emission_episodes
+# # #### Added: 03a_gen_emission_episodes
 # Writes fact_emission_episode: one row per leak episode, the hidden ground truth that plumes
 # and telemetry observe. Reads dim_equipment, dim_facility, dim_area and fact_asset_state
 # only. Every read goes through read_input(), which refuses the 17 observation tables. An
@@ -1055,8 +997,7 @@
 #   guards, the root causes against 02b and TAG_TEMPLATES, the invariants, two identical
 #   runs, and a backfill bitwise equal to 89 incremental days. Its negative control:
 #   without the lookback, 10 episode ends differ.
-#
-# #### Changed: 03a's super-emitter frequency
+# # #### Changed: 03a's super-emitter frequency
 # The first Fabric run passed every validation. The above-floor median was 18.4 t/h and the
 # top 5% held 61.8% of mass. But only 2 episodes cleared 3 t/h in 90 days, and none was
 # active during 2026-08-16..09-15: nothing for TROPOMI to have seen.
@@ -1072,8 +1013,7 @@
 # - Harness, synthetic estate: 75 active in the window, on all 31 days (was 0). Above-floor
 #   median 19.4 t/h (model 20.0). Top 5% by mass 86.5%. 1,533 episodes, unchanged, because
 #   the probability only decides which episodes are super-emitters.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - About 14% of episodes are now above 3 t/h. That is far from rare and far above any real
 #   leak population. It is the price of an estate that has to account for a share of a
 #   basin's detections. The alternative, many more small episodes, would leave 02b's
@@ -1095,8 +1035,7 @@
 #   gold_rejected_collinear will show why it did not.
 # - 02d's alarm-band diagnosis still says the episode generator "does not exist yet".
 # - 07c's header still quotes the 75-plume catalogue.
-#
-# #### Remaining
+# # #### Remaining
 # - [ ] Run 03, then 04 twice. Check the dominance distribution printout and the
 #       single-column rejection counts. Look up PL-059118a52421's variance_explained in
 #       gold_rejected_collinear.
@@ -1110,21 +1049,18 @@
 # MARKDOWN ********************
 
 # ### 2026-09-29 -- Day 14 (In Progress)
-#
-# The instrumentation cap raised to 12; the first backlog generator, 03b work orders; and 03c
+# # The instrumentation cap raised to 12; the first backlog generator, 03b work orders; and 03c
 # compliance events, where most of the work was correcting the regulatory framing V1 carried.
 # Every figure below is from the offline harnesses or a whole-notebook run against a pandas
 # Spark stub. Nothing here has run in Fabric yet.
-#
-# #### Changed: MAX_INSTRUMENTED_ASSETS_PER_FACILITY 6 -> 12 (01_topology_config)
+# # #### Changed: MAX_INSTRUMENTED_ASSETS_PER_FACILITY 6 -> 12 (01_topology_config)
 # - 662 -> 861 instrumented assets (21.1% -> 27.5%), 3,965 -> 5,042 tags. The target was
 #   1,100-1,300; it cannot be reached, because only 898 assets are both instrumentable and
 #   Critical/High. The criticality bar is now the limiting factor: 130 of 150 facilities
 #   hold fewer than 12 eligible assets, and only 14 are still cut by the cap (37 assets).
 # - Projected 30-day raw telemetry 21.8M rows (73% of 01d's 30M guard); 02b's steady-state
 #   projection 21.5M against its 25M cap. Neither guard changed.
-#
-# #### Added: 03b_gen_work_orders
+# # #### Added: 03b_gen_work_orders
 # fact_work_order and fact_work_order_event. Four observable sources: alarms, sustained CH4
 # exceedance runs, offline tags, and compliance violations. fact_emission_episode is refused
 # at read time and checked statically in the harness.
@@ -1153,16 +1089,13 @@
 #   corrupted every carried row; numpy scalars reaching createDataFrame, which PySpark's
 #   verifier rejects. Also a design fault: a stalled ticket absorbing every later alarm on
 #   its asset, which made the open count drift down 30% over 60 days.
-#
-# #### Added: 03c_gen_compliance
+# # #### Added: 03c_gen_compliance
 # dim_regulation (4 rows) and fact_compliance_event. Status progresses Reported -> Under
 # Review -> Closed | Violation, drawn once from get_rng("compliance", compliance_id), with a
 # 120-day Cancelled exit for stalled cases. fact_emission_episode is refused.
-#
-# **Regulatory corrections.** Checked against public sources on 2026-09-29. These three are
+# # **Regulatory corrections.** Checked against public sources on 2026-09-29. These three are
 # the ones most likely to be repeated as fact by someone reading the tables:
-#
-# 1. **OLRE is a GHGRP Subpart W reporting requirement, not an NSPS OOOOb provision.** The
+# # 1. **OLRE is a GHGRP Subpart W reporting requirement, not an NSPS OOOOb provision.** The
 #    2024 Subpart W revisions (40 CFR Part 98) require "other large release events" at an
 #    instantaneous methane rate of 100 kg/h or more to be REPORTED. EPA dropped the proposed
 #    250 tCO2e per-event alternative. An OLRE is a report, never a fine in itself. V1 called
@@ -1183,8 +1116,7 @@
 #    Statutory maxima (CAA civil penalties under 40 CFR Part 19; Tex. Nat. Res. Code
 #    81.0531) are ceilings, not typical penalties, and deliberately are not used.
 #    dim_regulation's fine_basis column says so on every row.
-#
-# Also confirmed: the Waste Emissions Charge rule was disapproved under the CRA (2025), and
+# # Also confirmed: the Waste Emissions Charge rule was disapproved under the CRA (2025), and
 # the One Big Beautiful Bill Act (2025-07-04) delayed the statutory charge to 2034. So the
 # default scenario is reporting_only, with no federal per-tonne fee, and wec_hypothetical and
 # social_cost stay switchable but off. Not verified, and not relied on: V1's statement that
@@ -1192,8 +1124,7 @@
 # no kg/h or duration trigger in it was verified, so every state threshold is labelled a
 # modelling choice. dim_regulation records, per row, whether each threshold is a rule or a
 # modelling choice, with a status note.
-#
-# **Design.**
+# # **Design.**
 # - Every attributed plume >= 100 kg/h is a Subpart W report. TROPOMI's floor is ~3 t/h, so
 #   every detection crosses any rule threshold. A rate cut inside the detected range would
 #   sit inside the IME uncertainty (p95/p5 ~4.8x). The notebook prints the distribution and
@@ -1213,13 +1144,11 @@
 # - Offline, on the real facility geometry: 69 events (38 OLRE, 29 Exceedance, 2 Venting),
 #   1 violation ($9,727), 11 unattributed plumes skipped, 0 repetition escalations. That is
 #   consistent with 45 of 47 gold_emission_sites being single-detection.
-#
-# **Wired into 03b.** Only a Violation raises a ticket, at the finding: P1 for Critical, P2
+# # **Wired into 03b.** Only a Violation raises a ticket, at the finding: P1 for Critical, P2
 # for Major. A plume-derived case names no asset, so its ticket goes to the facility's
 # highest-leak-propensity asset, labelled a modelling choice. The effect on 03b's arrival
 # rate is ~+0.03-0.2 a day. The pipeline order is 03c before 03b.
-#
-# #### Harness
+# # #### Harness
 # - harness_work_orders.py: backfill = 29 incremental days, bitwise; rerun idempotent;
 #   negative controls for the status-based pass-1 read and for a re-drawn plan. Over 120
 #   days the stalled pool levels off after the 60-day exit, and the compliance mapping is
@@ -1228,8 +1157,7 @@
 #   negative control shows a repetition rule with hindsight breaks backfill = incremental.
 #   Over 300 days, open cases sit in the lambda x T band, and the stalled pool stays bounded
 #   at stall rate x 120 (12 at most, against 20 without the exit).
-#
-# #### Changed: 03b gains a Trip source, scoped to instrumented assets
+# # #### Changed: 03b gains a Trip source, scoped to instrumented assets
 # - A transition into Down with cause 'Trip' in fact_asset_state raises a ticket at the trip
 #   instant, priority by asset criticality (P1 Critical, P2 High, P3 Medium, P4 Low). No
 #   dependency loop: fact_asset_state comes from 02a.
@@ -1246,8 +1174,7 @@
 #   chosen was measured with TRIP_SCOPE = "all"; restricting to instrumented assets leaves
 #   the other 183 uncovered too. Not every piece of corrective work in a real operation has a
 #   ticket raised at the moment it starts either.
-#
-# #### Flagged, not changed: 02d cannot raise a pilot-out alarm
+# # #### Flagged, not changed: 02d cannot raise a pilot-out alarm
 # - 02d raises a low alarm only when the value is strictly below the limit
 #   (`breach_dn = F.col("value_num") < F.col("limit_value")`). pilot_flame's alarm_lolo is 0.0,
 #   and a pilot-out reading is exactly 0, which is not below 0. So LoLo never fires on a flare
@@ -1262,8 +1189,7 @@
 #   (measurement_type pilot_flame), then re-run 02d. Expect new LoLo alarms on flares during
 #   unlit-flare episodes. 03c can then add the pilot alarm as a Venting source, and 03b will
 #   see new P1 tickets.
-#
-# #### Flagged, not changed
+# # #### Flagged, not changed
 # - No dim_team exists. 03b's assigned_team_sk is checked against a 16-team roster defined in
 #   the notebook.
 # - Work-order and compliance costs are modelling choices. The mean work order is ~$2.5k.
@@ -1271,8 +1197,7 @@
 #   to their sources. Validation counts them rather than failing.
 # - 00_config's CONFIG start_date / end_date (2026-06-10..07-09) do not match the real window.
 #   03b and 03c take their window from the source tables, not from CONFIG.
-#
-# #### Remaining
+# # #### Remaining
 # - [ ] Run 03c then 03b in Fabric. Check 03c's rate-distribution printout, the escalation
 #       counts (repetition / persistence), and 03b's arrival rate with compliance wired.
 # - [ ] 02d: `<=` for boolean-valued tags so pilot-out raises LoLo; re-run 02d, then 03c, 03b.
@@ -1282,14 +1207,12 @@
 # MARKDOWN ********************
 
 # ### 2026-09-30 -- Day 15 (In Progress)
-#
-# 03e added (financial impact and facility daily snapshots); the backlog checks reworked
+# # 03e added (financial impact and facility daily snapshots); the backlog checks reworked
 # around mechanism rather than shape; and a boundary bug in 02a, which made fact_asset_state
 # read one day too long, found and fixed. Underneath it, a structural limit on running the pipeline daily
 # at all: the first item below. Every figure is from the offline harnesses or whole-notebook
 # runs against the pandas Spark stub, except where Fabric is named.
-#
-# #### STRUCTURAL: the pipeline cannot advance past TOPOLOGY_AS_OF (2026-09-15)
+# # #### STRUCTURAL: the pipeline cannot advance past TOPOLOGY_AS_OF (2026-09-15)
 # Not a boundary bug. The daily job the two-pass design (design note §2.3) was built for
 # cannot run as a daily job past a fixed date, and nothing in the pipeline says so.
 # - **What pins it.** TOPOLOGY_AS_OF (01_topology_config) is a fixed date by design. It bounds
@@ -1332,8 +1255,7 @@
 #      dashboard. Cheapest, but it abandons what the design note was written for.
 #   Whichever is chosen, the scheduled pipeline should fail loudly at its first step once the
 #   window would pass AS_OF, rather than rerunning the last day, until this is resolved.
-#
-# #### Found and fixed: fact_asset_state read one day too long (02a's boundary)
+# # #### Found and fixed: fact_asset_state read one day too long (02a's boundary)
 # - **Correction.** I first diagnosed this, in this session, as two clocks disagreeing: 02a's
 #   incremental run walking past TOPOLOGY_AS_OF while 03d took its horizon from state alone.
 #   That was wrong. 02a cannot pass TOPOLOGY_AS_OF: it asserts no interval starts after it.
@@ -1376,15 +1298,13 @@
 # - 03a still takes its horizon from fact_asset_state alone. That is right: state is its only
 #   input, and 02b / 02e read its episodes, so it cannot wait for the telemetry. With 02a
 #   fixed, its `max(date_sk) + 1` is now the true horizon.
-
 # #### Changed: every tolerance on a horizon is now exact
 # - 03b's alarm check (`>= SOURCE_END - 2 d`), 03d's work-order check (same) and 03e's
 #   work-order check. A tolerance on a horizon is a tolerance on completeness. All three
 #   tables are dense enough for exact checks: alarms at least 141 a day, work-order events at
 #   least 31, offline. Compliance events are too sparse to prove 03c's horizon (27 of 30 days
 #   have one); that pair is unasserted, and agrees only by construction.
-#
-# #### Changed: 03d's backlog checks judge mechanism, not shape
+# # #### Changed: 03d's backlog checks judge mechanism, not shape
 # - Removed the 14-day slope assertion on overdue PMs and on LDAR outstanding. On the offline
 #   pipeline, the LDAR slope check failed 13 of the 32 horizons where it is asserted, including
 #   2026-09-12 (+19.7 against a bound of 13.5). The expected fill curve trips it with no
@@ -1399,8 +1319,7 @@
 #   ~day 120.
 # - With the replacement checks, 0 of the 32 healthy horizons fire; every drain-loss defect
 #   planted at day 30 fires on all 32.
-#
-# #### Added: 03e_gen_financial_snapshots
+# # #### Added: 03e_gen_financial_snapshots
 # - fact_production_daily, fact_financial_impact and fact_facility_daily_snapshot, partitioned
 #   by date_sk and written with replaceWhere in both run modes.
 # - Snapshots are point-in-time: a facility as it stood at the end of each day, built from
@@ -1410,8 +1329,7 @@
 # - The impact band is 04's Monte Carlo p5 / p50 / p95, not V1's band from a confidence
 #   string. The columns are named p5 / p95; the dashboard's P10 / P90 labels should change.
 # - Fines are dated at the notice of violation.
-#
-# #### Changed: 03e risk score saturation levels recalibrated
+# # #### Changed: 03e risk score saturation levels recalibrated
 # - The first levels saturated far above anything the data produced. Over 4,500 facility-days
 #   the score ran p50 8.0, p99 29.2, max 43.5, and nothing reached 50. Mean points: condition
 #   3.4/30, emissions 1.4/25, compliance 0.4/20, maintenance 3.5/15, open work 1.4/10 (Fabric).
@@ -1430,8 +1348,7 @@
 # - Calibrated on one offline estate only. 03e now prints the median, the facility-days at 50
 #   and 70 or above, and how often compliance contributes, so the levels can be checked
 #   against Fabric's own distribution.
-#
-# #### Remaining
+# # #### Remaining
 # - [ ] Fabric, before anything: `SELECT count(*), min(start_ts) FROM fact_asset_state WHERE
 #       date_sk = 20260915` (expect 3 open intervals at 00:00), and the row counts of
 #       fact_inspection and fact_ldar_survey at date_sk 20260915.
@@ -1445,6 +1362,7 @@
 #       well outside 20-30, or nothing reaches the 60s, recalibrate on Fabric's own inputs.
 # - [ ] Dashboard: relabel the financial P10 / P90 tiles to P5 / P95; rebind the renamed 03e
 #       columns (violation_fine_usd, total_impact_usd_*).
+
 
 # MARKDOWN ********************
 

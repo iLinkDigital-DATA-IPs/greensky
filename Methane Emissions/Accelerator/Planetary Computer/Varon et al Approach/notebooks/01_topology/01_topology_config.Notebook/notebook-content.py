@@ -27,24 +27,20 @@
 # MARKDOWN ********************
 
 # # 01 — Topology Config
-#
-# Seeds, geography, taxonomy and helpers for the rebuilt enterprise facility and asset
+# # Seeds, geography, taxonomy and helpers for the rebuilt enterprise facility and asset
 # topology. Every notebook in `01_topology` starts with `%run 01_topology_config`, which
 # itself runs `00_config` so `CONFIG` and `BBOX` are available.
-#
-# This replaces the V1 model in `Operations_LH` (`archive/notebooks/scada/*`). That model is
+# # This replaces the V1 model in `Operations_LH` (`archive/notebooks/scada/*`). That model is
 # **reference only — do not edit it.** It is being replaced, not extended, because of three
 # defects this config is built to prevent:
-#
-# **1. Two coordinate pairs, neither marked authoritative.** V1's `gold.dim_facility` carried
+# # **1. Two coordinate pairs, neither marked authoritative.** V1's `gold.dim_facility` carried
 # both `latitude`/`longitude` (written by `dim_build`) and `facility_lat`/`facility_lon`
 # (written later by `build_attribution`, which overwrote the dimension). Nothing recorded
 # which was correct, and they disagreed about where the basin was.
 # → Here there is **one** pair, `facility_lat`/`facility_lon`, written once. `dim_equipment`
 # stores **no** coordinates at all and reaches geography by joining `facility_id`, so the two
 # cannot drift apart again.
-#
-# **2. Facilities outside the detection footprint.** V1 sampled from two anchors, one of which
+# # **2. Facilities outside the detection footprint.** V1 sampled from two anchors, one of which
 # (`Texas Site A`, lat 30.2) sat below V2's BBOX floor of 30.5, with an `outside` band
 # reaching 0.95°. That stranded facilities near lat 29.3 — roughly 110 km south of the
 # Permian. `build_attribution` then reseeded coordinates from a hard-coded box using a bare
@@ -53,15 +49,13 @@
 # `outside` band is placed **relative to the BBOX edge and bounded at
 # `OUTSIDE_MAX_DEG`**, and every draw comes from `get_rng(...)`, which derives from
 # `TOPOLOGY_SEED`. There is no bare `default_rng` anywhere in `01_topology`.
-#
-# **3. Names and types contradicted each other.** V1 drew `facility_name` and `facility_type`
+# # **3. Names and types contradicted each other.** V1 drew `facility_name` and `facility_type`
 # independently, producing "Odessa Processing Plant" typed `Gathering System` and
 # "Wink Tank Battery 2" typed `Compression Station`.
 # → Here the **type is drawn first and the name is built from it** via `TYPE_DESCRIPTORS`, so
 # agreement holds by construction. `assert_descriptor_map_unique()` still guards the map, to
 # catch a later edit that puts one descriptor under two types.
-#
-# What is kept from V1: the name generator. `PLACES` and the descriptor vocabulary are
+# # What is kept from V1: the name generator. `PLACES` and the descriptor vocabulary are
 # reused unchanged — they produce realistic Permian names like "Reeves County Tank Battery".
 # The demo requires synthetic identity, so names stay invented; only the geography has to be
 # plausible.
