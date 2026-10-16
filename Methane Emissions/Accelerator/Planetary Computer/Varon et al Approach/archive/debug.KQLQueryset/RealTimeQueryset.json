@@ -1,0 +1,27 @@
+{
+  "queryset": {
+    "version": "1.0.0",
+    "dataSources": [
+      {
+        "id": "be116aaf-41d9-4cb1-8441-e62813489045",
+        "clusterUri": "",
+        "type": "Fabric",
+        "databaseItemId": "1124cba3-e812-a04b-4f7e-9d0ca1afdbe0"
+      },
+      {
+        "id": "df1fabde-b7e9-4627-99e2-9ef616bf2f17",
+        "clusterUri": "",
+        "type": "Fabric",
+        "databaseItemId": "5f5a2d6c-0706-b654-4e7c-0593de7dfd60"
+      }
+    ],
+    "tabs": [
+      {
+        "id": "24785dac-51e4-4b8e-b63f-a01e78af9c83",
+        "content": "let W_START = datetime(2026-08-16);\nlet W_END   = datetime(2026-09-15);\nlet cat =\n    external_table('gold_plume_catalog')\n    | where detection_date >= W_START and detection_date < W_END\n    | where isnotempty(attributed_facility_id)\n    | extend d = bin(detection_date, 1d)\n    | summarize cat_plumes = count(), cat_kg = sum(ime_kg)\n        by facility_id = attributed_facility_id, d;\nlet snap =\n    external_table('fact_facility_daily_snapshot')\n    | where snapshot_date >= W_START and snapshot_date < W_END\n    | where active_plumes > 0\n    | summarize snap_plumes = sum(active_plumes), snap_kg = sum(total_emissions_kg)\n        by facility_id, d = bin(snapshot_date, 1d);\ncat\n| join kind=fullouter snap on facility_id, d\n| extend verdict = case(\n    isnull(cat_plumes), \"snapshot_only\",\n    isnull(snap_plumes), \"catalog_only\",\n    cat_plumes != snap_plumes, \"plume_count_differs\",\n    abs(cat_kg - snap_kg) > 1.0, \"kg_differs\",\n    \"match\")\n| summarize n = count() by verdict",
+        "title": "greensky_v2_rti",
+        "dataSourceId": "df1fabde-b7e9-4627-99e2-9ef616bf2f17"
+      }
+    ]
+  }
+}

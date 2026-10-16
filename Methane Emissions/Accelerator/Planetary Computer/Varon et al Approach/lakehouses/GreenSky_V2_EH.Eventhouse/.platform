@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Eventhouse",
+    "displayName": "GreenSky_V2_EH",
+    "description": "V2 RTI serving namespace (owner: prutha.annadate)"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "24ce2a9d-d404-ad0b-40b0-5385aa842896"
+  }
+}

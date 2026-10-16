@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "greensky_detection"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "3fdabb48-1679-47ff-b0da-b10b89c079eb"
+  }
+}

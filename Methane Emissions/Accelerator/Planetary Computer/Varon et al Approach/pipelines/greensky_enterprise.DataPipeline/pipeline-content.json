@@ -1,0 +1,727 @@
+{
+  "properties": {
+    "description": "Run order: 01 topology (dims), then greensky_detection, then this pipeline. 03c reads detection's gold_plume_catalog and gold_multi_gas_signatures, 03e reads gold_plume_catalog. Enterprise / SCADA: 02a -> 03a -> 02b -> (02c | 02d); 02a -> 02e; (02b, 02d, 02e) -> 03c -> 03b -> 03d -> 03e. The estate's clock is TOPOLOGY_AS_OF, not the calendar: with pipeline_date empty every notebook derives its own half-open window (TOPOLOGY_AS_OF, its watermark, or its sources' span). A pipeline_date P overrides it: end_date P+1, start_date P for incremental and empty for backfill.",
+    "activities": [
+      {
+        "type": "IfCondition",
+        "typeProperties": {
+          "expression": {
+            "value": "@and(or(equals(pipeline().parameters.run_mode, 'incremental'), equals(pipeline().parameters.run_mode, 'backfill')), or(empty(pipeline().parameters.pipeline_date), equals(length(pipeline().parameters.pipeline_date), 10)))",
+            "type": "Expression"
+          },
+          "ifTrueActivities": [],
+          "ifFalseActivities": [
+            {
+              "type": "Fail",
+              "typeProperties": {
+                "message": {
+                  "value": "@concat('greensky_enterprise: invalid parameters run_mode=[', pipeline().parameters.run_mode, '] pipeline_date=[', pipeline().parameters.pipeline_date, ']. run_mode must be incremental or backfill; pipeline_date must be empty or yyyy-MM-dd.')",
+                  "type": "Expression"
+                },
+                "errorCode": "INVALID_PARAMETERS"
+              },
+              "name": "fail_invalid_parameters",
+              "dependsOn": []
+            }
+          ]
+        },
+        "name": "validate_parameters",
+        "description": "Fails the run before any notebook starts if run_mode is not exactly 'incremental' or 'backfill', or pipeline_date is not empty / yyyy-MM-dd. The notebooks treat any other run_mode as backfill.",
+        "dependsOn": []
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "33c748de-e199-4769-b968-11fcb3a94aec",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "02a_build_asset_state",
+        "description": "Writes fact_asset_state, the operating state every later step gates on.",
+        "dependsOn": [
+          {
+            "activity": "validate_parameters",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 02a_build_asset_state failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('02a_build_asset_state').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_02a_build_asset_state"
+        },
+        "name": "fail_02a_build_asset_state",
+        "description": "Surfaces that 02a_build_asset_state died, and why.",
+        "dependsOn": [
+          {
+            "activity": "02a_build_asset_state",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "98ec8ed1-4051-44dd-9790-e5b69e4658ab",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "03a_gen_emission_episodes",
+        "description": "Writes fact_emission_episode (hidden ground truth). Must precede 02b: without it 02b skips the episode overlay without failing.",
+        "dependsOn": [
+          {
+            "activity": "02a_build_asset_state",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 03a_gen_emission_episodes failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('03a_gen_emission_episodes').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_03a_gen_emission_episodes"
+        },
+        "name": "fail_03a_gen_emission_episodes",
+        "description": "Surfaces that 03a_gen_emission_episodes died, and why.",
+        "dependsOn": [
+          {
+            "activity": "03a_gen_emission_episodes",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "0c3e2072-7960-48c4-820f-7b301c94f29f",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.01:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "02b_gen_scada_telemetry",
+        "description": "Writes scada_telemetry (~19.7M rows for the 30-day raw window), overlaying 03a's episodes.",
+        "dependsOn": [
+          {
+            "activity": "03a_gen_emission_episodes",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 02b_gen_scada_telemetry failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('02b_gen_scada_telemetry').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_02b_gen_scada_telemetry"
+        },
+        "name": "fail_02b_gen_scada_telemetry",
+        "description": "Surfaces that 02b_gen_scada_telemetry died, and why.",
+        "dependsOn": [
+          {
+            "activity": "02b_gen_scada_telemetry",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "cdeb0f3e-ca32-4370-8145-97e6eb99a36d",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "02c_rollup_telemetry",
+        "description": "Writes scada_telemetry_hourly and _daily over exactly the raw window. Nothing in this pipeline reads them.",
+        "dependsOn": [
+          {
+            "activity": "02b_gen_scada_telemetry",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 02c_rollup_telemetry failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('02c_rollup_telemetry').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_02c_rollup_telemetry"
+        },
+        "name": "fail_02c_rollup_telemetry",
+        "description": "Surfaces that 02c_rollup_telemetry died, and why.",
+        "dependsOn": [
+          {
+            "activity": "02c_rollup_telemetry",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "262f727c-3fcf-4985-bd66-e1dcc52517ff",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "02d_gen_alarms",
+        "description": "Writes fact_scada_alarm and fact_sensor_status_event from the full telemetry retention.",
+        "dependsOn": [
+          {
+            "activity": "02b_gen_scada_telemetry",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 02d_gen_alarms failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('02d_gen_alarms').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_02d_gen_alarms"
+        },
+        "name": "fail_02d_gen_alarms",
+        "description": "Surfaces that 02d_gen_alarms died, and why.",
+        "dependsOn": [
+          {
+            "activity": "02d_gen_alarms",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "d44ef877-c04b-48e1-8b32-1eae8d513d75",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "02e_gen_ch4_telemetry",
+        "description": "Writes sensor_telemetry. Reads fact_asset_state only, so it branches off after 02a.",
+        "dependsOn": [
+          {
+            "activity": "02a_build_asset_state",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 02e_gen_ch4_telemetry failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('02e_gen_ch4_telemetry').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_02e_gen_ch4_telemetry"
+        },
+        "name": "fail_02e_gen_ch4_telemetry",
+        "description": "Surfaces that 02e_gen_ch4_telemetry died, and why.",
+        "dependsOn": [
+          {
+            "activity": "02e_gen_ch4_telemetry",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "aff9523a-7462-4927-bb1f-93fb1f415998",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "03c_gen_compliance",
+        "description": "Writes fact_compliance_event and dim_regulation. Window is the overlap of scada_telemetry and sensor_telemetry; reads fact_scada_alarm and detection's gold_plume_catalog / gold_multi_gas_signatures.",
+        "dependsOn": [
+          {
+            "activity": "02b_gen_scada_telemetry",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          },
+          {
+            "activity": "02d_gen_alarms",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          },
+          {
+            "activity": "02e_gen_ch4_telemetry",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 03c_gen_compliance failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('03c_gen_compliance').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_03c_gen_compliance"
+        },
+        "name": "fail_03c_gen_compliance",
+        "description": "Surfaces that 03c_gen_compliance died, and why.",
+        "dependsOn": [
+          {
+            "activity": "03c_gen_compliance",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "8956561c-3a88-4a9a-a15e-a82d42429588",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "03b_gen_work_orders",
+        "description": "Writes fact_work_order and fact_work_order_event. Must follow 03c: it reads fact_compliance_event only if it exists, so running first yields zero compliance tickets without failing.",
+        "dependsOn": [
+          {
+            "activity": "03c_gen_compliance",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 03b_gen_work_orders failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('03b_gen_work_orders').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_03b_gen_work_orders"
+        },
+        "name": "fail_03b_gen_work_orders",
+        "description": "Surfaces that 03b_gen_work_orders died, and why.",
+        "dependsOn": [
+          {
+            "activity": "03b_gen_work_orders",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "74ec579f-bd86-4dff-9521-39206cf05040",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "03d_gen_maintenance",
+        "description": "Writes fact_maintenance, fact_inspection, fact_ldar_survey and fact_pm_schedule from closed work orders.",
+        "dependsOn": [
+          {
+            "activity": "03b_gen_work_orders",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 03d_gen_maintenance failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('03d_gen_maintenance').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_03d_gen_maintenance"
+        },
+        "name": "fail_03d_gen_maintenance",
+        "description": "Surfaces that 03d_gen_maintenance died, and why.",
+        "dependsOn": [
+          {
+            "activity": "03d_gen_maintenance",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "3aa62e6f-38d2-4457-bf00-5d78d2f7a506",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "run_mode": {
+              "value": {
+                "value": "@pipeline().parameters.run_mode",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "start_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', if(equals(pipeline().parameters.run_mode, 'backfill'), '', pipeline().parameters.pipeline_date))",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "end_date": {
+              "value": {
+                "value": "@if(empty(pipeline().parameters.pipeline_date), '', formatDateTime(addDays(pipeline().parameters.pipeline_date, 1), 'yyyy-MM-dd'))",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.00:20:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "03e_gen_financial_snapshots",
+        "description": "Writes fact_production_daily, fact_financial_impact and fact_facility_daily_snapshot from everything above.",
+        "dependsOn": [
+          {
+            "activity": "03d_gen_maintenance",
+            "dependencyConditions": [
+              "Succeeded"
+            ]
+          }
+        ]
+      },
+      {
+        "type": "Fail",
+        "typeProperties": {
+          "message": {
+            "value": "@concat('greensky_enterprise: step 03e_gen_financial_snapshots failed (run_mode=', pipeline().parameters.run_mode, ', pipeline_date=', if(empty(pipeline().parameters.pipeline_date), 'empty: windows derived', pipeline().parameters.pipeline_date), '): ', activity('03e_gen_financial_snapshots').error.message)",
+            "type": "Expression"
+          },
+          "errorCode": "STEP_FAILED_03e_gen_financial_snapshots"
+        },
+        "name": "fail_03e_gen_financial_snapshots",
+        "description": "Surfaces that 03e_gen_financial_snapshots died, and why.",
+        "dependsOn": [
+          {
+            "activity": "03e_gen_financial_snapshots",
+            "dependencyConditions": [
+              "Failed"
+            ]
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "run_mode": {
+        "type": "string",
+        "defaultValue": "incremental"
+      },
+      "pipeline_date": {
+        "type": "string",
+        "defaultValue": ""
+      }
+    },
+    "concurrency": 1
+  }
+}

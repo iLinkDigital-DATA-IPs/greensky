@@ -1,0 +1,1168 @@
+{
+  "schema_version": 82,
+  "title": "Green Sky RTI",
+  "autoRefresh": {
+    "enabled": false
+  },
+  "baseQueries": [
+    {
+      "id": "c783cfee-14ec-409c-abc9-d43102b9dd87",
+      "queryId": "96673fde-f9a8-4ff8-8dd5-01c6b66a72ce",
+      "variableName": "_snapshot_consistency"
+    }
+  ],
+  "tiles": [
+    {
+      "id": "33a81e43-3526-478b-91ba-f7a04983e78c",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "![Green Sky: Real Time Methane Intelligence](https://image2url.com/r2/default/images/1772774090163-e8f21834-9a7d-4392-97ef-64e0d4979f8b.png)\n\n*Real TROPOMI methane detections over the Permian · synthetic operating estate (facilities, attribution, operations, SCADA) · see README*",
+      "visualOptions": {}
+    },
+    {
+      "id": "868b60c6-d471-4cd2-860b-288f36f499f7",
+      "title": "Source freshness",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 16,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d0c34931-5adb-4eb0-a433-435bc920c5d6"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "5e112e3a-c52b-4fdc-a35c-a8f4a4c2f219",
+      "title": "Data consistency",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 16,
+        "y": 3,
+        "width": 8,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "e0fb36ea-ce97-4534-9e50-2f3c4920a3d4"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "b6299485-2e82-46e4-9cef-1e5ec91be4e0",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "rows",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "gate",
+                "values": [
+                  "FAIL"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "red",
+            "tag": "",
+            "icon": null,
+            "ruleName": "gate == 'FAIL'",
+            "visualType": "table"
+          },
+          {
+            "id": "da8c3215-00c2-4597-b732-4bb305b75328",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "rows",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "gate",
+                "values": [
+                  "PASS"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "green",
+            "tag": "",
+            "icon": null,
+            "ruleName": "gate == 'PASS'",
+            "visualType": "table"
+          }
+        ],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "95a693eb-20d1-445f-aeed-907edb822320",
+      "title": "Detected plumes - rate t/h",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 22,
+        "width": 24,
+        "height": 5
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "5a037798-db69-40b4-88e2-92b0ff9783be"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": false,
+        "drillthrough": [
+          {
+            "pairs": [
+              {
+                "parameterId": "7d060f97-3004-4803-958c-5c96995a952e",
+                "property": "facility_id"
+              }
+            ],
+            "destinationPages": [
+              "f1183852-8444-41ea-b535-b1273429768b"
+            ],
+            "disabled": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "5bd5843a-4111-4ef9-955c-f3b1e9708312",
+      "title": "Unattributed plumes - rate t/h",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 27,
+        "width": 24,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "22dcb44c-2659-4738-ada8-752f7c23726f"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "331bb97d-d5b1-4b9e-8eb2-12c01d758c72",
+      "title": "Plumes and facilities",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "map",
+      "layout": {
+        "x": 12,
+        "y": 13,
+        "width": 12,
+        "height": 9
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b397161e-c81a-4ab6-af1a-1210e20bcd40"
+      },
+      "visualOptions": {
+        "map__latitudeColumn": "lat",
+        "map__longitudeColumn": "lon",
+        "map__labelColumn": "label",
+        "map__sizeColumn": "t_ch4_point_estimate",
+        "map__sizeDisabled": false,
+        "map__geoType": "numeric",
+        "map__geoPointColumn": null,
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "12022432-b479-4b01-9ccb-a57b66cfcc2d",
+      "title": "Daily observed methane - t CH₄",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "stackedcolumn",
+      "layout": {
+        "x": 0,
+        "y": 31,
+        "width": 12,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "214cec56-fc69-4fe2-a987-cb2269c6c3d4"
+      },
+      "visualOptions": {
+        "xColumn": "detection_day",
+        "yColumns": [
+          "t_ch4_point_estimate"
+        ],
+        "seriesColumns": [
+          "series"
+        ],
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "detection day (UTC)",
+        "yColumnTitle": "t CH₄",
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": [],
+        "seriesColors": {},
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        }
+      }
+    },
+    {
+      "id": "31cb5a9e-7aed-4c34-a195-b969530faaec",
+      "title": "Emission rate by plume - t/h (line: 25 t/h, Lauvaux et al. 2022)",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "scatter",
+      "layout": {
+        "x": 12,
+        "y": 31,
+        "width": 12,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "588e9816-a210-4d58-956a-0771e889f90a"
+      },
+      "visualOptions": {
+        "xColumn": "plume_rank",
+        "yColumns": [
+          "t_per_h"
+        ],
+        "seriesColumns": [
+          "series"
+        ],
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "plume rank (1 = largest point rate)",
+        "yColumnTitle": "t/h",
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": [],
+        "seriesColors": {},
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": [
+              {
+                "id": "1cf00aec-3569-4ba8-bc58-cb287f8039e4",
+                "value": 25
+              }
+            ]
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        }
+      }
+    },
+    {
+      "id": "2109ee11-22fa-4f31-86c2-912865606e63",
+      "title": "Facilities by observed methane",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 37,
+        "width": 13,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d5590bfa-ad45-413e-a577-74b887d9854f"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "e52d6c1c-cc7b-413c-affb-03e60e6982ad",
+      "title": "Risk points by component",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "stackedbar",
+      "layout": {
+        "x": 13,
+        "y": 37,
+        "width": 11,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "2cda5c58-2e16-420b-92f5-fb3c59250636"
+      },
+      "visualOptions": {
+        "xColumn": "facility",
+        "yColumns": [
+          "points"
+        ],
+        "seriesColumns": [
+          "series"
+        ],
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "facility (T09 rank order)",
+        "yColumnTitle": "index points",
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": [],
+        "seriesColors": {},
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        }
+      }
+    },
+    {
+      "id": "ab989ade-8175-47df-b731-7b19c9050426",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 3
+      },
+      "markdownText": "**One synthetic facility, chosen above or by clicking a facility in the detected-plumes table.** Everything on this page is synthetic except each plume's detection, rate, band and observed methane. See README.",
+      "visualOptions": {}
+    },
+    {
+      "id": "e0f3721c-b521-4d7d-ba3e-082f32f1b230",
+      "title": "Source freshness",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 16,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "1eaf9644-96ba-47c0-abb2-0c3915a441cb"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "c06634c6-4512-4dcb-9831-c3070df26d07",
+      "title": "Data consistency",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 16,
+        "y": 3,
+        "width": 8,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "a8a66b07-7f38-4d4b-8183-2c069214b70d"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": false,
+        "colorRules": [
+          {
+            "id": "c73607db-484a-40f1-9821-91dbb9d0b7e2",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "rows",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "gate",
+                "values": [
+                  "FAIL"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "red",
+            "tag": "",
+            "icon": null,
+            "ruleName": "gate == 'FAIL'",
+            "visualType": "table"
+          },
+          {
+            "id": "afcd2f1b-d8bc-4e1e-ba5c-7c5981dad991",
+            "ruleType": "colorByCondition",
+            "applyToColumn": null,
+            "hideText": false,
+            "applyTo": "rows",
+            "conditions": [
+              {
+                "operator": "==",
+                "column": "gate",
+                "values": [
+                  "PASS"
+                ]
+              }
+            ],
+            "chainingOperator": "and",
+            "colorStyle": "bold",
+            "color": "green",
+            "tag": "",
+            "icon": null,
+            "ruleName": "gate == 'PASS'",
+            "visualType": "table"
+          }
+        ],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "183b0469-d1d5-4617-88db-2d663e03bd23",
+      "title": "Facility",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 7,
+        "width": 24,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ae354ad6-02d7-4da6-a32a-362a4e0d264d"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "6a7188f0-e44d-4d7f-8b0b-3e219a4be136",
+      "title": "Plumes at this facility - rate t/h",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 22,
+        "width": 24,
+        "height": 5
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "c7fc38b8-0cef-4b5c-995f-92aa5c6244c1"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "6cfa46ac-616e-4a44-8476-17d8650aa6d9",
+      "title": "Alarms raised per day",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "column",
+      "layout": {
+        "x": 12,
+        "y": 14,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b68aa78c-eeeb-459f-86fa-1023bd4ad111"
+      },
+      "visualOptions": {
+        "xColumn": "snapshot_date",
+        "yColumns": [
+          "alarms_raised"
+        ],
+        "seriesColumns": [
+          "series"
+        ],
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "day (UTC)",
+        "yColumnTitle": "alarms",
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": [],
+        "seriesColors": {},
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        }
+      }
+    },
+    {
+      "id": "13514ab7-28ac-4fb9-ab11-53aab7fe2558",
+      "title": "Risk points by day",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "stackedcolumn",
+      "layout": {
+        "x": 0,
+        "y": 27,
+        "width": 24,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "c0b06218-dbb1-4143-9b0c-c3e2bdf547b0"
+      },
+      "visualOptions": {
+        "xColumn": "snapshot_date",
+        "yColumns": [
+          "points"
+        ],
+        "seriesColumns": [
+          "series"
+        ],
+        "hideLegend": false,
+        "legendLocation": "bottom",
+        "xColumnTitle": "day (UTC)",
+        "yColumnTitle": "index points",
+        "xAxisScale": "linear",
+        "verticalLine": "",
+        "crossFilterDisabled": true,
+        "drillthroughDisabled": true,
+        "crossFilter": [],
+        "drillthrough": [],
+        "seriesColors": {},
+        "multipleYAxes": {
+          "base": {
+            "id": "-1",
+            "label": "",
+            "columns": [],
+            "yAxisMaximumValue": null,
+            "yAxisMinimumValue": null,
+            "yAxisScale": "linear",
+            "horizontalLines": []
+          },
+          "additional": [],
+          "showMultiplePanels": false
+        }
+      }
+    },
+    {
+      "id": "f35d07bc-0ff8-4d9a-99c5-36f37128fd3c",
+      "title": "SCADA by measurand",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 33,
+        "width": 24,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "1acb811f-b6cd-41d5-ab8c-721d428f0dc7"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "3839693b-a31d-433a-ba00-a04f19a63e54",
+      "title": "",
+      "visualType": "markdownCard",
+      "pageId": "f6cac268-5a8e-4036-abda-7da1b2e0f880",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 24,
+        "height": 27
+      },
+      "markdownText": "# Green Sky — RTI board V2: how to read it\n\n## What is real and what is not\n- REAL: the satellite side of every plume — when it was seen, where its source pixel is, the methane in it\n  (IME), its emission rate and that rate's P5–P95 band, the ERA5 wind used.\n- SYNTHETIC: everything with a facility in it — the 150 facilities (topology_seed 20260915), which facility a\n  plume is attributed to, work orders, maintenance, LDAR, sensors, alarms, SCADA. The banner at the top of each\n  page says so, and the estate column in the tables marks which rows are real and which are synthetic.\n- Facility names are decorative: the town in a name is drawn independently of the coordinates. Read the\n  facility_id, never the name, and never read a name as a place.\n\n## Dates\n- Satellite detections run to 2026-09-15; the synthetic enterprise and SCADA data run to 2026-09-14.\n  Every tile on this board stops at 2026-09-14 so that the two never disagree. One plume (2026-09-15) is\n  therefore not shown; the freshness strip counts it.\n- The window selector defaults to 2026-08-16 → 2026-09-15 (end exclusive). Pick any part of it. Ranges past\n  2026-09-15 are capped. The freshness strip at the top of each page prints the date the page is \"as of\";\n  a tile with a different date (the consistency check, facility identity) prints its own.\n- \"As of end of <day>\" figures (open work orders, overdue maintenance, leaks outstanding, standing alarms,\n  risk points) are the state at midnight UTC ending that day. They are never added across days.\n- There is no \"now\". The pipelines are not scheduled; nothing on this board is live.\n\n## Reading the tiles\n- Titles are short on purpose. They do not repeat \"synthetic\": the banner at the top of each page and the\n  estate column in the tables mark what is real and what is synthetic.\n- Detected plumes, Unattributed plumes, Plumes at this facility: one row per plume, sorted by point rate,\n  each with that plume's own P5-P95 band. A facility_id in the detected-plumes table opens that facility's\n  page; unattributed plumes have no facility to open.\n- Observed plume methane, Daily observed methane, Facilities by observed methane: point estimates in t CH4.\n  The ranking's last two rows are the unattributed bucket and the catalog total; facilities plus\n  unattributed equal the total.\n- Emission rate by plume: three points per plume (point estimate, P5, P95), ranked by point rate. The\n  horizontal line is the 25 t/h ultra-emitter threshold of Lauvaux et al. 2022, for reference only.\n- Risk points by component, Risk points by day: the five components are stacked for reading. They are\n  never added up into a score.\n- Each page has a headline (a few large numbers to read first) and, below it, a compact table with the\n  rest. On the executive page that table holds the splits and the reconciliation (facilities plus\n  unattributed equal the catalog total). On the facility page it holds operations and compliance, which\n  are zero for most facilities.\n- A headline card that says \"none in window\" means there is nothing to count, not a measured zero.\n- Work orders, maintenance, leaks, sensors, alarms and open cases are the state at midnight UTC ending the\n  as-of day.\n- Financial impact (\"est.\" on the facility page) is a point estimate in USD for attributed plumes only,\n  social cost off. The lost-gas and fines rows are derived from the total.\n\n## Methane numbers\n- \"Observed plume methane\" (t CH4) is the methane in the plume at the moment of the overpass (the IME). It is\n  a floor on what was released, not an emission total, and not a daily or annual figure.\n- Emission rate (t/h) is a point estimate for one overpass, with the 5th–95th percentile of 500 Monte Carlo\n  draws for that plume. Totals are sums of point estimates; no total carries a band.\n- No severity tiers. The board sorts by rate. The one line on the distribution chart is the 25 t/h\n  \"ultra-emitter\" threshold of Lauvaux et al. 2022, for reference only. The catalog's median rate (~19.7 t/h)\n  sits close to that line, and detection density here runs well above independent inventories while known\n  striping artefacts are unresolved, so a high rate is a lead to check, not a confirmed super-emitter.\n- \"confidence\" on a plume (high / medium) is a points grade from wind alignment, uncertainty ratio and pixel\n  count. It is not a probability.\n- TROPOMI passes over the basin once a day, early afternoon local time (19:35–20:35 UTC in this window). A\n  plume is a snapshot at that instant; the board never turns a rate into a daily mass.\n\n## Attribution\n- Each plume is matched to the synthetic facilities within 50 km, weighted by distance and by how well the\n  facility sits upwind in the ERA5 wind. The number shown is the plume's share among those candidates, not a\n  probability that the facility is the source.\n- \"only candidate within 50 km\" means exactly one facility was in range; its share is 1 by construction and is\n  not shown as a number.\n- attribution_method: wind_aware (ERA5 wind used), distance_only (wind below 0.5 m/s, distance alone),\n  no_match (no facility within 50 km). Unattributed plumes are shown as their own bucket on every total,\n  and in their own detection table; clicking a facility in the attributed table opens its page.\n\n## Facility ranking and risk\n- Facilities are ranked on observed plume methane in the window, then on plume count. There is no single\n  risk score on this board.\n- The risk-points bars beside the ranking are context: emissions (real plumes, synthetic attribution),\n  compliance, condition, maintenance and open work, each shown separately and unitless. They are never\n  added up on this board.\n- \"Open compliance cases, all types\" counts every open case. The compliance risk points count something\n  else: violations in the last 30 days plus open state cases (venting, flaring). A facility can have open\n  cases and zero compliance points.\n- Financial impact is the lost-gas value of attributed plume methane at $2.75/mcf plus fines on notices of\n  violation, as a point estimate with no uncertainty band. Unattributed methane is not priced.\n\n## Data consistency\n- The satellite pipeline and the synthetic-enterprise pipeline run separately. The Data consistency tile\n  checks that the enterprise figures were built on the current plume attribution. When it says\n  INCONSISTENT, every figure that depends on attribution is withheld, and the tile names the run that\n  fixes it.\n\n## Not on this board, and why\n- Methane intensity, financial bands and composition, emission signatures, compliance severity, work-order\n  trails, LDAR repair performance, equipment-level risk: the serving layer does not hold the tables they need.\n- Equipment health index: not shown until its name and meaning are settled.\n\n## SCADA\n- Grouped by measurand (tag type + unit); values never mix measurands. The mean is weighted by good readings.\n  Coverage is hours with data ÷ hours in the window, over tags that reported at least once. Three facilities\n  have no SCADA data at all and say so.\n",
+      "visualOptions": {}
+    },
+    {
+      "id": "9af6237d-89b7-416d-b6ee-051ce58bd158",
+      "title": "Headline",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "multistat",
+      "layout": {
+        "x": 0,
+        "y": 7,
+        "width": 24,
+        "height": 6
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "e173484e-4f60-4403-b349-289c8cf3ef81"
+      },
+      "visualOptions": {
+        "multiStat__labelColumn": "label",
+        "multiStat__valueColumn": "value",
+        "multiStat__textSize": "auto",
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__slot": {
+          "width": 3,
+          "height": 2
+        },
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "512ee510-9a6f-4aa7-820d-9d62812b6d13",
+      "title": "Supporting figures and reconciliation",
+      "pageId": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 13,
+        "width": 12,
+        "height": 9
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "884b8a51-5bb6-4572-b686-2419dc4bf6f1"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "bafe3ebd-4d29-4afc-847c-eda43885cf81",
+      "title": "Headline",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "multistat",
+      "layout": {
+        "x": 0,
+        "y": 10,
+        "width": 24,
+        "height": 4
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "cc64cf5f-440c-4293-8bf9-c40b7d3397db"
+      },
+      "visualOptions": {
+        "multiStat__labelColumn": "label",
+        "multiStat__valueColumn": "value",
+        "multiStat__textSize": "auto",
+        "multiStat__displayOrientation": "horizontal",
+        "multiStat__slot": {
+          "width": 4,
+          "height": 1
+        },
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    },
+    {
+      "id": "6a432a32-8aea-4230-b1cf-a74838dea76a",
+      "title": "Operations and compliance",
+      "pageId": "f1183852-8444-41ea-b535-b1273429768b",
+      "visualType": "table",
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "75feb5d9-a14d-43fb-b9e1-5d185f77eb23"
+      },
+      "visualOptions": {
+        "table__enableRenderLinks": true,
+        "table__renderLinks": [],
+        "colorRulesDisabled": true,
+        "colorRules": [],
+        "crossFilterDisabled": true,
+        "crossFilter": [],
+        "drillthroughDisabled": true,
+        "drillthrough": []
+      }
+    }
+  ],
+  "parameters": [
+    {
+      "kind": "duration",
+      "id": "3ec4905e-dae3-4ca9-b804-97546dd8a7e8",
+      "displayName": "Window",
+      "description": "",
+      "beginVariableName": "_startTime",
+      "endVariableName": "_endTime",
+      "defaultValue": {
+        "kind": "fixed",
+        "start": 1786838400000,
+        "end": 1789430400000
+      },
+      "showOnPages": {
+        "kind": "selection",
+        "pageIds": [
+          "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa",
+          "f1183852-8444-41ea-b535-b1273429768b"
+        ]
+      }
+    },
+    {
+      "kind": "string",
+      "id": "7d060f97-3004-4803-958c-5c96995a952e",
+      "displayName": "Facility",
+      "description": "",
+      "variableName": "_facility_id",
+      "selectionType": "scalar",
+      "includeAllOption": false,
+      "defaultValue": {
+        "kind": "value",
+        "value": "GS-0091"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "facility_id",
+          "label": "facility_label"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "8fce9710-ce17-4e55-89b8-2b1068aa73fc"
+        },
+        "autoReset": false
+      },
+      "showOnPages": {
+        "kind": "selection",
+        "pageIds": [
+          "f1183852-8444-41ea-b535-b1273429768b"
+        ]
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "kind": "kusto-trident",
+      "name": "greensky_v2_rti",
+      "id": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e",
+      "clusterUri": "",
+      "databaseArtifactId": "de7dfd60-0593-4e7c-b654-07065f5a2d6c",
+      "database": "5f5a2d6c-0706-b654-4e7c-0593de7dfd60",
+      "workspace": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Executive Overview",
+      "id": "7e0210d4-29fb-4cf7-b9ec-dc8a963af3fa"
+    },
+    {
+      "name": "Facility Operations",
+      "id": "f1183852-8444-41ea-b535-b1273429768b"
+    },
+    {
+      "name": "README",
+      "id": "f6cac268-5a8e-4036-abda-7da1b2e0f880"
+    }
+  ],
+  "queries": [
+    {
+      "id": "96673fde-f9a8-4ff8-8dd5-01c6b66a72ce",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// B1 Base query `_snapshot_consistency` · release gate G1 as one row · as-of: common window [2026-08-16, 2026-09-15), literal (the snapshot's vintage is global, not windowed)\n// Compares every plume facility-day in the snapshot with the catalog's current attribution: same plume count, same kg (to 0.01 kg).\n// consistent = true only when every facility-day matches. Referenced by T12 and by every gated tile.\nexternal_table('gold_plume_catalog')\n| where detection_date >= datetime(2026-08-16) and detection_date < datetime(2026-09-15) and isnotempty(attributed_facility_id)\n| summarize cat_n = count(), cat_kg = sum(ime_kg) by facility_id = attributed_facility_id, day = startofday(detection_date)\n| join kind=fullouter (\n    external_table('fact_facility_daily_snapshot')\n    | where snapshot_date >= datetime(2026-08-16) and snapshot_date < datetime(2026-09-15) and (active_plumes > 0 or total_emissions_kg > 0)\n    | project facility_id, day = snapshot_date, snap_n = active_plumes, snap_kg = total_emissions_kg) on facility_id, day\n| summarize facility_days = count(),\n            matched       = countif(isnotnull(cat_n) and isnotnull(snap_n) and cat_n == snap_n and abs(cat_kg - snap_kg) <= 0.01),\n            catalog_only  = countif(isnull(snap_n)),\n            snapshot_only = countif(isnull(cat_n))\n| extend values_differ = facility_days - matched - catalog_only - snapshot_only\n| extend consistent = (facility_days == matched)",
+      "usedVariables": []
+    },
+    {
+      "id": "8fce9710-ce17-4e55-89b8-2b1068aa73fc",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// P1 Facility parameter source · value = facility_id, label = \"facility_id · facility_name\" (Decision B: id beside name) · as-of: topology 2026-09-15 · SYNTHETIC ESTATE\nexternal_table('dim_facility')\n| project facility_id, facility_label = strcat(facility_id, \" · \", facility_name)\n| order by facility_id asc",
+      "usedVariables": []
+    },
+    {
+      "id": "d0c34931-5adb-4eb0-a433-435bc920c5d6",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T01 Source freshness · spec \"Also settle: Freshness\" + R1d · as-of: each source's own max; board end = window end capped at H_ent (last day 2026-09-14)\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet board   = strcat(\"[\", format_datetime(W_start, \"yyyy-MM-dd\"), \", \", format_datetime(W_end, \"yyyy-MM-dd\"), \")\");\nlet cat = external_table('gold_plume_catalog');\nunion\n (cat | summarize t0 = min(detection_date), t1 = max(detection_date), n = count(),\n                  h0 = min(detection_date - startofday(detection_date)), h1 = max(detection_date - startofday(detection_date)),\n                  after = countif(detection_date >= W_end)\n      | project ord = 1, source = \"TROPOMI CH4 plumes (gold_plume_catalog.detection_date)\", estate = \"real\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd HH:mm:ss\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd\"), \" → \", format_datetime(t1, \"yyyy-MM-dd\"), \" · \", n, \" plumes · overpasses \",\n                                  format_timespan(h0, \"HH:mm\"), \"–\", format_timespan(h1, \"HH:mm\"), \" UTC\"),\n                note = strcat(\"detection_date = first pixel row of the cluster (overpass time). \", after, \" plume(s) after the board end are not shown; no run timestamp is stored.\")),\n (cat | summarize n = count(), w = countif(isnotnull(era5_u10) and isnotnull(era5_v10)), fb = countif(t_mix_method != \"wind_dependent\")\n      | project ord = 2, source = \"ERA5 10 m wind (gold_plume_catalog.era5_u10/v10)\", estate = \"real\",\n                as_of_utc = \"matched per plume; not stored\",\n                coverage = strcat(w, \" of \", n, \" plumes carry ERA5 u/v; \", fb, \" fell back to the fixed 48 h mixing time\"),\n                note = \"Per pixel: nearest ERA5 hour and grid point (03_join_data:421-453). ERA5 comes from a manually downloaded extract that must cover the window (02b:142-180); its file and latency are not in the serving layer.\"),\n (external_table('fact_facility_daily_snapshot') | summarize t0 = min(snapshot_date), t1 = max(snapshot_date), d = count_distinct(snapshot_date), f = count_distinct(facility_id)\n      | project ord = 3, source = \"Enterprise daily snapshot (fact_facility_daily_snapshot.snapshot_date)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd\"), \" → \", format_datetime(t1, \"yyyy-MM-dd\"), \" · \", d, \" days × \", f, \" facilities\"),\n                note = \"Stocks read at end of the anchor day. Plume-derived columns predate the 05 wind fix and are not shown (see README).\"),\n (external_table('scada_telemetry_hourly') | summarize t0 = min(bucket_ts), t1 = max(bucket_ts), f = count_distinct(facility_sk)\n      | project ord = 4, source = \"SCADA hourly (scada_telemetry_hourly.bucket_ts)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd HH:mm\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd HH:mm\"), \" → \", format_datetime(t1, \"yyyy-MM-dd HH:mm\"), \" · \", f, \" of 150 facilities have rows\"),\n                note = \"An hour with no readings has no row (02c:68-72).\"),\n (external_table('dim_facility') | summarize e = max(effective_from), n = count(), cur = countif(is_current), seed = max(topology_seed)\n      | project ord = 5, source = \"Facility topology (dim_facility.effective_from)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(e, \"yyyy-MM-dd\"),\n                coverage = strcat(n, \" facilities, \", cur, \" current · topology_seed \", seed),\n                note = \"Invented estate. Facility names are decorative: the town is drawn independently of the coordinates (01a:125).\"),\n (print ord = 6, source = \"THIS BOARD\", estate = \"—\",\n        as_of_utc = format_datetime(W_end - 1d, \"yyyy-MM-dd\"),\n        coverage = strcat(\"window \", board, \" UTC, capped at H_ent 2026-09-15 (exclusive)\"),\n        note = \"Detection runs one day past enterprise/SCADA; every page reads both, so every tile ends at the earlier horizon (R1b).\")\n| order by ord asc\n| project-away ord",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "e0fb36ea-ce97-4534-9e50-2f3c4920a3d4",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T12 Data consistency · release gate G1 (spec Q12; design §11 option 1) · as-of: common window [2026-08-16, 2026-09-15) · SYNTHETIC ESTATE (snapshot side)\n// On both pages, beside freshness. Reads the base query _snapshot_consistency.\n_snapshot_consistency\n| project gate = iff(consistent, \"PASS\", \"FAIL\"),   // conditional-formatting key\n          status = iff(consistent,\n                       \"CONSISTENT: enterprise data is built on the current attribution\",\n                       \"INCONSISTENT: enterprise data predates the current attribution; dependent figures are withheld\"),\n          plume_facility_days_checked = facility_days, matched, catalog_only, snapshot_only, values_differ,\n          checked = \"plume facility-days, catalog vs fact_facility_daily_snapshot, 2026-08-16 → 2026-09-14\",\n          action = iff(consistent, \"none\",\n                       \"run greensky_enterprise with run_mode=backfill and pipeline_date EMPTY (not 2026-09-15)\")",
+      "usedVariables": [
+        "_snapshot_consistency"
+      ]
+    },
+    {
+      "id": "5a037798-db69-40b4-88e2-92b0ff9783be",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T11a Detection table, attributed plumes · measures F3, F4 (portfolio rows), E5; Decisions A and B · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE (attribution columns)\n// Sorted by point rate. No severity tier. Drill-through ON: facility_id → Facility Operations (_facility_id). Unattributed plumes are in T11b.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nexternal_table('gold_plume_catalog')\n| where detection_date >= W_start and detection_date < W_end\n| where attribution_method != \"no_match\"\n| join kind=leftouter (external_table('dim_facility') | project attributed_facility_id = facility_id, dim_name = facility_name) on attributed_facility_id\n| order by emission_rate_kg_h desc, plume_id asc\n| project detection_utc = format_datetime(detection_date, \"yyyy-MM-dd HH:mm\"),\n          plume_id,\n          rate_t_h = round(emission_rate_kg_h / 1000.0, 1),       // kg/h → t/h, point estimate\n          p5_t_h   = round(emission_rate_p5_kg_h / 1000.0, 1),\n          p95_t_h  = round(emission_rate_p95_kg_h / 1000.0, 1),\n          ime_t    = round(ime_kg / 1000.0, 1),                   // kg → t\n          t_mix_method,\n          confidence_grade = confidence,\n          facility_id = attributed_facility_id,\n          facility_name_decorative = dim_name,\n          attribution = case(facilities_in_range == 1, \"only candidate within 50 km\",\n                             attribution_probability >= 0.995, strcat(\"> 0.99 share of \", facilities_in_range, \" candidates\"),\n                             strcat(tostring(round(attribution_probability, 2)), \" share of \", facilities_in_range, \" candidates\")),\n          facilities_in_range,\n          distance_km = round(attribution_distance_km, 1),\n          attribution_method,\n          estate = \"real plume · synthetic facility\"\n| extend as_of = strcat(\"as of \", format_datetime(W_end - 1d, \"yyyy-MM-dd\"))",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "22dcb44c-2659-4738-ada8-752f7c23726f",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T11b Detection table, unattributed plumes · measures F3 (portfolio rows), R3 bucket; Decision A · as-of: last day of window, capped at H_ent (2026-09-14) · real (no facility)\n// Drill-through OFF on this visual: there is no facility to drill to. RTI drill-through is set per visual, not per row.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nexternal_table('gold_plume_catalog')\n| where detection_date >= W_start and detection_date < W_end\n| where attribution_method == \"no_match\"\n| order by emission_rate_kg_h desc, plume_id asc\n| project detection_utc = format_datetime(detection_date, \"yyyy-MM-dd HH:mm\"),\n          plume_id,\n          rate_t_h = round(emission_rate_kg_h / 1000.0, 1),       // kg/h → t/h, point estimate\n          p5_t_h   = round(emission_rate_p5_kg_h / 1000.0, 1),\n          p95_t_h  = round(emission_rate_p95_kg_h / 1000.0, 1),\n          ime_t    = round(ime_kg / 1000.0, 1),                   // kg → t\n          t_mix_method,\n          confidence_grade = confidence,\n          source_lat = round(source_lat, 3), source_lon = round(source_lon, 3),\n          attribution = \"no facility within 50 km\",\n          attribution_method,\n          estate = \"real plume\"\n| extend as_of = strcat(\"as of \", format_datetime(W_end - 1d, \"yyyy-MM-dd\"))",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "b397161e-c81a-4ab6-af1a-1210e20bcd40",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T07 Plume and facility map · measure E14 (+ R3d) · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\n// Facilities at dim_facility coordinates sized by E3 (catalog ime_kg); unattributed plumes at their own source_lat/lon.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet as_of   = strcat(\"as of \", format_datetime(W_end - 1d, \"yyyy-MM-dd\"));\nlet p = external_table('gold_plume_catalog') | where detection_date >= W_start and detection_date < W_end;\nlet dimf = external_table('dim_facility') | project facility_id, facility_name, facility_lat, facility_lon;\nunion\n (p | where isnotempty(attributed_facility_id)\n    | summarize plumes = count(), kg = sum(ime_kg) by facility_id = attributed_facility_id\n    | join kind=inner dimf on facility_id\n    | project lat = facility_lat, lon = facility_lon, marker = \"synthetic facility · attributed plume(s)\",\n              label = strcat(facility_id, \" · \", facility_name), plumes, t_ch4_point_estimate = round(kg / 1000.0, 1)),   // kg → t\n (dimf\n    | join kind=leftanti (p | where isnotempty(attributed_facility_id) | project facility_id = attributed_facility_id) on facility_id\n    | project lat = facility_lat, lon = facility_lon, marker = \"synthetic facility · no detection in window\",\n              label = strcat(facility_id, \" · \", facility_name), plumes = 0, t_ch4_point_estimate = 0.0),\n (p | where attribution_method == \"no_match\"\n    | project lat = source_lat, lon = source_lon, marker = \"unattributed plume (real; no facility within 50 km)\",\n              label = plume_id, plumes = 1, t_ch4_point_estimate = round(ime_kg / 1000.0, 1))\n| extend as_of\n| order by marker asc, label asc   // deterministic row order (union order is not guaranteed)",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "214cec56-fc69-4fe2-a987-cb2269c6c3d4",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T06 Daily observed methane · measure E13 (+ R3 bucket) · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE (attribution split)\n// Both series from the catalog (ime_kg by UTC detection day). Σ of all bars = T03 catalog total.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nexternal_table('gold_plume_catalog')\n| where detection_date >= W_start and detection_date < W_end\n| extend series = iff(attribution_method == \"no_match\", \"unattributed (no facility within 50 km)\", \"attributed (synthetic attribution)\")\n| summarize t_ch4_point_estimate = sum(ime_kg) / 1000.0 by detection_day = startofday(detection_date), series   // kg → t\n| order by detection_day asc, series asc",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "588e9816-a210-4d58-956a-0771e889f90a",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T05 Emission rate distribution · measures E4/E5 context, Decision A (no banding) · as-of: last day of window, capped at H_ent (2026-09-14) · real (no facility)\n// Visual: Scatter chart (x = plume_rank). The 25 t/h line is the visual's native Y-axis \"Reference lines\" setting, not a data series:\n// documented for Scatter, not for Line chart (learn.microsoft.com/fabric/real-time-intelligence/dashboard-visuals-customize). Decision A.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet ranked = external_table('gold_plume_catalog')\n    | where detection_date >= W_start and detection_date < W_end\n    | order by emission_rate_kg_h desc, plume_id asc\n    | extend plume_rank = row_number();\nunion\n (ranked | project plume_rank, series = \"point estimate\", t_per_h = emission_rate_kg_h / 1000.0),     // kg/h → t/h\n (ranked | project plume_rank, series = \"P5 of that plume\", t_per_h = emission_rate_p5_kg_h / 1000.0),\n (ranked | project plume_rank, series = \"P95 of that plume\", t_per_h = emission_rate_p95_kg_h / 1000.0)\n| order by series asc, plume_rank asc",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "d5590bfa-ad45-413e-a577-74b887d9854f",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T09 Facility ranking by observed methane · measures E3 + F1 per facility, E12; Decision C (rank on methane, never risk_score) · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\n// Rank: E3 in window desc, then plume count desc, then facility_id (deterministic tie-break, not a score).\n// Source: catalog (current attribution). R3: Σ facility rows + UNATTRIBUTED row = CATALOG TOTAL row.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet as_of   = strcat(\"as of \", format_datetime(W_end - 1d, \"yyyy-MM-dd\"));\nlet p = external_table('gold_plume_catalog') | where detection_date >= W_start and detection_date < W_end;\nlet ranked = p\n    | where isnotempty(attributed_facility_id)\n    | summarize plumes = count(), kg = sum(ime_kg), max_kg_h = max(emission_rate_kg_h) by facility_id = attributed_facility_id\n    | join kind=inner (external_table('dim_facility') | project facility_id, facility_name, sub_basin) on facility_id\n    | order by kg desc, plumes desc, facility_id asc\n    | extend rank = row_number();\nunion\n (ranked | project ord = 1, rank_n = rank, rank = tostring(rank), facility_id, facility_name_decorative = facility_name, sub_basin, plumes,\n                   t_ch4_point_estimate = round(kg / 1000.0, 1),          // kg → t\n                   largest_point_rate_t_h = round(max_kg_h / 1000.0, 1)), // kg/h → t/h\n (p | where attribution_method == \"no_match\"\n    | summarize plumes = count(), kg = sum(ime_kg), max_kg_h = max(emission_rate_kg_h)\n    | project ord = 2, rank_n = 0, rank = \"—\", facility_id = \"UNATTRIBUTED\", facility_name_decorative = \"no facility within 50 km\", sub_basin = \"\",\n              plumes, t_ch4_point_estimate = round(kg / 1000.0, 1), largest_point_rate_t_h = round(max_kg_h / 1000.0, 1)),\n (p | summarize plumes = count(), kg = sum(ime_kg), max_kg_h = max(emission_rate_kg_h)\n    | project ord = 3, rank_n = 0, rank = \"Σ\", facility_id = \"CATALOG TOTAL\", facility_name_decorative = \"check: = Σ facilities + unattributed\", sub_basin = \"\",\n              plumes, t_ch4_point_estimate = round(kg / 1000.0, 1), largest_point_rate_t_h = round(max_kg_h / 1000.0, 1))\n| extend estate = iff(ord == 1, \"synthetic facility\", \"real plumes\"), as_of\n| order by ord asc, rank_n asc\n| project-away ord, rank_n",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "2cda5c58-2e16-420b-92f5-fb3c59250636",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T10 Risk points beside the rank · Decision C context (risk_pts_* stocks) · as-of: anchor day = last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\n// Same facilities and order as T09. Emissions points come from real plumes through the synthetic attribution; the other four are synthetic.\n// All five components, each separately; emissions and compliance released 2026-10-15 after the enterprise backfill. No sum, no risk_score.\n// GATED on G1: emissions, compliance, maintenance and open work depend on attribution (directly, or through 03c → 03b → 03d).\n// While G1 fails only condition is drawn, and its series label says the other four are withheld.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet anchor  = W_end - 1d;\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: enterprise data predates the current attribution (see Data consistency)\";\nlet ranked = external_table('gold_plume_catalog')\n    | where detection_date >= W_start and detection_date < W_end and isnotempty(attributed_facility_id)\n    | summarize plumes = count(), kg = sum(ime_kg) by facility_id = attributed_facility_id\n    | order by kg desc, plumes desc, facility_id asc\n    | extend rank = row_number();\nexternal_table('fact_facility_daily_snapshot')\n| where snapshot_date == anchor\n| join kind=inner ranked on facility_id\n| extend facility = strcat(\"#\", iff(rank < 10, \"0\", \"\"), rank, \" · \", facility_id)\n| mv-expand component = dynamic([\"emissions (real plumes via synthetic attribution, max 25)\", \"compliance: violations in 30 days + open state cases (synthetic, max 20)\",\n                                 \"condition (synthetic, max 30)\", \"maintenance (synthetic, max 15)\", \"open work (synthetic, max 10)\"]) to typeof(string)\n| extend points = case(component startswith \"emissions\",   risk_pts_emissions,\n                       component startswith \"compliance\",  risk_pts_compliance,\n                       component startswith \"condition\",   risk_pts_condition,\n                       component startswith \"maintenance\", risk_pts_maintenance,\n                       risk_pts_open_work)\n| where ok or component startswith \"condition\"\n| project rank, facility, series = strcat(component,\n                                          iff(ok, \"\", \" · emissions, compliance, maintenance and open work \" ), iff(ok, \"\", withheld)), points\n| order by rank asc, series asc",
+      "usedVariables": [
+        "_endTime",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "1eaf9644-96ba-47c0-abb2-0c3915a441cb",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T01 Source freshness · spec \"Also settle: Freshness\" + R1d · as-of: each source's own max; board end = window end capped at H_ent (last day 2026-09-14)\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet board   = strcat(\"[\", format_datetime(W_start, \"yyyy-MM-dd\"), \", \", format_datetime(W_end, \"yyyy-MM-dd\"), \")\");\nlet cat = external_table('gold_plume_catalog');\nunion\n (cat | summarize t0 = min(detection_date), t1 = max(detection_date), n = count(),\n                  h0 = min(detection_date - startofday(detection_date)), h1 = max(detection_date - startofday(detection_date)),\n                  after = countif(detection_date >= W_end)\n      | project ord = 1, source = \"TROPOMI CH4 plumes (gold_plume_catalog.detection_date)\", estate = \"real\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd HH:mm:ss\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd\"), \" → \", format_datetime(t1, \"yyyy-MM-dd\"), \" · \", n, \" plumes · overpasses \",\n                                  format_timespan(h0, \"HH:mm\"), \"–\", format_timespan(h1, \"HH:mm\"), \" UTC\"),\n                note = strcat(\"detection_date = first pixel row of the cluster (overpass time). \", after, \" plume(s) after the board end are not shown; no run timestamp is stored.\")),\n (cat | summarize n = count(), w = countif(isnotnull(era5_u10) and isnotnull(era5_v10)), fb = countif(t_mix_method != \"wind_dependent\")\n      | project ord = 2, source = \"ERA5 10 m wind (gold_plume_catalog.era5_u10/v10)\", estate = \"real\",\n                as_of_utc = \"matched per plume; not stored\",\n                coverage = strcat(w, \" of \", n, \" plumes carry ERA5 u/v; \", fb, \" fell back to the fixed 48 h mixing time\"),\n                note = \"Per pixel: nearest ERA5 hour and grid point (03_join_data:421-453). ERA5 comes from a manually downloaded extract that must cover the window (02b:142-180); its file and latency are not in the serving layer.\"),\n (external_table('fact_facility_daily_snapshot') | summarize t0 = min(snapshot_date), t1 = max(snapshot_date), d = count_distinct(snapshot_date), f = count_distinct(facility_id)\n      | project ord = 3, source = \"Enterprise daily snapshot (fact_facility_daily_snapshot.snapshot_date)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd\"), \" → \", format_datetime(t1, \"yyyy-MM-dd\"), \" · \", d, \" days × \", f, \" facilities\"),\n                note = \"Stocks read at end of the anchor day. Plume-derived columns predate the 05 wind fix and are not shown (see README).\"),\n (external_table('scada_telemetry_hourly') | summarize t0 = min(bucket_ts), t1 = max(bucket_ts), f = count_distinct(facility_sk)\n      | project ord = 4, source = \"SCADA hourly (scada_telemetry_hourly.bucket_ts)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(t1, \"yyyy-MM-dd HH:mm\"),\n                coverage = strcat(format_datetime(t0, \"yyyy-MM-dd HH:mm\"), \" → \", format_datetime(t1, \"yyyy-MM-dd HH:mm\"), \" · \", f, \" of 150 facilities have rows\"),\n                note = \"An hour with no readings has no row (02c:68-72).\"),\n (external_table('dim_facility') | summarize e = max(effective_from), n = count(), cur = countif(is_current), seed = max(topology_seed)\n      | project ord = 5, source = \"Facility topology (dim_facility.effective_from)\", estate = \"synthetic\",\n                as_of_utc = format_datetime(e, \"yyyy-MM-dd\"),\n                coverage = strcat(n, \" facilities, \", cur, \" current · topology_seed \", seed),\n                note = \"Invented estate. Facility names are decorative: the town is drawn independently of the coordinates (01a:125).\"),\n (print ord = 6, source = \"THIS BOARD\", estate = \"—\",\n        as_of_utc = format_datetime(W_end - 1d, \"yyyy-MM-dd\"),\n        coverage = strcat(\"window \", board, \" UTC, capped at H_ent 2026-09-15 (exclusive)\"),\n        note = \"Detection runs one day past enterprise/SCADA; every page reads both, so every tile ends at the earlier horizon (R1b).\")\n| order by ord asc\n| project-away ord",
+      "usedVariables": [
+        "_endTime",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "a8a66b07-7f38-4d4b-8183-2c069214b70d",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T12 Data consistency · release gate G1 (spec Q12; design §11 option 1) · as-of: common window [2026-08-16, 2026-09-15) · SYNTHETIC ESTATE (snapshot side)\n// On both pages, beside freshness. Reads the base query _snapshot_consistency.\n_snapshot_consistency\n| project gate = iff(consistent, \"PASS\", \"FAIL\"),   // conditional-formatting key\n          status = iff(consistent,\n                       \"CONSISTENT: enterprise data is built on the current attribution\",\n                       \"INCONSISTENT: enterprise data predates the current attribution; dependent figures are withheld\"),\n          plume_facility_days_checked = facility_days, matched, catalog_only, snapshot_only, values_differ,\n          checked = \"plume facility-days, catalog vs fact_facility_daily_snapshot, 2026-08-16 → 2026-09-14\",\n          action = iff(consistent, \"none\",\n                       \"run greensky_enterprise with run_mode=backfill and pipeline_date EMPTY (not 2026-09-15)\")",
+      "usedVariables": [
+        "_snapshot_consistency"
+      ]
+    },
+    {
+      "id": "ae354ad6-02d7-4da6-a32a-362a4e0d264d",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T20 Facility identity line · dim_facility attributes for _facility_id · as-of: topology 2026-09-15 (printed on T01's dim_facility row) · Table, one row\n// One line above the headline. The decorative-name note lives in the README, not here.\nexternal_table('dim_facility')\n| where facility_id == _facility_id\n| project facility = strcat(facility_id, \" · \", facility_name, \" · \", facility_type, \" · \", operator_name, \" · \", sub_basin, \" · \",\n                            round(facility_lat, 4), \", \", round(facility_lon, 4), \" · commissioned \", format_datetime(commission_date, \"yyyy-MM-dd\"),\n                            iff(active_flag, \"\", \" · inactive\"), \" · synthetic\")",
+      "usedVariables": [
+        "_facility_id"
+      ]
+    },
+    {
+      "id": "c7fc38b8-0cef-4b5c-995f-92aa5c6244c1",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T22 Plumes at the facility, with attribution evidence · measures F3, F4; Decisions A and B · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet as_of   = strcat(\"as of \", format_datetime(W_end - 1d, \"yyyy-MM-dd\"));\nlet p = external_table('gold_plume_catalog')\n    | where detection_date >= W_start and detection_date < W_end and attributed_facility_id == _facility_id;\nlet n = toscalar(p | summarize count());\nunion\n (p | order by emission_rate_kg_h desc, plume_id asc\n    | project detection_utc = format_datetime(detection_date, \"yyyy-MM-dd HH:mm\"),\n              plume_id,\n              rate_t_h = round(emission_rate_kg_h / 1000.0, 1),       // kg/h → t/h, point estimate\n              p5_t_h   = round(emission_rate_p5_kg_h / 1000.0, 1),\n              p95_t_h  = round(emission_rate_p95_kg_h / 1000.0, 1),\n              ime_t    = round(ime_kg / 1000.0, 1),                   // kg → t\n              t_mix_method,\n              confidence_grade = confidence,\n              attribution = case(facilities_in_range == 1, \"only candidate within 50 km\",\n                                 attribution_probability >= 0.995, strcat(\"> 0.99 share of \", facilities_in_range, \" candidates\"),\n                                 strcat(tostring(round(attribution_probability, 2)), \" share of \", facilities_in_range, \" candidates\")),\n              facilities_in_range,\n              distance_km = round(attribution_distance_km, 1),\n              angular_offset_deg = round(attribution_angular_offset_deg, 0),\n              attribution_method,\n              runner_up = iff(isempty(second_facility_id), \"none (single candidate)\",\n                              strcat(second_facility_id, \" · \", tostring(round(second_facility_probability, 2)), \" share\"))),\n (print detection_utc = \"\", plume_id = strcat(\"no plume attributed to \", _facility_id, \" in window\") | where n == 0)\n| extend estate = \"real plume · synthetic facility\", as_of",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "b68aa78c-eeeb-459f-86fa-1023bd4ad111",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T24 Alarms raised per day · measure F9 (flow) · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\n// The snapshot writes a row for every facility-day, so a 0 here is a computed zero, not a gap (R2).\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet s = external_table('fact_facility_daily_snapshot')\n    | where facility_id == _facility_id and snapshot_date >= W_start and snapshot_date < W_end;\nlet total = toscalar(s | summarize sum(alarms_raised));\ns\n| project snapshot_date, alarms_raised,\n          series = strcat(\"alarms raised at \", _facility_id, \" (window total \", total, \")\")\n| order by snapshot_date asc",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "c0b06218-dbb1-4143-9b0c-c3e2bdf547b0",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T25 Risk points by day at the facility · Decision C context (risk_pts_* stocks, each day read on its own day) · as-of: last day of window, capped at H_ent (2026-09-14) · SYNTHETIC ESTATE\n// All five components shown separately; emissions and compliance released 2026-10-15 after the enterprise backfill. No sum, no risk_score.\n// GATED on G1: emissions, compliance, maintenance and open work are drawn only when G1 passes; otherwise the condition label says they are withheld.\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: enterprise data predates the current attribution (see Data consistency)\";\nexternal_table('fact_facility_daily_snapshot')\n| where facility_id == _facility_id and snapshot_date >= W_start and snapshot_date < W_end\n| mv-expand component = dynamic([\"emissions (real plumes via synthetic attribution, max 25)\", \"compliance: violations in 30 days + open state cases (synthetic, max 20)\",\n                                 \"condition (synthetic, max 30)\", \"maintenance (synthetic, max 15)\", \"open work (synthetic, max 10)\"]) to typeof(string)\n| extend points = case(component startswith \"emissions\",   risk_pts_emissions,\n                       component startswith \"compliance\",  risk_pts_compliance,\n                       component startswith \"condition\",   risk_pts_condition,\n                       component startswith \"maintenance\", risk_pts_maintenance,\n                       risk_pts_open_work)\n| where ok or component startswith \"condition\"\n| project snapshot_date, series = strcat(component,\n                                         iff(ok, \"\", \" · emissions, compliance, maintenance and open work \"), iff(ok, \"\", withheld)), points\n| order by snapshot_date asc, series asc",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "1acb811f-b6cd-41d5-ab8c-721d428f0dc7",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T26 SCADA by measurand at the facility · measures F13 (re-weighted), F14, F15, R2d coverage · as-of: last bucket_ts in window, capped at H_ent (2026-09-14 23:00) · SYNTHETIC ESTATE\n// Measurand = tag prefix + uom (R5d). Values never cross measurands. Ratios are ratios of sums (R2d).\n// 1e6 is 02c's fixed-point scale on value_sum_e6 (spec F13). Mean not shown for uom \"state\" (a state code, not a quantity).\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet hours_in_window = datetime_diff(\"hour\", W_end, W_start);\nlet fsk = toscalar(external_table('dim_facility') | where facility_id == _facility_id | project facility_sk);\nlet h = external_table('scada_telemetry_hourly')\n    | where facility_sk == fsk and bucket_ts >= W_start and bucket_ts < W_end\n    | extend measurand = strcat(extract(@\"\\.([A-Z]+)-[0-9]+$\", 1, tag_id), \" · \", uom);\nlet n = toscalar(h | summarize count());\nunion\n (h | summarize tags = count_distinct(tag_id), tag_hours = count(),\n                 samples = sum(sample_count), expected = sum(expected_count), good = sum(good_count), running = sum(n_running),\n                 sum_e6 = sum(value_sum_e6), vmin = min(value_min), vmax = max(value_max), last_hour = max(bucket_ts)\n              by measurand, uom\n    | project measurand, tags,\n              coverage_pct      = round(100.0 * tag_hours / (tags * hours_in_window), 1),   // share → %\n              completeness_pct  = round(100.0 * samples / expected, 1),\n              good_share_pct    = round(100.0 * good / samples, 1),\n              running_share_pct = round(100.0 * running / samples, 1),\n              mean_of_good_readings = iff(uom == \"state\", real(null), round(todouble(sum_e6) / good / 1e6, 3)),\n              min_reading = vmin, max_reading = vmax, unit = uom,\n              last_hour_utc = format_datetime(last_hour, \"yyyy-MM-dd HH:mm\")),\n (print measurand = strcat(\"no SCADA data for \", _facility_id, \" in window\") | where n == 0)\n| extend facility_id = _facility_id, estate = \"synthetic\"\n| order by measurand asc",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "e173484e-4f60-4403-b349-289c8cf3ef81",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T30 Headline · E1, E3 (attributed), E4, E6, E8 (total), E7 · as-of: page default (printed on T01) · Multi Stat, 6 cards (grid 3 × 2)\n// The six numbers to read first. Their splits and the R3 reconciliation are in T31, directly below.\n// GATED on G1: E6, E8, E7 (enterprise figures built on the attribution).\n// fmt(v, dp): the exact value as text with thousands separators, so nothing is abbreviated (R5f). Precision must be a literal.\nlet fmt = (v:real, dp:int) {\n    let r  = round(v, dp);\n    let s  = tostring(r);\n    let ip = tostring(split(s, \".\")[0]);\n    let fp = iff(array_length(split(s, \".\")) > 1, tostring(split(s, \".\")[1]), \"\");\n    let L  = strlen(ip);\n    let g  = case(L > 9, strcat(substring(ip, 0, L - 9), \",\", substring(ip, L - 9, 3), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 6, strcat(substring(ip, 0, L - 6), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 3, strcat(substring(ip, 0, L - 3), \",\", substring(ip, L - 3, 3)),\n                  ip);\n    iff(dp <= 0, g, strcat(g, \".\", substring(strcat(fp, \"0000000000\"), 0, dp)))\n};\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet anchor  = W_end - 1d;                                            // stocks: end of the window's last day (R1c)\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: see Data consistency\";\nlet p = external_table('gold_plume_catalog') | where detection_date >= W_start and detection_date < W_end;\nlet s = external_table('fact_facility_daily_snapshot') | where snapshot_date >= W_start and snapshot_date < W_end;\nlet a = s | where snapshot_date == anchor;\nunion\n (p | summarize n = count() | project ord = 1, label = \"Plumes detected\", value = tostring(n)),\n (p | where isnotempty(attributed_facility_id) | summarize kg = sum(ime_kg)\n    | project ord = 2, label = \"Plume methane at facilities, t CH₄\", value = fmt(kg / 1000.0, 1)),            // kg → t\n (p | summarize m = percentile(emission_rate_kg_h, 50)\n    | project ord = 3, label = \"Median detected rate, t/h\", value = fmt(m / 1000.0, 1)),                                 // kg/h → t/h\n (s | summarize v = sum(daily_financial_impact)\n    | project ord = 4, label = \"Financial impact (point estimate), USD\", value = iff(ok, fmt(v, 2), withheld)),\n (a | summarize v = sum(open_tickets + stalled_backlog)\n    | project ord = 5, label = \"Open work orders, total\", value = iff(ok, tostring(v), withheld)),\n (s | summarize v = sum(compliance_violations)\n    | project ord = 6, label = \"Notices of violation\", value = iff(ok, tostring(v), withheld))\n| order by ord asc\n| project label, value",
+      "usedVariables": [
+        "_endTime",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "884b8a51-5bb6-4572-b686-2419dc4bf6f1",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T31 Supporting figures and reconciliation · E2, E3 (+R3b), E5, E6 split, E8 split, E9, E10, E11, E12 · as-of: page default (printed on T01) · Table\n// Proof, not headline: the splits behind T30 and the R3 reconciliation (facilities + unattributed = catalog total).\n// GATED on G1: the financial, backlog and compliance rows.\n// fmt(v, dp): the exact value as text with thousands separators, so nothing is abbreviated (R5f). Precision must be a literal.\nlet fmt = (v:real, dp:int) {\n    let r  = round(v, dp);\n    let s  = tostring(r);\n    let ip = tostring(split(s, \".\")[0]);\n    let fp = iff(array_length(split(s, \".\")) > 1, tostring(split(s, \".\")[1]), \"\");\n    let L  = strlen(ip);\n    let g  = case(L > 9, strcat(substring(ip, 0, L - 9), \",\", substring(ip, L - 9, 3), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 6, strcat(substring(ip, 0, L - 6), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 3, strcat(substring(ip, 0, L - 3), \",\", substring(ip, L - 3, 3)),\n                  ip);\n    iff(dp <= 0, g, strcat(g, \".\", substring(strcat(fp, \"0000000000\"), 0, dp)))\n};\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet anchor  = W_end - 1d;                                            // stocks: end of the window's last day (R1c)\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: see Data consistency\";\nlet p = external_table('gold_plume_catalog') | where detection_date >= W_start and detection_date < W_end;\nlet s = external_table('fact_facility_daily_snapshot') | where snapshot_date >= W_start and snapshot_date < W_end;\nlet a = s | where snapshot_date == anchor;\nlet fac_kg = toscalar(p | where isnotempty(attributed_facility_id) | summarize kg = sum(ime_kg) by attributed_facility_id | summarize sum(kg));\nlet una_kg = toscalar(p | where attribution_method == \"no_match\" | summarize sum(ime_kg));\nlet tot_kg = toscalar(p | summarize sum(ime_kg));\nlet usd  = toscalar(s | summarize sum(daily_financial_impact));\nlet lost = toscalar(s | summarize sum(total_emissions_kg)) / 19.26 * 2.75;   // kg CH4 → mcf → USD (R5b)\nlet top  = p | summarize arg_max(emission_rate_kg_h, plume_id, emission_rate_p5_kg_h, emission_rate_p95_kg_h) | where isnotempty(plume_id);\nunion\n (p | where attribution_method != \"no_match\" | summarize n = count()\n    | project ord = 1, area = \"Plumes\", figure = \"Attributed to a facility\", value = tostring(n), unit = \"plumes\", gated = false),\n (p | where attribution_method == \"no_match\" | summarize n = count()\n    | project ord = 2, area = \"Plumes\", figure = \"Unattributed (no facility within 50 km)\", value = tostring(n), unit = \"plumes\", gated = false),\n (p | where isnotempty(attributed_facility_id) | summarize n = count_distinct(attributed_facility_id)\n    | project ord = 3, area = \"Plumes\", figure = \"Facilities with a detection\", value = tostring(n), unit = \"facilities\", gated = false),\n (print ord = 4, area = \"Methane\", figure = \"At facilities\", value = fmt(fac_kg / 1000.0, 1), unit = \"t CH₄\", gated = false),\n (print ord = 5, area = \"Methane\", figure = \"Unattributed\", value = fmt(una_kg / 1000.0, 1), unit = \"t CH₄\", gated = false),\n (print ord = 6, area = \"Methane\", figure = \"Catalog total\", value = fmt(tot_kg / 1000.0, 1), unit = \"t CH₄\", gated = false),\n (print ord = 7, area = \"Methane\", figure = \"Reconciliation: facilities + unattributed − total\", value = fmt((fac_kg + una_kg - tot_kg) / 1000.0, 1), unit = \"t CH₄\", gated = false),\n (top | project ord = 8, area = \"Rate\", figure = strcat(\"Largest rate (\", plume_id, \")\"), value = fmt(emission_rate_kg_h / 1000.0, 1), unit = \"t/h\", gated = false),\n (top | project ord = 9, area = \"Rate\", figure = \"Largest plume's P5–P95\", value = strcat(fmt(emission_rate_p5_kg_h / 1000.0, 1), \" – \", fmt(emission_rate_p95_kg_h / 1000.0, 1)), unit = \"t/h\", gated = false),\n (print ord = 10, area = \"Financial\", figure = \"Lost gas (derived)\", value = fmt(lost, 2), unit = \"USD\", gated = true),\n (print ord = 11, area = \"Financial\", figure = \"Fines (derived)\", value = fmt(usd - lost, 2), unit = \"USD\", gated = true),\n (a | summarize v = sum(open_tickets)           | project ord = 12, area = \"Backlog\", figure = \"Open work orders within SLA\", value = tostring(v), unit = \"tickets\", gated = true),\n (a | summarize v = sum(stalled_backlog)        | project ord = 13, area = \"Backlog\", figure = \"Open work orders past SLA\", value = tostring(v), unit = \"tickets\", gated = true),\n (a | summarize v = sum(overdue_pms)            | project ord = 14, area = \"Backlog\", figure = \"Overdue preventive maintenance\", value = tostring(v), unit = \"assets\", gated = true),\n (a | summarize v = sum(ldar_leaks_outstanding) | project ord = 15, area = \"Backlog\", figure = \"LDAR leaks outstanding\", value = tostring(v), unit = \"leaks\", gated = true),\n (a | summarize v = count()                     | project ord = 16, area = \"Backlog\", figure = \"Facilities summed (incl. 7 inactive)\", value = tostring(v), unit = \"facilities\", gated = false),\n (a | summarize v = sum(open_compliance_cases)  | project ord = 17, area = \"Compliance\", figure = \"Open compliance cases, all types\", value = tostring(v), unit = \"cases\", gated = true)\n| extend value = iff(gated and not(ok), withheld, value)\n| order by ord asc\n| project area, figure, value, unit",
+      "usedVariables": [
+        "_endTime",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "cc64cf5f-440c-4293-8bf9-c40b7d3397db",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T32 Facility headline · F1, F2, E5 for f, E6 for f · as-of: page default (printed on T01) · Multi Stat, 4 cards in one row\n// A zero is shown as \"none in window\", never as a big 0: for most facilities these are empty, and a large 0 reads as a finding.\n// GATED on G1: F2 and E6 (snapshot figures built on the attribution).\n// fmt(v, dp): the exact value as text with thousands separators (R5f). Precision must be a literal.\nlet fmt = (v:real, dp:int) {\n    let r  = round(v, dp);\n    let s  = tostring(r);\n    let ip = tostring(split(s, \".\")[0]);\n    let fp = iff(array_length(split(s, \".\")) > 1, tostring(split(s, \".\")[1]), \"\");\n    let L  = strlen(ip);\n    let g  = case(L > 9, strcat(substring(ip, 0, L - 9), \",\", substring(ip, L - 9, 3), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 6, strcat(substring(ip, 0, L - 6), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 3, strcat(substring(ip, 0, L - 3), \",\", substring(ip, L - 3, 3)),\n                  ip);\n    iff(dp <= 0, g, strcat(g, \".\", substring(strcat(fp, \"0000000000\"), 0, dp)))\n};\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet anchor  = W_end - 1d;                                            // stocks: end of the window's last day (R1c)\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: see Data consistency\";\nlet p = external_table('gold_plume_catalog')\n    | where detection_date >= W_start and detection_date < W_end and attributed_facility_id == _facility_id;\nlet s = external_table('fact_facility_daily_snapshot')\n    | where facility_id == _facility_id and snapshot_date >= W_start and snapshot_date < W_end;\nlet n = toscalar(p | summarize count());\nlet kg = toscalar(s | summarize sum(total_emissions_kg));\nlet usd = toscalar(s | summarize sum(daily_financial_impact));\nlet top = toscalar(p | summarize max(emission_rate_kg_h));\nunion\n (print ord = 1, label = \"Plumes attributed\", value = iff(n == 0, \"none in window\", tostring(n))),\n (print ord = 2, label = \"Observed plume methane, t CH₄\", value = case(not(ok), withheld, n == 0, \"none in window\", fmt(kg / 1000.0, 1))),   // kg → t\n (print ord = 3, label = \"Largest rate, t/h\", value = iff(n == 0, \"none in window\", fmt(top / 1000.0, 1))),                                   // kg/h → t/h\n (print ord = 4, label = \"Financial impact (est.), USD\", value = case(not(ok), withheld, usd == 0, \"none in window\", fmt(usd, 2)))\n| order by ord asc\n| project label, value",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    },
+    {
+      "id": "75feb5d9-a14d-43fb-b9e1-5d185f77eb23",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "7b261cbd-f2ad-4705-b7ac-4e25fc48882e"
+      },
+      "text": "// T33 Facility operations and compliance · F5, F6, F7, F8, F10, F11 (PM, LDAR, open cases) at the anchor day; E7 for f over W; E5 band · as-of: page default (printed on T01) · Table\n// Compact on purpose: most of these are zero for most facilities, so they sit in a table, not on cards.\n// GATED on G1: F5, F6, F11 and notices (attribution-dependent through 03c → 03b → 03d); F7, F8, F10 always show.\n// fmt(v, dp): the exact value as text with thousands separators (R5f). Precision must be a literal.\nlet fmt = (v:real, dp:int) {\n    let r  = round(v, dp);\n    let s  = tostring(r);\n    let ip = tostring(split(s, \".\")[0]);\n    let fp = iff(array_length(split(s, \".\")) > 1, tostring(split(s, \".\")[1]), \"\");\n    let L  = strlen(ip);\n    let g  = case(L > 9, strcat(substring(ip, 0, L - 9), \",\", substring(ip, L - 9, 3), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 6, strcat(substring(ip, 0, L - 6), \",\", substring(ip, L - 6, 3), \",\", substring(ip, L - 3, 3)),\n                  L > 3, strcat(substring(ip, 0, L - 3), \",\", substring(ip, L - 3, 3)),\n                  ip);\n    iff(dp <= 0, g, strcat(g, \".\", substring(strcat(fp, \"0000000000\"), 0, dp)))\n};\nlet W_start = startofday(_startTime);\nlet W_end   = min_of(startofday(_endTime), datetime(2026-09-15));   // H_ent exclusive end (R1b)\nlet anchor  = W_end - 1d;                                            // stocks: end of the window's last day (R1c)\nlet ok = toscalar(_snapshot_consistency | project consistent);   // G1 (B1): false while the snapshot predates the current attribution\nlet withheld = \"withheld: see Data consistency\";\nlet a = external_table('fact_facility_daily_snapshot') | where facility_id == _facility_id and snapshot_date == anchor and snapshot_date >= W_start;\nlet notices = toscalar(external_table('fact_facility_daily_snapshot')\n    | where facility_id == _facility_id and snapshot_date >= W_start and snapshot_date < W_end | summarize sum(compliance_violations));\nlet band = toscalar(external_table('gold_plume_catalog')\n    | where detection_date >= W_start and detection_date < W_end and attributed_facility_id == _facility_id\n    | summarize arg_max(emission_rate_kg_h, emission_rate_p5_kg_h, emission_rate_p95_kg_h)\n    | where isnotnull(emission_rate_kg_h)\n    | project b = strcat(fmt(emission_rate_p5_kg_h / 1000.0, 1), \" – \", fmt(emission_rate_p95_kg_h / 1000.0, 1)));\na\n| project r = pack_array(\n     pack(\"ord\", 1, \"figure\", \"Open work orders within SLA\", \"value\", tostring(open_tickets), \"unit\", \"tickets\", \"g\", true),\n     pack(\"ord\", 2, \"figure\", \"Open work orders past SLA\", \"value\", tostring(stalled_backlog), \"unit\", \"tickets\", \"g\", true),\n     pack(\"ord\", 3, \"figure\", \"Mean time to close (closed in last 30 days)\",\n          \"value\", iff(isnull(mean_time_to_repair_hr), \"none closed\", fmt(mean_time_to_repair_hr, 1)), \"unit\", \"hours\", \"g\", true),\n     pack(\"ord\", 4, \"figure\", \"Active CH₄ exceedances\", \"value\", tostring(active_exceedances), \"unit\", \"sensors\", \"g\", false),\n     pack(\"ord\", 5, \"figure\", \"Sensors offline\", \"value\", tostring(sensors_offline), \"unit\", \"sensors\", \"g\", false),\n     pack(\"ord\", 6, \"figure\", \"Alarms standing\", \"value\", tostring(alarms_active), \"unit\", \"alarms\", \"g\", false),\n     pack(\"ord\", 7, \"figure\", \"Overdue preventive maintenance\", \"value\", tostring(overdue_pms), \"unit\", \"assets\", \"g\", true),\n     pack(\"ord\", 8, \"figure\", \"LDAR leaks outstanding\", \"value\", tostring(ldar_leaks_outstanding), \"unit\", \"leaks\", \"g\", true),\n     pack(\"ord\", 9, \"figure\", \"Open compliance cases, all types\", \"value\", tostring(open_compliance_cases), \"unit\", \"cases\", \"g\", true),\n     pack(\"ord\", 10, \"figure\", \"Notices of violation (in window)\", \"value\", tostring(notices), \"unit\", \"notices\", \"g\", true),\n     pack(\"ord\", 11, \"figure\", \"Largest plume's P5–P95\", \"value\", iff(isempty(band), \"no detection in window\", band), \"unit\", \"t/h\", \"g\", false))\n| mv-expand r\n| project ord = toint(r.ord), figure = tostring(r.figure), value = tostring(r.value), unit = tostring(r.unit), g = tobool(r.g)\n| extend value = iff(g and not(ok), withheld, value)\n| order by ord asc\n| project figure, value, unit",
+      "usedVariables": [
+        "_endTime",
+        "_facility_id",
+        "_snapshot_consistency",
+        "_startTime"
+      ]
+    }
+  ],
+  "embeddedApps": []
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "gen_synthetic_plumes"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "5c3b5c4a-769f-aff8-4ca5-11ab0b23d109"
+  }
+}

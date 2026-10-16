@@ -1,0 +1,128 @@
+{
+ "harness": "harness_alarm_incr",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:idx<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    2564
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "c0efea6570e92400019eb1ef76e9ab1455c7275796540193e76548ef60aceed2"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:a<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    2564
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "3a8c8bf8afd67ead2961a1800ff85f9e9d09e76a6c935876560817eb3004037e"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:new_run<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    2564
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "ee506f9414daeb12052b2c9105cb464dcbc68e75ea94a685a0e3676726790bc8"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:run_id<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    2564
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "1d59f53aa7aa0e602a5b6f757f8a86408d07891cf913c1cac31ceb4ba817a4aa"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:rn<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    2564
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "48adc6d51dba2730f10f484044298c5dd92171e01fb9b796224219600d63e405"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:cand<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    163
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "ba5e95270c1e6405bffc399d30240fe264a8deb6b5895faf45ddc8596010cfb8"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:ck<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    1
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "eba30f634afe4efc9042e8a41d1915b10b366a5fa29445c02d225bc7b0cc9f17"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:ci<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    1
+   ],
+   "dtype": "int64",
+   "shapes_vary": true,
+   "sha256": "1498db91ed7144e411ffe8a90501a136c939f2087ab17944965ac162fd79ebf4"
+  },
+  {
+   "frame_name": "harness_sessionise.py::sessionise::local:keep<ndarray>#all",
+   "n_calls": 24406,
+   "kind": "ndarray",
+   "shape_first": [
+    163
+   ],
+   "dtype": "bool",
+   "shapes_vary": true,
+   "sha256": "b927cb99860875d4107d489fdedf485c52adcc6514965ec217220d431792a148"
+  },
+  {
+   "frame_name": "harness_alarm_incr.py::<module>::global:acts<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "int64",
+   "sha256": "a819c9c379a34c72b4717dff868b5c59709e89199611ef3822fdb2063d5693a2"
+  },
+  {
+   "frame_name": "harness_alarm_incr.py::<module>::global:p<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    3
+   ],
+   "dtype": "float64",
+   "sha256": "f81308795f0beb5c02ab43c682522d6ec81780bc82d2eabb16c855785cc6c0c2"
+  }
+ ]
+}

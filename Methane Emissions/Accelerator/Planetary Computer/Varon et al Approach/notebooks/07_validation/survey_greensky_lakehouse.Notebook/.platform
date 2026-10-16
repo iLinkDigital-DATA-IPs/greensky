@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "survey_greensky_lakehouse"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "9ad14eb1-b9b6-44fa-9742-d121549f41d8"
+  }
+}

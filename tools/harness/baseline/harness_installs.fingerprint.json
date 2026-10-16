@@ -1,0 +1,125 @@
+{
+ "harness": "harness_installs",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_installs.py::<module>::global:asset_install<Index>",
+   "kind": "Index",
+   "row_count": 900,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "8330d790feb3643ba2a5cdacbee8a1b72d12371259738bc01283c0c70b867c02"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:cad<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "int64",
+   "sha256": "3a820f7c7d87f5f735aa80bb3dbaff20e482c17630ee97851560e964c2b62d3e"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:commission<Index>",
+   "kind": "Index",
+   "row_count": 150,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "6b5d5b5938ba8094440a87acf264afb19b1efefcf1c4e9ad080c214cd0a13d4e"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:cover<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "float64",
+   "sha256": "72f6ae536caf34be634ec26b39c00b1abf2d0bf57a3bceb0ec44907c6c7989ab"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:dark_after<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "bool",
+   "sha256": "c913ca928dc96a1e603a9ca08e7ccb23f809ff5acc573dae2ba56350c6868dd4"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:emitting<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "bool",
+   "sha256": "ff1c546ac94b6b9a1561e09e8a5b5fc518a39cff0fa9e7e9aa8ce9bd3879743b"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:full<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "bool",
+   "sha256": "0e36fd2711a5432ba47981d14a98b3602463b5b35dfc9bd0e6e1c6f104efc03a"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:naive<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "float64",
+   "sha256": "55cd577a6034a8be37d0fedee54e1e6e37bfce0ee594c3923ef82a62a667fa79"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:partial<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "bool",
+   "sha256": "562f610d0d8df31d4831f525e32f0bb7a149db47f6c8361b33e9fe23f7e4e51c"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:per_day<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "int64",
+   "sha256": "59a1b99f62ecabe8d7c5c59ff6194f81e31160d81003e2c39394dcc878d751f8"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:potential<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "float64",
+   "sha256": "ac9093de70a0da57bdeff688f933f46e9fe34a7827b7faa874b629a695fd9a46"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:status<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    5400
+   ],
+   "dtype": "<U14",
+   "sha256": "47e37c09da0aaf3364e1d844425a80dbf3ecd70d0c23229d61716282ee5e1a00"
+  },
+  {
+   "frame_name": "harness_installs.py::<module>::global:tag_install<Index>",
+   "kind": "Index",
+   "row_count": 5400,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "995ed7c737eb57b67ce3785aa4e54c99e6324936ab40cc923ef9cb094b5c2533"
+  }
+ ]
+}

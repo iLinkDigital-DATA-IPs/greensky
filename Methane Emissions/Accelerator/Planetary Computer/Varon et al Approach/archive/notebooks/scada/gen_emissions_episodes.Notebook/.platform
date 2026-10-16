@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "gen_emissions_episodes"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "ecc147cd-b37a-b40b-462a-13b02598a0c1"
+  }
+}

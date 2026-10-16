@@ -1,0 +1,526 @@
+{
+ "harness": "harness_plume_ids",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call0",
+   "kind": "Series",
+   "row_count": 1,
+   "name": "None",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "32d753c0142458f5f046fda721050747db912fcae3b1ddad5fd06f9465c2768e"
+  },
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call1",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "2fdd5c4a2820e983cabe3496451110a790b61eb67f786fca9edd9b306d569fe6"
+  },
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call2",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "2fdd5c4a2820e983cabe3496451110a790b61eb67f786fca9edd9b306d569fe6"
+  },
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call3",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "2fdd5c4a2820e983cabe3496451110a790b61eb67f786fca9edd9b306d569fe6"
+  },
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call4",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "scene_start",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "a2dc4c6d3965de68fcadc431fcef434e1443a388b671e8c11c87335384f068e3"
+  },
+  {
+   "frame_name": "00_config::scene_label::return<Series>#call5",
+   "kind": "Series",
+   "row_count": 1,
+   "name": "None",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "15761c1d38c4cb4945c35abecf19cafd802cfe6a9adefeb3cd5a3fe7b9919114"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call0",
+   "kind": "Series",
+   "row_count": 1,
+   "name": "None",
+   "dtype": "datetime64[ns, UTC]",
+   "index_dtype": "int64",
+   "sha256": "2e2510bc25f114e96285df591e520a760e00ff42984288740a61ec8d6e107912"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call1",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "datetime64[ns, UTC]",
+   "index_dtype": "int64",
+   "sha256": "c5bdc453ed7a18129133d1647395d2aaecdb61dac971fffdea20b9463e66d6e3"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call2",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "datetime64[ns, UTC]",
+   "index_dtype": "int64",
+   "sha256": "c5bdc453ed7a18129133d1647395d2aaecdb61dac971fffdea20b9463e66d6e3"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call3",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "scene_start",
+   "dtype": "datetime64[ns, UTC]",
+   "index_dtype": "int64",
+   "sha256": "c5bdc453ed7a18129133d1647395d2aaecdb61dac971fffdea20b9463e66d6e3"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call4",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "scene_start",
+   "dtype": "datetime64[ns, UTC]",
+   "index_dtype": "int64",
+   "sha256": "8cf3d378f328f7fe0159f0001d33dd53d9d193e78894ddad78f706941935e244"
+  },
+  {
+   "frame_name": "00_config::scene_label::local:ts<Series>#call5",
+   "kind": "Series",
+   "row_count": 1,
+   "name": "None",
+   "dtype": "datetime64[ns, America/Chicago]",
+   "index_dtype": "int64",
+   "sha256": "bc9f8b14f9cfd01270f17796ea023c5afb9edc0b6d36c118baea1d8bc67ccff7"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::synth::return[0]",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "e2ec549d56c44902c3026dfc36d88c21f062d549329e91993a5bbe681ed81833"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::synth::return[1]",
+   "row_count": 131,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64"
+   ],
+   "sha256": "1514bf8b80d2ba0912b1bd142df35019810a04eda8e8924152be0efaf91f58cb"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::return#call0",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end",
+    "scene_seq",
+    "scene_id"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "b9bf6f9f2ca8736deba39c0984a458f92625172082d45010faf1cad861dacc0b"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::return#call1",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end",
+    "scene_seq",
+    "scene_id"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "b9bf6f9f2ca8736deba39c0984a458f92625172082d45010faf1cad861dacc0b"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::return#call2",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end",
+    "scene_seq",
+    "scene_id"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "b9bf6f9f2ca8736deba39c0984a458f92625172082d45010faf1cad861dacc0b"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::return#call3",
+   "row_count": 19,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end",
+    "scene_seq",
+    "scene_id"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "47e6bcfa1759b98e5479aa3a92e9727d17f18074edebdd44aa46ec63618cb6f7"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::local:gap<Series>#call0",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "float64",
+   "index_dtype": "int64",
+   "sha256": "68db8d478f6c743e59830a50c9be81886992fe3608dfbb9b28200f9ccd0edff6"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::local:gap<Series>#call1",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "float64",
+   "index_dtype": "int64",
+   "sha256": "68db8d478f6c743e59830a50c9be81886992fe3608dfbb9b28200f9ccd0edff6"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::local:gap<Series>#call2",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "float64",
+   "index_dtype": "int64",
+   "sha256": "68db8d478f6c743e59830a50c9be81886992fe3608dfbb9b28200f9ccd0edff6"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::label_scenes::local:gap<Series>#call3",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "float64",
+   "index_dtype": "int64",
+   "sha256": "b84cf7e77e247c4fde593ff80c0c0377b55889fa42b360c6d2cdddb636aa30d8"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:m#call0",
+   "row_count": 131,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "a2382c0a4fd3218cab2e09885f85a31dee079d6ec98e078fabd1bafae9357ab0"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:m#call1",
+   "row_count": 131,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "a2382c0a4fd3218cab2e09885f85a31dee079d6ec98e078fabd1bafae9357ab0"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:m#call2",
+   "row_count": 114,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "846fbcf6f04257778555bcd3cde3e607342fb5e951910b8443e5fe3acf9adada"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:g#call0",
+   "row_count": 4,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "faf6d8d62e8fa0e80efb2e482d911807b6ffbe96113f4c04b4d52ad373a96fc2"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:g#call1",
+   "row_count": 4,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "28bdf4ac24fb31629ef7175c4cd8ceccdaa600b68159823194eb7aa9d3846419"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::plume_ids::local:g#call2",
+   "row_count": 4,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh",
+    "scene_id",
+    "scene_seq"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64",
+    "object",
+    "int64"
+   ],
+   "sha256": "643eed47e0717c0d02423396055ae3884b87815bef987aad26eaa86fd0ed0d51"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:first<Series>",
+   "kind": "Series",
+   "row_count": 2,
+   "name": "stac_id",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "d344198a608ebef7ce4f83667518059358849f706b8a977ae9677b2f9cfd45c3"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:lab",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end",
+    "scene_seq",
+    "scene_id"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]",
+    "int64",
+    "object"
+   ],
+   "sha256": "b9bf6f9f2ca8736deba39c0984a458f92625172082d45010faf1cad861dacc0b"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:per<Series>",
+   "kind": "Series",
+   "row_count": 12,
+   "name": "scene_id",
+   "dtype": "object",
+   "index_dtype": "int64",
+   "sha256": "895292732b56e235e627a677ef8fc90c81f17b7af8bc1aa85b96b4000a9cf11b"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:px",
+   "row_count": 131,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64"
+   ],
+   "sha256": "1514bf8b80d2ba0912b1bd142df35019810a04eda8e8924152be0efaf91f58cb"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:px2",
+   "row_count": 114,
+   "column_list": [
+    "scene",
+    "cluster",
+    "stac_id",
+    "latitude",
+    "longitude",
+    "enh"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "object",
+    "float64",
+    "float64",
+    "float64"
+   ],
+   "sha256": "97c46417c49eb33a4a2597bef966e865142b4d927c0b9b268424db64b2526f02"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:st",
+   "row_count": 21,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "e2ec549d56c44902c3026dfc36d88c21f062d549329e91993a5bbe681ed81833"
+  },
+  {
+   "frame_name": "harness_plume_ids.py::<module>::global:st2",
+   "row_count": 19,
+   "column_list": [
+    "stac_id",
+    "scene_start",
+    "scene_end"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "19b7657ac2902b0b7d8e309fcf69aceb4de79c63b75f163d4d03652aba718af3"
+  }
+ ]
+}

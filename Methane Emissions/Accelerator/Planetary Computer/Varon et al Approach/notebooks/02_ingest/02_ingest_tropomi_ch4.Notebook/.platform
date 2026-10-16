@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "02_ingest_tropomi_ch4"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "6626b463-aa9b-9a92-427f-d594a2df7384"
+  }
+}

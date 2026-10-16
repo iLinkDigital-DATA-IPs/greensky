@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "04_derive_emissions"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "d99cc0f8-e346-a406-4767-cfb90b64fb97"
+  }
+}

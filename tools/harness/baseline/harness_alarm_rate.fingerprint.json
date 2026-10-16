@@ -1,0 +1,638 @@
+{
+ "harness": "harness_alarm_rate",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_alarm_rate.py::simulate::return#all",
+   "n_calls": 72,
+   "row_count": 763,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts"
+   ],
+   "columns_vary": false,
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "996860a6a0e8cfffc65ec48edb73c53f249e5bd729acb3b54b9c2724ca1f5005"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::return[0]<ndarray>#all",
+   "n_calls": 492,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "087a1b03275d35895427aafdbf57c21cadb5966f02010e1788d50fcda0b3bba9"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::return[1]<ndarray>#all",
+   "n_calls": 492,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "38f0bd4d633eb3c2fabfea12663979ffc00b10822a12be94169258604ecdb51a"
+  },
+  {
+   "frame_name": "harness_model.py::series_params::local:amps<ndarray>#all",
+   "n_calls": 492,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "bfd0efabc6bfbfd8cd35c9fb49156ecadff9d216f957e679fe2fb934468c1e3a"
+  },
+  {
+   "frame_name": "harness_model.py::spectral::return<ndarray>#all",
+   "n_calls": 492,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "b40eed4a0fe8dab47393f61d593376f1989389c8276d339e90b60431109f5602"
+  },
+  {
+   "frame_name": "harness_model.py::value_model.<locals>.profile::return[0]<ndarray>#all",
+   "n_calls": 519,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "9400c818d622a733bfe3e9553812b2644c26e654319419dc94066533cb12fd10"
+  },
+  {
+   "frame_name": "harness_model.py::value_model.<locals>.profile::return[1]<ndarray>#all",
+   "n_calls": 519,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "9f83b5f19bd2f2b7b0f0395c6da2755ce63e444c53ec97b8e3fde0615c362fbc"
+  },
+  {
+   "frame_name": "harness_model.py::value_model.<locals>.profile::local:af<ndarray>#all",
+   "n_calls": 519,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "e5b28e251e07b79b53287bda067d1dc0fdd0f5eed462f07b62a8adb895f9f5ec"
+  },
+  {
+   "frame_name": "harness_model.py::value_model.<locals>.profile::local:wamb<ndarray>#all",
+   "n_calls": 519,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "bc94408280c12aa1c1706bcc19f800aed40633be0a7efbfc58f28a0e2e48a22a"
+  },
+  {
+   "frame_name": "harness_model.py::smoothstep::return<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "d7641d2e811f2941572bb32649f4290d1667d2d0fd9b36f479619e026418bbdb"
+  },
+  {
+   "frame_name": "harness_model.py::smoothstep::local:x<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "c5e32847b6b009a08db948eaa1e97f820ecc5009757121aebee7e5591912cce4"
+  },
+  {
+   "frame_name": "harness_model.py::row_uniforms::return<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880,
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "f006a38c49412e5d45c333a7af682f475a794eeb85a6c443cfd656884d5604a9"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::return[0]<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "c792da177f93f6e10bb8b936fdab360e2008a4c12f6a728f8880bcb208bc8d99"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::return[1]<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880,
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "f006a38c49412e5d45c333a7af682f475a794eeb85a6c443cfd656884d5604a9"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:t_sec<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "2bf89346242a703eba795a18e1bfe2bb56d34ed95b08ee1c32a5025ae9ef7800"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:doy<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "3b4c544f869de45878caf464ca01aad7aa1f3d742287aaf442321872ae6f4d93"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:hod<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "dbb8e8a08a569265c825632e3cdbdc75b0ff7b52a11855cf3e6c4c955ca3b16f"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:idio_a<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "b4b370272ba40959ac4f21e41177e94560290b57339e1b59c549b6bbcc467434"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:idio_p<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    6
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "f8113694cbb622b72f44f1d4cb15e1b4c53d44b67d9448f8cfd688686e442e25"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:idio<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "b84fe64eac4a1992244b066208114faedae76c60f6c86d570754f349e41e7c4a"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:mix<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "4719e4dee8a77c16245a27a878dd7ead048b3ab580ccbf8ad8ad8c9879ff7571"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:is_ramp<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "bool",
+   "shapes_vary": false,
+   "sha256": "b9e212b3eb9363269223979ed0f53b794edc36d187cebc4feb06662d5580635e"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:eff<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "object",
+   "shapes_vary": false,
+   "sha256": "cdcdcbcc7ed5b9574abc5894177b25effb6e2d89d37c02750c35126250cd294e"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:base_a<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "e2be767c9e98694a63f5aa709f26dde26686f8c4356f8bfb8f2e292f094b5c7b"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:resid_a<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "da759d042258f498f9288363fab32993836309b4c095dbafe735951d0fbde29f"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:base_r<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "4c72ba9d384ef019030eea6b65220fae2d3df22ac79d10d04e2440b678912ba3"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:resid_r<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "b4d8499c371b4b5ba74904d79eefb6438310b6cf9b69c8287aab8cbf72cc5eab"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:s<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "d7641d2e811f2941572bb32649f4290d1667d2d0fd9b36f479619e026418bbdb"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:w<ndarray>#all",
+   "n_calls": 171,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "30667fd7ce3898b17e868eafa4225833aefb64dead1b7c1039d4aa3f1329d9ed"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:z<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "a9cbbf3d1630afbf820b1cfd4a44706ac1a96f58ec4d9265b78eed754a4219ac"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:dyears<Index>#all",
+   "n_calls": 348,
+   "kind": "Index",
+   "row_count": 1002240,
+   "dtype": "float64",
+   "sha256": "387a4756cd10244313a8593412b06c3fd567661c5a4ab0aea6ea683bbc4d9a96"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:noise_scale<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "40fbd7041bf1994ba20d3451ba1c086e169de8392a2210bd5259bbe277cb48eb"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:v<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "eddea3051a2b41f9a251929e9c24ed9758874798ed01370571ef1bc5245cbfd9"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:lo<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "111528f3bd0d4697053367a019fc35370385e7176a828abf336202bb57eb8835"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:hi<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "5dd6b92d6facef8396da4895702edbc526220704c66701890a527f83b4de77dd"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:ambient<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "2e16a80b13ab63d0600ac4985ed3b695ef2b4e5ec49908660118c315286aee1a"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:diur<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "aa8c1c10faf2378dbe14e1f11f71900fa8e0f8d4278b1261861716db378586fe"
+  },
+  {
+   "frame_name": "harness_model.py::value_model::local:seas<ndarray>#all",
+   "n_calls": 348,
+   "kind": "ndarray",
+   "shape_first": [
+    2880
+   ],
+   "dtype": "float64",
+   "shapes_vary": false,
+   "sha256": "22de01b129567d18c397f6be9500c719c6a820a649637883aeafa6819f616f1e"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:_<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880,
+    6
+   ],
+   "dtype": "float64",
+   "sha256": "7ca2e3baf7e94b9c4e4633a2916615552683eb08924e935766cf0b53044ab02d"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:br<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "bool",
+   "sha256": "c88ef475ce9d5e36ca03a949b10cf7229bb3965283d3fa8cced2482ddd99d705"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:d<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2881
+   ],
+   "dtype": "int64",
+   "sha256": "67b4e8b5b2c8d8fb61b3138dd3c5ad53ed6d462a99e8d91b0ce9ec0d07837a94"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:elig<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "bool",
+   "sha256": "4104e2bae8d69f2cf53535f48adc086e4a00f876b825d5e051abce4525a0e144"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:fa<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    6
+   ],
+   "dtype": "float64",
+   "sha256": "f0445a172272baae68eda18964828a8339b4e8748340ce3fb225b1fb53025c01"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:fac<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "2e675ba88c059d4cad35eaabd58bf3fbe9725de61229267ee7fe837c8c8c435f"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:fp<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    6
+   ],
+   "dtype": "float64",
+   "sha256": "8227495601b743eae25dd2b2c281404b5f5eae957a51a60bcdbdc3ad0a068dd7"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:i<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "int64",
+   "sha256": "dfdd91073a84eb3fe977b6a2e43f2b5cebfdce9959f4b167c50eeca1cdb8b847"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:idx<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "int64",
+   "sha256": "c2547aabd6a614628093cc11deef1d5ef014ed68c0563ac0490e13796968fe90"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:la<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    6
+   ],
+   "dtype": "float64",
+   "sha256": "31d8fa93cd0d9103dd59a8a9c84a8f1b8485010a0413bfd28657ab23dfe24d3b"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:load<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "d21b5abfb703f546a961815c72ff3adb74567b42e65b3861ba92c224f5a0b2c5"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:lp<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    6
+   ],
+   "dtype": "float64",
+   "sha256": "7814e86e8c1f098a8659753f2245cbee11014f010622d9f19caab0d3e88d86e3"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:phi<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "46857862eb0b287640761676f0c05b1a3572b5692a5cd65fc4afbdabb60c6913"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:r<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    0
+   ],
+   "dtype": "int64",
+   "sha256": "3b505d926f7ed9d0ae4fcca8dcad336dec99376bc05fad59c246c9145201d961"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:s0<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "datetime64[ns]",
+   "sha256": "40c192dfea07330a37caedd2fbf64e414c7266811175d8e723f1905d0abccb16"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:s1<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "datetime64[ns]",
+   "sha256": "a9154cbea2bee2e8148edc18a02d3f8932df7bb99df93c3b04cf8507785f6718"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:span<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "b2f3229bf8b01b0e8dabb8d3e43f722c29940457099819315fc23cc63c2d2096"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:st<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "object",
+   "sha256": "66087edc3047a04250dcea7beaa42c74e277816ff1ac14f9a38b6cc87ca87482"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:tr",
+   "row_count": 5,
+   "column_list": [
+    "state",
+    "start_ts",
+    "end_ts"
+   ],
+   "dtypes": [
+    "object",
+    "datetime64[ns]",
+    "datetime64[ns]"
+   ],
+   "sha256": "118161f1984dc158e134d0dde358fc38885f5083fd8a32d7e0c75ff3d61b754c"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:ts<Index>",
+   "kind": "Index",
+   "row_count": 2880,
+   "index_type": "DatetimeIndex",
+   "dtype": "datetime64[ns]",
+   "sha256": "02e00a703092398580f88771441b0454eba61d11357c63a3029b5f5a83e30252"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:tsec<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "12b40bdbaab0e20c53c75d9cfcfb3c916f60b4525fe83f339b42c1b2100cfa85"
+  },
+  {
+   "frame_name": "harness_alarm_rate.py::<module>::global:v<ndarray>",
+   "kind": "ndarray",
+   "shape": [
+    2880
+   ],
+   "dtype": "float64",
+   "sha256": "e1d8ab7a8fed0483f7da8b3b2bb934e50accacd68bfe873fea16c238c25a01a0"
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "optimize_and_vacuum"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1fcb279e-ebca-8123-446b-8c84c9eeb9d2"
+  }
+}

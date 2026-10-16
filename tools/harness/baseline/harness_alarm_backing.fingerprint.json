@@ -1,0 +1,474 @@
+{
+ "harness": "harness_alarm_backing",
+ "status": "ok",
+ "error": null,
+ "python": "3.12.10",
+ "pandas": "2.3.3",
+ "numpy": "2.1.3",
+ "no_aggregate": [],
+ "frames": [
+  {
+   "frame_name": "harness_alarm_backing.py::<lambda>::return<Series>#call0",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "e25fce64dc4678a4948c74b4ba4e187f353d06fb2e98e20a15079db30e30d55b"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<lambda>::return<Series>#call1",
+   "kind": "Series",
+   "row_count": 22,
+   "name": "None",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "7f6f991cb8c13f0e06f9903933cff5bcabd5299e7e1cf84672d8a3138fb8721b"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<lambda>::return<Series>#call2",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "e25fce64dc4678a4948c74b4ba4e187f353d06fb2e98e20a15079db30e30d55b"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<lambda>::return<Series>#call3",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "af97ee989ad562d0cd74610f27eb55afb446632ee7a96c816cb2c3e84825eb6c"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<lambda>::return<Series>#call4",
+   "kind": "Series",
+   "row_count": 21,
+   "name": "None",
+   "dtype": "bool",
+   "index_dtype": "int64",
+   "sha256": "af97ee989ad562d0cd74610f27eb55afb446632ee7a96c816cb2c3e84825eb6c"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::return#call0",
+   "row_count": 22,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "1989ccd33ab1f6e2f195b1aeb196e8755da16a2ee418987a87d75a17e640d39d"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::return#call1",
+   "row_count": 19,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "16a742f488530d2503955acc41b534df4ed736b4ffcff18798d0b3bfcb049f72"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:m#call0",
+   "row_count": 21,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "68e5f5f807b5755ef5d06f26bb73363c27717091779cce8ac00e8e2427c4b6d0"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:m#call1",
+   "row_count": 17,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "f269ece6baaedef57c2b59a104670d69932dd75eb6416a0bdfdbb5ca1c6b760d"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:miss#call0",
+   "row_count": 1,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64"
+   ],
+   "sha256": "4816290177d4741a3c7dbe0980772c154f44599fbc013d299dabc3bd9bfe9079"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:miss#call1",
+   "row_count": 2,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64"
+   ],
+   "sha256": "066c5952494146aef727c4584b408f4f36fd962a2c99e9d77eff2bbb1510c2ca"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:out#call0",
+   "row_count": 22,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "1989ccd33ab1f6e2f195b1aeb196e8755da16a2ee418987a87d75a17e640d39d"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::left_join::local:out#call1",
+   "row_count": 19,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "16a742f488530d2503955acc41b534df4ed736b4ffcff18798d0b3bfcb049f72"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::return<Series>#call0",
+   "kind": "Series",
+   "row_count": 4,
+   "name": "None",
+   "dtype": "Int64",
+   "index_dtype": "int64",
+   "sha256": "e898263e6ef3ec84f0f8b9fe2d456218a5104d439653b49f6e95d2b149d8d2a2"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::return<Series>#call1",
+   "kind": "Series",
+   "row_count": 6,
+   "name": "None",
+   "dtype": "Int64",
+   "index_dtype": "int64",
+   "sha256": "879d27e13fac72f3546ec05d2942b79807813fc87a04e7e20ea039226384a971"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::return<Series>#call2",
+   "kind": "Series",
+   "row_count": 6,
+   "name": "None",
+   "dtype": "Int64",
+   "index_dtype": "int64",
+   "sha256": "d1068a0d0eead7c3155119bb205a2b6aa23d28b1c8e87b12818664b2880b0bab"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:up<Series>#call0",
+   "kind": "Series",
+   "row_count": 17,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "a1b19642abb0d873b86bcb647ac36c1f4bcf694b376d690199ee21a6329808bd"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:up<Series>#call1",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "84f8a3ce741026fc5ebc6b77dd272029a7b3b7c7edfc67d00b579481b55237fe"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:up<Series>#call2",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "84f8a3ce741026fc5ebc6b77dd272029a7b3b7c7edfc67d00b579481b55237fe"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:dn<Series>#call0",
+   "kind": "Series",
+   "row_count": 17,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "239304db5a732599e84e2eb7d4b3931d3e3d9ff1dcddbccc73be735d84039e10"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:dn<Series>#call1",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "32614e92dbf3c936e607fa3ab483c5fe967671070a817d5b8c3c071d8939cdd7"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:dn<Series>#call2",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "32614e92dbf3c936e607fa3ab483c5fe967671070a817d5b8c3c071d8939cdd7"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:br<Series>#call0",
+   "kind": "Series",
+   "row_count": 17,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "3a7ae639b78fed719345809b7ce012ed187f26c5cd8e3f46163819016a93f9d8"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:br<Series>#call1",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "3d0d2e0a068e5fab54157c45ee3732700f081363293c33e12a1367d5f2a579e6"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:br<Series>#call2",
+   "kind": "Series",
+   "row_count": 19,
+   "name": "None",
+   "dtype": "boolean",
+   "index_dtype": "int64",
+   "sha256": "3d0d2e0a068e5fab54157c45ee3732700f081363293c33e12a1367d5f2a579e6"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::n_breach::local:s<Series>",
+   "kind": "Series",
+   "row_count": 6,
+   "name": "None",
+   "dtype": "Int64",
+   "index_dtype": "int64",
+   "sha256": "879d27e13fac72f3546ec05d2942b79807813fc87a04e7e20ea039226384a971"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<module>::global:alarms",
+   "row_count": 6,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64"
+   ],
+   "sha256": "df6c5625f9216c9e7b381ccc0f8b7d0b9e1935a60e1115e92c2d2da4ff46d4d8"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<module>::global:j_new",
+   "row_count": 19,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "16a742f488530d2503955acc41b534df4ed736b4ffcff18798d0b3bfcb049f72"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<module>::global:j_old",
+   "row_count": 17,
+   "column_list": [
+    "alarm_sk",
+    "tag_sk",
+    "raised_ts",
+    "is_upper",
+    "limit_value",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "int64",
+    "datetime64[ns]",
+    "bool",
+    "float64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "f269ece6baaedef57c2b59a104670d69932dd75eb6416a0bdfdbb5ca1c6b760d"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<module>::global:n_fixed<Series>",
+   "kind": "Series",
+   "row_count": 6,
+   "name": "None",
+   "dtype": "Int64",
+   "index_dtype": "int64",
+   "sha256": "d1068a0d0eead7c3155119bb205a2b6aa23d28b1c8e87b12818664b2880b0bab"
+  },
+  {
+   "frame_name": "harness_alarm_backing.py::<module>::global:tel",
+   "row_count": 21,
+   "column_list": [
+    "tag_sk",
+    "rts",
+    "value_num",
+    "suppressed",
+    "neutral"
+   ],
+   "dtypes": [
+    "int64",
+    "datetime64[ns]",
+    "Float64",
+    "boolean",
+    "boolean"
+   ],
+   "sha256": "8412c7a2fabf1f9a3a448db1a43dc0444438cddd7bf2fba1976c7a46cb090136"
+  }
+ ]
+}
